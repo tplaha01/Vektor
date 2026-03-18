@@ -1,7 +1,7 @@
 from __future__ import annotations
 import asyncio
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,8 +13,10 @@ from app.data.news import latest_news
 from app.analytics import build_metrics_from_broker
 from app.websocket.stream import manager, stream_loop, WATCHLIST
 from app.data.market_data import FEED
+from app.risk.engine import risk
+from app.backtest.router import router as backtest_router
 
-app = FastAPI(title="Hybrid Trading Bot", version="2.0.0")
+app = FastAPI(title="Hybrid Trading Bot", version="5.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -24,31 +26,40 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(backtest_router)
+
 
 @app.on_event("startup")
 async def startup_event():
-    # Wire the real-time broadcast loop
     asyncio.create_task(stream_loop())
+    from app.strategies.auto_trader import auto_trading_loop
+    asyncio.create_task(auto_trading_loop())
+    from app.ml.alpha_model import ensure_model
+    ensure_model()
+    from app.utils.sentiment import _ensure_finbert
+    _ensure_finbert()
 
 
-# ---------- Health ----------
 @app.get("/health")
 async def health():
+    from app.ml.alpha_model import model_status
+    from app.utils.sentiment import sentiment_model_name
     return {
-        "status": "ok",
+        "status": "ok", "version": "5.0.0",
         "timestamp": datetime.utcnow().isoformat(),
         "watchlist": WATCHLIST,
         "connected_clients": len(manager.active),
+        "ml_model": model_status(),
+        "sentiment_model": sentiment_model_name(),
+        "risk": risk.status(),
     }
 
 
-# ---------- Signals ----------
 @app.post("/signals/generate")
 async def generate_signal(req: SignalRequest) -> Dict[str, Any]:
     return hybrid_signal(req.symbol)
 
 
-# ---------- Paper broker ----------
 @app.get("/paper/positions")
 async def get_positions():
     return broker.list_positions(lambda s: FEED.price(s))
@@ -62,57 +73,60 @@ async def get_orders():
 @app.post("/paper/order")
 async def place_order(order: OrderIn):
     price = FEED.price(order.symbol)
-    created = broker.submit_order(order.symbol, order.side, order.quantity, price)
-    # Broadcast updated positions immediately after a trade
     positions = broker.list_positions(lambda s: FEED.price(s))
-    await manager.broadcast({
-        "type": "positions_update",
-        "data": positions,
-        "ts": datetime.utcnow().isoformat(),
-    })
+    approved, reason = risk.pre_trade_check(order.symbol, order.side, order.quantity, price, positions)
+    if not approved:
+        return {"error": reason, "approved": False}
+    created = broker.submit_order(order.symbol, order.side, order.quantity, price)
+    if order.side == "buy":
+        from app.strategies.auto_trader import _current_atr
+        atr_val = _current_atr(order.symbol)
+        if atr_val > 0:
+            risk.register_entry(order.symbol, price, atr_val, "long")
+    positions = broker.list_positions(lambda s: FEED.price(s))
+    await manager.broadcast({"type": "positions_update", "data": positions, "ts": datetime.utcnow().isoformat()})
     return {
-        "id": created.id,
-        "symbol": created.symbol,
-        "side": created.side,
-        "quantity": created.qty,
-        "price": created.avg_price,
-        "timestamp": created.created_at.isoformat(),
-        "status": created.status,
+        "id": created.id, "symbol": created.symbol, "side": created.side,
+        "quantity": created.qty, "price": created.avg_price,
+        "timestamp": created.created_at.isoformat(), "status": created.status, "approved": True,
     }
 
 
-# ---------- News ----------
 @app.get("/news/{symbol}")
 async def get_news(symbol: str):
     items = latest_news(symbol)
-    out = []
-    for it in items:
-        out.append({
-            "symbol": it.get("symbol", symbol.upper()),
-            "headline": it.get("headline", ""),
-            "source": it.get("source", "Finnhub"),
-            "url": it.get("url", ""),
-            "published_at": it.get("published_at") or datetime.utcnow().isoformat(),
-        })
-    return out
+    return [{
+        "symbol": it.get("symbol", symbol.upper()), "headline": it.get("headline", ""),
+        "source": it.get("source", "Finnhub"), "url": it.get("url", ""),
+        "published_at": it.get("published_at") or datetime.utcnow().isoformat(),
+    } for it in items]
 
 
-# ---------- Analytics ----------
 @app.get("/analytics/summary")
 async def analytics_summary() -> Dict[str, Any]:
     return build_metrics_from_broker(broker)
 
 
-# ---------- Watchlist prices ----------
+@app.get("/risk/status")
+async def risk_status():
+    positions = broker.list_positions(lambda s: FEED.price(s))
+    analytics = build_metrics_from_broker(broker)
+    risk.update_equity(positions, analytics.get("realized_pnl", 0.0))
+    return risk.status()
+
+
 @app.get("/market/prices")
 async def market_prices():
-    """Snapshot of all watchlist prices — useful for REST polling fallback."""
-    return {
-        sym: FEED.price(sym) for sym in WATCHLIST
-    }
+    return {sym: FEED.price(sym) for sym in WATCHLIST}
 
 
-# ---------- WebSocket ----------
+@app.get("/ml/status")
+async def ml_status():
+    from app.ml.alpha_model import model_status
+    from app.utils.sentiment import sentiment_model_name
+    return {"lgbm": model_status(), "sentiment": sentiment_model_name()}
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
     await manager.connect(ws)

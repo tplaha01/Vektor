@@ -1,85 +1,146 @@
+from __future__ import annotations
+"""
+Auto-trader — Phase 4
+=====================
+Scans the watchlist every TRADE_INTERVAL seconds.
+Every decision passes through the RiskEngine before execution.
+"""
 from datetime import datetime
 import asyncio
-from ..strategies.hybrid import hybrid_signal
-from ..broker.paper import PaperBroker
-from ..data.market_data import FEED
-from ..config import get_settings
-from ..core.context import broker
-from ..websocket.stream import manager
+
+from app.strategies.hybrid import hybrid_signal
+from app.data.market_data import FEED
+from app.config import get_settings
+from app.core.context import broker
+from app.websocket.stream import manager
+from app.risk.engine import risk
+from app.analytics import build_metrics_from_broker
 
 settings = get_settings()
 
-WATCHLIST = ["AAPL", "MSFT", "NVDA", "SPY", "TSLA"]
-TRADE_INTERVAL = 10     # seconds between scans
-STOP_LOSS_PCT = -0.02   # -2%
-TAKE_PROFIT_PCT = 0.05  # +5%
+WATCHLIST      = ["AAPL", "MSFT", "NVDA", "SPY", "TSLA", "AMZN", "GOOGL", "META"]
+TRADE_INTERVAL = 30    # seconds between full scans
 
-def position_size(score: float, base_size: float = 1.0, max_size: float = 3.0) -> float:
-    """Scale size by confidence buckets."""
-    conf = min(1.0, max(0.0, abs(score)))
-    if conf < 0.30:
-        mul = 0.5
-    elif conf < 0.60:
-        mul = 1.0
-    else:
-        mul = 2.0
-    return min(max_size, base_size * mul)
 
-def manage_positions():
-    """Check open positions for stop-loss / take-profit."""
-    for pos in broker.list_positions(lambda s: FEED.price(s)):
-        qty = pos["qty"]
-        if qty <= 0:
-            continue
-        avg = pos["avg_price"]
-        px = pos["market_price"]
-        change = (px - avg) / avg
-        if change <= STOP_LOSS_PCT:
-            broker.submit_order(pos["symbol"], "sell", qty, px)
-            print(f"🔴 Stop-loss hit on {pos['symbol']} at {px:.2f} ({change:.1%})")
-        elif change >= TAKE_PROFIT_PCT:
-            broker.submit_order(pos["symbol"], "sell", qty, px)
-            print(f"🟢 Take-profit on {pos['symbol']} at {px:.2f} ({change:.1%})")
+def _current_atr(symbol: str) -> float:
+    """Fetch ATR for stop registration after entry."""
+    try:
+        hist = FEED.history(symbol, bars=30)
+        if hist is None or len(hist) < 15:
+            return 0.0
+        high  = hist["high"].astype(float)
+        low   = hist["low"].astype(float)
+        close = hist["close"].astype(float)
+        hl    = high - low
+        hc    = (high - close.shift()).abs()
+        lc    = (low  - close.shift()).abs()
+        import pandas as pd
+        tr = pd.concat([hl, hc, lc], axis=1).max(axis=1)
+        return float(tr.rolling(14).mean().iloc[-1])
+    except Exception:
+        return 0.0
+
 
 async def auto_trading_loop():
-    """Background task: scan, trade, and manage risk every interval."""
-    print(f"🚀 Auto-trading loop started at {datetime.utcnow().isoformat()}")
+    """
+    Main trading loop. Runs as a FastAPI background task.
+    Flow per symbol:
+      1. Generate hybrid signal
+      2. Check risk engine pre-trade gates
+      3. Kelly-size the order
+      4. Submit via broker
+      5. Register ATR stops
+      6. Manage existing stops/TPs
+    """
+    print(f"🤖 Auto-trader started — scanning every {TRADE_INTERVAL}s")
+
     while True:
-        print("────────────────────────────")
-        print(f"⏰ Cycle start: {datetime.utcnow().strftime('%H:%M:%S UTC')}")
-        for sym in WATCHLIST:
-            sig = hybrid_signal(sym)
-            action = sig["action"]
-            score = sig["score"]
-            vol = sig.get("volatility", None)
-            price = FEED.price(sym)
+        print(f"\n{'─'*50}")
+        print(f"⏰ {datetime.utcnow().strftime('%H:%M:%S UTC')}  |  equity=${risk._equity:,.0f}")
 
-            # Diagnostic: print raw signal info
-            print(f"{sym}: action={action.upper()}  score={score:.3f}  vol={vol if vol is not None else 'N/A'}  price={price:.2f}")
+        positions = broker.list_positions(lambda s: FEED.price(s))
+        analytics = build_metrics_from_broker(broker)
 
-            # Only act on explicit buy/sell
-            if action == "buy":
-                qty = position_size(score)
-                broker.submit_order(sym, "buy", qty, price)
-                await broadcast_positions()
+        # Update equity & drawdown breaker
+        realized_pnl = analytics.get("realized_pnl", 0.0)
+        risk.update_equity(positions, realized_pnl)
 
-                print(f"🟢 EXECUTED BUY  {sym} x{qty} @ {price:.2f}  (score={score:.3f})")
-            elif action == "sell":
-                qty = position_size(score)
-                broker.submit_order(sym, "sell", qty, price)
-                await broadcast_positions()
+        if risk.dd_breaker.halted:
+            print("🛑 Drawdown breaker active — no new entries this cycle")
+        else:
+            # ── Entry scan ────────────────────────────────────────────────
+            for sym in WATCHLIST:
+                try:
+                    sig    = hybrid_signal(sym)
+                    action = sig["action"]
+                    score  = sig["score"]
+                    price  = FEED.price(sym)
 
-                print(f"🔴 EXECUTED SELL {sym} x{qty} @ {price:.2f}  (score={score:.3f})")
-            else:
-                print(f"⚪ HOLD — score={score:.3f}")
+                    if price <= 0:
+                        continue
 
-        # After scanning all symbols, enforce stops
-        manage_positions()
-        await broadcast_positions()
+                    tag = f"{sym:5s} | score={score:+.3f} | vol={sig.get('volatility') or 0:.2%} | {action.upper()}"
 
-        print(f"✅ Cycle complete. Sleeping {TRADE_INTERVAL}s\n")
+                    if action == "buy":
+                        qty = risk.size_order(sym, price, score, analytics)
+                        approved, reason = risk.pre_trade_check(sym, "buy", qty, price, positions)
+                        if approved:
+                            broker.submit_order(sym, "buy", qty, price)
+                            atr_val = _current_atr(sym)
+                            if atr_val > 0:
+                                risk.register_entry(sym, price, atr_val, "long")
+                            print(f"  🟢 BUY  {tag} | qty={qty}")
+                        else:
+                            print(f"  ⛔ BUY blocked [{reason}] {tag}")
+
+                    elif action == "sell":
+                        # Only sell if we hold the position
+                        held = next((p for p in positions if p["symbol"] == sym and p["qty"] > 0), None)
+                        if held:
+                            qty = held["qty"]
+                            broker.submit_order(sym, "sell", qty, price)
+                            risk.on_exit(sym)
+                            print(f"  🔴 SELL {tag} | qty={qty}")
+                        else:
+                            print(f"  ⚪ HOLD {tag} (no position to sell)")
+                    else:
+                        print(f"  ⚪ HOLD {tag}")
+
+                except Exception as e:
+                    print(f"  ⚠️ Error processing {sym}: {e}")
+
+        # ── Stop / TP scan ───────────────────────────────────────────────
+        positions = broker.list_positions(lambda s: FEED.price(s))
+        for pos in positions:
+            sym = pos["symbol"]
+            qty = pos.get("qty", 0)
+            px  = pos.get("market_price", 0)
+            if qty <= 0 or px <= 0:
+                continue
+
+            exit_signal = risk.check_exits(sym, px)
+            if exit_signal == "stop":
+                broker.submit_order(sym, "sell", qty, px)
+                risk.on_exit(sym)
+                pct = (px - pos["avg_price"]) / pos["avg_price"]
+                print(f"  🔴 STOP-LOSS {sym} @ {px:.2f} ({pct:+.1%})")
+            elif exit_signal == "tp":
+                broker.submit_order(sym, "sell", qty, px)
+                risk.on_exit(sym)
+                pct = (px - pos["avg_price"]) / pos["avg_price"]
+                print(f"  🟢 TAKE-PROFIT {sym} @ {px:.2f} ({pct:+.1%})")
+
+        # Broadcast updated positions after all trades
+        fresh = broker.list_positions(lambda s: FEED.price(s))
+        await manager.broadcast({
+            "type": "positions_update",
+            "data": fresh,
+            "ts": datetime.utcnow().isoformat(),
+        })
+        await manager.broadcast({
+            "type": "risk_update",
+            "data": risk.status(),
+            "ts": datetime.utcnow().isoformat(),
+        })
+
         await asyncio.sleep(TRADE_INTERVAL)
-
-async def broadcast_positions():
-    positions = broker.list_positions(lambda s: FEED.price(s))
-    await manager.broadcast({"type": "positions", "data": positions})

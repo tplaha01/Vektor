@@ -1,98 +1,69 @@
-import React, { useEffect, useState } from "react";
-import { getNews } from "../api";
-import { SentimentIntensityAnalyzer } from "vader-sentiment";
+import React, { useEffect, useState } from "react"
+import { getNews } from "../api"
+import { SentimentIntensityAnalyzer } from "vader-sentiment"
 
 export default function NewsFeed({ symbol }) {
-  const [items, setItems] = useState([]);
-  const [avgSentiment, setAvgSentiment] = useState(0);
+  const [items, setItems] = useState([])
+  const [avg,   setAvg]   = useState(0)
 
-  // Fetch news and refresh every minute
   useEffect(() => {
-    const fetchNews = async () => {
-      const data = await getNews(symbol);
-      setItems(data || []);
-    };
-    fetchNews();
-    const interval = setInterval(fetchNews, 60000);
-    return () => clearInterval(interval);
-  }, [symbol]);
+    const load = async () => { try { setItems(await getNews(symbol)||[]) } catch {} }
+    load(); const id=setInterval(load,60000); return ()=>clearInterval(id)
+  }, [symbol])
 
-  // Calculate average sentiment score
   useEffect(() => {
-    if (!items.length) return;
-    const scores = items.map((n) =>
-      SentimentIntensityAnalyzer.polarity_scores(n.headline || "").compound
-    );
-    const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
-    setAvgSentiment(avg);
-  }, [items]);
+    if (!items.length) return
+    const s = items.map(n=>SentimentIntensityAnalyzer.polarity_scores(n.headline||"").compound)
+    setAvg(s.reduce((a,b)=>a+b,0)/s.length)
+  }, [items])
 
-  const getSentimentLabel = () => {
-    if (avgSentiment > 0.2) return "Bullish";
-    if (avgSentiment < -0.2) return "Bearish";
-    return "Neutral";
-  };
-
-  const getSentimentColor = () => {
-    if (avgSentiment > 0.2) return "bg-green-500";
-    if (avgSentiment < -0.2) return "bg-red-500";
-    return "bg-yellow-400";
-  };
+  const col = avg>0.2?"var(--green)":avg<-0.2?"var(--red)":"var(--amber)"
+  const lbl = avg>0.2?"BULLISH":avg<-0.2?"BEARISH":"NEUTRAL"
 
   return (
-    <div className="p-4 rounded-2xl shadow bg-white/80 dark:bg-gray-800/60 backdrop-blur-sm border border-gray-200 dark:border-gray-700 transition-all duration-300 h-[calc(100vh-100px)] overflow-y-auto">
-      <div className="font-semibold mb-3 text-lg flex items-center gap-2">
-        📰 Live Market News
-        <span className="text-xs opacity-70">({symbol})</span>
-      </div>
-
-      {/* 📊 Sentiment Meter */}
-      <div className="mb-4">
-        <div className="flex justify-between text-sm mb-1">
-          <span>Overall Sentiment: {getSentimentLabel()}</span>
-          <span>{(avgSentiment * 100).toFixed(1)}%</span>
-        </div>
-        <div className="w-full h-2 bg-gray-300 dark:bg-gray-700 rounded-full overflow-hidden">
-          <div
-            className={`${getSentimentColor()} h-2 transition-all duration-700`}
-            style={{ width: `${Math.min(100, Math.abs(avgSentiment) * 100)}%` }}
-          ></div>
+    <>
+      <div className="sec-head">
+        <span className="label">Intelligence · {symbol}</span>
+        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+          <div style={{ width:32, height:2, borderRadius:1, background:"var(--line)", overflow:"hidden" }}>
+            <div style={{ height:"100%", width:`${Math.min(100,Math.abs(avg)*100)}%`, background:col, transition:"width 0.6s" }} />
+          </div>
+          <span style={{ fontFamily:"var(--f-data)", fontSize:9, letterSpacing:"0.1em", color:col }}>{lbl}</span>
         </div>
       </div>
 
-      {/* Headlines list */}
-      <ul className="space-y-3">
-        {(items || []).length === 0 && (
-          <li className="text-sm opacity-70">No recent headlines available.</li>
+      <div style={{ overflowY:"auto", flex:1 }}>
+        {items.length===0 && (
+          <div style={{ padding:"32px 14px", textAlign:"center", color:"var(--txt3)",
+            fontFamily:"var(--f-data)", fontSize:10, letterSpacing:"0.1em" }}>
+            NO HEADLINES
+          </div>
         )}
-        {(items || []).map((n, i) => {
-          const score =
-            SentimentIntensityAnalyzer.polarity_scores(n.headline || "").compound;
-          const color =
-            score > 0.2
-              ? "text-green-500"
-              : score < -0.2
-              ? "text-red-500"
-              : "text-yellow-400";
-
+        {items.map((n,i) => {
+          const sc  = SentimentIntensityAnalyzer.polarity_scores(n.headline||"").compound
+          const col = sc>0.2?"var(--green)":sc<-0.2?"var(--red)":"var(--amber)"
+          const lbl = sc>0.2?"BULL":sc<-0.2?"BEAR":"NEUT"
+          const ts  = n.ts ? new Date(n.ts*1000) : null
           return (
-            <li
-              key={i}
-              className="text-sm border-b border-gray-200 dark:border-gray-700 pb-2 hover:bg-gray-100/60 dark:hover:bg-gray-700/40 rounded transition-colors"
-            >
-              <div className="flex justify-between items-center">
-                <span className="text-xs opacity-60">
-                  {new Date(n.ts).toLocaleTimeString()}
+            <div key={i} style={{
+              padding:"10px 14px", borderBottom:"1px solid var(--line)",
+              cursor:"pointer", transition:"background 0.12s",
+            }}
+            onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.02)"}
+            onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                <span style={{ fontFamily:"var(--f-data)", fontSize:8, color:"var(--txt3)", letterSpacing:"0.1em" }}>
+                  {ts?ts.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"—"}
                 </span>
-                <span className={`text-xs font-semibold ${color}`}>
-                  {score > 0.2 ? "Bullish" : score < -0.2 ? "Bearish" : "Neutral"}
-                </span>
+                <span className="pill" style={{ borderColor:col, color:col, fontSize:7 }}>{lbl}</span>
               </div>
-              <div className="mt-1">{n.headline}</div>
-            </li>
-          );
+              <div style={{ fontFamily:"var(--f-ui)", fontSize:11, lineHeight:1.55, color:"var(--txt)" }}>
+                {n.headline}
+              </div>
+            </div>
+          )
         })}
-      </ul>
-    </div>
-  );
+      </div>
+    </>
+  )
 }

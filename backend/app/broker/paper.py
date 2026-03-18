@@ -1,8 +1,8 @@
 from __future__ import annotations
+from dataclasses import dataclass
+from datetime import datetime
 from typing import Dict, List
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-import uuid
+
 
 @dataclass
 class PaperOrder:
@@ -11,75 +11,119 @@ class PaperOrder:
     side: str
     qty: float
     avg_price: float
-    status: str
     created_at: datetime
+    status: str = "filled"
 
-@dataclass
+
 class PaperBroker:
-    positions: Dict[str, Dict[str, float]] = field(default_factory=dict)  # symbol → {qty, avg_price}
-    orders: List[PaperOrder] = field(default_factory=list)
-    order_history: List[dict] = field(default_factory=list)  # ✅ new: raw dicts for analytics
 
-    def submit_order(self, symbol: str, side: str, qty: float, price: float) -> PaperOrder:
-        """Simulate market fill and update internal state."""
-        oid = str(uuid.uuid4())[:8]
-        status = "filled"
+    def __init__(self):
+        self.cash = 100_000.0
+        self.positions: Dict[str, Dict] = {}
+        self.order_history: List[dict] = []
 
-        # Update position
-        pos = self.positions.get(symbol, {"qty": 0.0, "avg_price": 0.0})
+    # --------------------------------------------------------
+    # Submit Order
+    # --------------------------------------------------------
+
+    def submit_order(self, symbol: str, side: str, qty: float, price: float):
+
+        symbol = symbol.upper()
+        qty = float(qty)
+        price = float(price)
+
         if side == "buy":
-            new_qty = pos["qty"] + qty
-            pos["avg_price"] = (
-                (pos["avg_price"] * pos["qty"] + price * qty) / max(new_qty, 1e-9)
-            )
-            pos["qty"] = new_qty
-        else:  # sell
-            new_qty = pos["qty"] - qty
-            pos["qty"] = new_qty
-            if new_qty <= 1e-9:
-                pos["avg_price"] = 0.0
 
-        self.positions[symbol] = pos
+            cost = qty * price
+
+            if cost > self.cash:
+                raise ValueError("Not enough cash")
+
+            self.cash -= cost
+
+            pos = self.positions.get(symbol)
+
+            if pos:
+                total_qty = pos["qty"] + qty
+                new_avg = ((pos["avg_price"] * pos["qty"]) + (price * qty)) / total_qty
+
+                pos["qty"] = total_qty
+                pos["avg_price"] = new_avg
+            else:
+                self.positions[symbol] = {
+                    "symbol": symbol,
+                    "qty": qty,
+                    "avg_price": price
+                }
+
+        elif side == "sell":
+
+            pos = self.positions.get(symbol)
+
+            if not pos or pos["qty"] < qty:
+                raise ValueError("Not enough shares")
+
+            proceeds = qty * price
+            self.cash += proceeds
+
+            pos["qty"] -= qty
+
+            if pos["qty"] <= 0:
+                del self.positions[symbol]
 
         order = PaperOrder(
-            id=oid,
+            id=str(len(self.order_history) + 1),
             symbol=symbol,
             side=side,
             qty=qty,
             avg_price=price,
-            status=status,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.utcnow(),
         )
 
-        # Track orders and history
-        self.orders.append(order)
         self.order_history.append({
             "symbol": symbol,
             "side": side,
             "qty": qty,
-            "avg_price": price,
-            "created_at": order.created_at.isoformat(),
+            "price": price,
+            "created_at": order.created_at.isoformat()
         })
 
         return order
 
-    def list_positions(self, price_lookup) -> List[dict]:
-        """Return list of open positions with current valuation."""
-        out = []
-        for sym, p in self.positions.items():
-            px = price_lookup(sym)
-            mv = p["qty"] * px
-            upnl = (px - p["avg_price"]) * p["qty"]
-            out.append({
-                "symbol": sym,
-                "qty": p["qty"],
-                "avg_price": p["avg_price"],
-                "market_price": px,
-                "market_value": mv,
-                "unrealized_pnl": upnl,
-            })
-        return out
+    # --------------------------------------------------------
+    # Live Positions (THIS FIXES YOUR PNL)
+    # --------------------------------------------------------
 
-    def list_orders(self) -> List[dict]:
-        """Return list of filled orders."""
-        return [o.__dict__ for o in self.orders]
+    def list_positions(self, price_lookup):
+
+        results = []
+
+        for symbol, pos in self.positions.items():
+
+            qty = float(pos["qty"])
+            avg_price = float(pos["avg_price"])
+
+            # THIS MUST COME FROM MARKET FEED
+            market_price = float(price_lookup(symbol))
+
+            market_value = qty * market_price
+
+            unrealized_pnl = (market_price - avg_price) * qty
+
+            results.append({
+                "symbol": symbol,
+                "qty": qty,
+                "avg_price": round(avg_price, 4),
+                "market_price": round(market_price, 4),
+                "market_value": round(market_value, 2),
+                "unrealized_pnl": round(unrealized_pnl, 2),
+            })
+
+        return results
+
+    # --------------------------------------------------------
+    # Orders
+    # --------------------------------------------------------
+
+    def list_orders(self):
+        return self.order_history

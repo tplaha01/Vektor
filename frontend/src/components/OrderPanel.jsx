@@ -1,19 +1,47 @@
 import React, { useState } from "react"
 
-export default function OrderPanel({ symbol, onPlace }){
+export default function OrderPanel({ symbol, onPlace }) {
   const [side, setSide] = useState("buy")
-  const [qty, setQty] = useState(1)
+  const [qty,  setQty]  = useState("1")
+  const [busy, setBusy] = useState(false)
+  const [msg,  setMsg]  = useState(null)
+
+  const submit = async () => {
+    setBusy(true); setMsg(null)
+    try {
+      await onPlace({ symbol, side, quantity: parseFloat(qty)||1 })
+      setMsg({ ok:true, text:"Order submitted" })
+    } catch(e) { setMsg({ ok:false, text:e.message }) }
+    finally { setBusy(false); setTimeout(()=>setMsg(null), 3000) }
+  }
+
   return (
-    <div className="p-4 rounded-2xl shadow bg-white/80 dark:bg-gray-800/60 backdrop-blur-sm border border-gray-200 dark:border-gray-700 transition-all duration-300 overflow-y-auto">
-      <div className="font-semibold mb-2">Order Ticket</div>
-      <div className="flex items-center gap-2">
-        <select value={side} onChange={e=>setSide(e.target.value)} className="border px-3 py-2 rounded dark:bg-gray-800 transition-colors duration-300">
-          <option value="buy">Buy</option>
-          <option value="sell">Sell</option>
-        </select>
-        <input type="number" value={qty} min="0" step="1" onChange={e=>setQty(parseFloat(e.target.value))} className="border px-3 py-2 rounded w-28 dark:bg-gray-800 transition-colors duration-300"/>
-        <button onClick={()=>onPlace({symbol, side, qty, type:"market"})} className="px-3 py-2 rounded bg-green-600 text-white">Submit</button>
+    <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+      <span className="label">Quick Order</span>
+      <div style={{ display:"flex", gap:4 }}>
+        {["buy","sell"].map(s => (
+          <button key={s} className="btn-side" onClick={()=>setSide(s)} style={{
+            background: side===s ? (s==="buy"?"var(--green)":"var(--red)") : "var(--bg3)",
+            color: side===s ? (s==="buy"?"#001a0d":"#150000") : "var(--txt3)",
+            border: side===s ? "none" : "1px solid var(--line)",
+          }}>{s.toUpperCase()}</button>
+        ))}
       </div>
+      <div style={{ display:"flex", gap:6 }}>
+        <div style={{ flex:1, background:"var(--bg3)", border:"1px solid var(--line)", borderRadius:"var(--r-sm)",
+          padding:"6px 8px", fontFamily:"var(--f-data)", fontSize:11, color:"var(--txt2)", letterSpacing:"0.06em" }}>
+          {symbol}
+        </div>
+        <input type="number" min="1" value={qty} onChange={e=>setQty(e.target.value)}
+          className="inp" style={{ width:60, textAlign:"center", textTransform:"none" }} />
+      </div>
+      <button className="btn btn-amber" onClick={submit} disabled={busy} style={{ width:"100%" }}>
+        {busy ? "…" : `${side==="buy"?"Buy":"Sell"} ${qty}`}
+      </button>
+      {msg && (
+        <div style={{ fontFamily:"var(--f-data)", fontSize:9, textAlign:"center", letterSpacing:"0.1em",
+          color: msg.ok?"var(--green)":"var(--red)" }}>{msg.text}</div>
+      )}
     </div>
   )
 }

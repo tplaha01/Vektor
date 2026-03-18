@@ -1,89 +1,66 @@
-import React, { useEffect, useState } from "react";
-import { getAnalytics } from "../api";
+import React, { useEffect, useState } from "react"
+import { getAnalytics } from "../api"
 
 export default function StrategyDashboard() {
-  const [data, setData] = useState(null);
+  const [data,setData]=useState(null)
+  useEffect(()=>{ const l=async()=>{ try{setData(await getAnalytics())}catch{} }; l(); const id=setInterval(l,10000); return()=>clearInterval(id) },[])
 
-  useEffect(() => {
-    const load = async () => setData(await getAnalytics());
-    load();
-    const id = setInterval(load, 10000); // refresh every 10s
-    return () => clearInterval(id);
-  }, []);
+  if (!data) return <div style={{padding:20,color:"var(--txt3)",fontFamily:"var(--f-data)",fontSize:10}}>LOADING…</div>
 
-  if (!data) {
-    return (
-      <div className="p-4 rounded-2xl shadow bg-white/80 dark:bg-gray-800/60 backdrop-blur-sm border border-gray-200 dark:border-gray-700">
-        Loading strategy metrics…
-      </div>
-    );
-  }
+  const {total_trades=0,closed_trades=0,wins=0,losses=0,win_rate=0,
+    realized_pnl=0,avg_pnl=0,best_trade=0,worst_trade=0,max_drawdown=0,recent_trades=[]}=data
 
-  const {
-    total_trades, closed_trades, wins, losses, win_rate,
-    realized_pnl, avg_pnl, best_trade, worst_trade, max_drawdown, recent_trades
-  } = data;
+  const stats=[
+    {l:"Trades",   v:total_trades},
+    {l:"Closed",   v:closed_trades},
+    {l:"Wins",     v:wins,    c:"var(--green)"},
+    {l:"Losses",   v:losses,  c:"var(--red)"},
+    {l:"Win Rate", v:`${win_rate.toFixed(1)}%`},
+    {l:"Realized", v:`$${realized_pnl.toFixed(2)}`, c:realized_pnl>=0?"var(--green)":"var(--red)"},
+    {l:"Avg PnL",  v:`$${avg_pnl.toFixed(2)}`,      c:avg_pnl>=0?"var(--green)":"var(--red)"},
+    {l:"Max DD",   v:`$${max_drawdown.toFixed(2)}`,  c:"var(--red)"},
+    {l:"Best",     v:`$${best_trade.toFixed(2)}`,    c:"var(--green)"},
+    {l:"Worst",    v:`$${worst_trade.toFixed(2)}`,   c:"var(--red)"},
+  ]
 
   return (
-    <div className="p-4 rounded-2xl shadow bg-white/80 dark:bg-gray-800/60 backdrop-blur-sm border border-gray-200 dark:border-gray-700 transition-all duration-300">
-      <div className="flex items-center justify-between mb-3">
-        <div className="font-semibold text-lg">🤖 Strategy Dashboard</div>
+    <div style={{display:"flex",flexDirection:"column",gap:10}}>
+      <div className="panel panel-pad">
+        <div className="label" style={{marginBottom:12}}>Performance Summary</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:8}} className="stat-grid-8">
+          {stats.map(({l,v,c})=>(
+            <div key={l} style={{background:"var(--bg3)",border:"1px solid var(--line)",borderRadius:"var(--r-sm)",padding:"9px 11px"}}>
+              <div className="label" style={{marginBottom:4,fontSize:8}}>{l}</div>
+              <div style={{fontFamily:"var(--f-data)",fontSize:14,fontWeight:600,color:c||"var(--txt)"}}>{v}</div>
+            </div>
+          ))}
+        </div>
       </div>
-
-      {/* Summary grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-        <Metric label="Total Trades" value={total_trades} />
-        <Metric label="Closed Trades" value={closed_trades} />
-        <Metric label="Wins" value={wins} accent="text-green-400" />
-        <Metric label="Losses" value={losses} accent="text-red-400" />
-        <Metric label="Win Rate" value={`${win_rate.toFixed(1)}%`} />
-        <Metric label="Realized PnL" value={`$${realized_pnl.toFixed(2)}`} accent={realized_pnl>=0?"text-green-400":"text-red-400"} />
-        <Metric label="Avg PnL" value={`$${avg_pnl.toFixed(2)}`} />
-        <Metric label="Max Drawdown" value={`$${max_drawdown.toFixed(2)}`} accent="text-red-400" />
-        <Metric label="Best Trade" value={`$${best_trade.toFixed(2)}`} accent="text-green-400" />
-        <Metric label="Worst Trade" value={`$${worst_trade.toFixed(2)}`} accent="text-red-400" />
-      </div>
-
-      {/* Recent trades table */}
-      <div className="mt-4">
-        <div className="text-sm font-semibold mb-2">Recent Round Trips</div>
-        <table className="w-full text-xs">
-          <thead className="text-left opacity-70 border-b border-gray-200 dark:border-gray-700">
-            <tr>
-              <th className="py-1">Closed</th>
-              <th>Symbol</th>
-              <th>Qty</th>
-              <th>Buy</th>
-              <th>Sell</th>
-              <th>PnL</th>
-            </tr>
-          </thead>
+      <div className="panel panel-pad">
+        <div className="label" style={{marginBottom:10}}>Recent Round Trips</div>
+        <table className="tbl">
+          <thead><tr>
+            <th style={{textAlign:"left"}}>TIME</th><th style={{textAlign:"left"}}>SYM</th>
+            <th>QTY</th><th>BUY</th><th>SELL</th><th>PNL</th>
+          </tr></thead>
           <tbody>
-            {(recent_trades || []).map((t, i) => (
-              <tr key={i} className="border-b border-gray-100 dark:border-gray-800">
-                <td className="py-1">{new Date(t.close_ts).toLocaleTimeString()}</td>
-                <td>{t.symbol}</td>
+            {!recent_trades.length ? (
+              <tr><td colSpan={6} style={{padding:"20px 0",textAlign:"center",color:"var(--txt3)"}}>No closed trades</td></tr>
+            ) : recent_trades.map((t,i)=>(
+              <tr key={i}>
+                <td style={{color:"var(--txt3)"}}>{new Date(t.close_ts).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</td>
+                <td style={{fontWeight:600}}>{t.symbol}</td>
                 <td>{t.qty}</td>
                 <td>${t.buy.toFixed(2)}</td>
                 <td>${t.sell.toFixed(2)}</td>
-                <td className={t.pnl>=0 ? "text-green-400" : "text-red-400"}>${t.pnl.toFixed(2)}</td>
+                <td style={{color:t.pnl>=0?"var(--green)":"var(--red)",fontWeight:600}}>
+                  {t.pnl>=0?"+":""}${t.pnl.toFixed(2)}
+                </td>
               </tr>
             ))}
-            {(!recent_trades || recent_trades.length===0) && (
-              <tr><td colSpan="6" className="py-2 opacity-60">No closed trades yet.</td></tr>
-            )}
           </tbody>
         </table>
       </div>
     </div>
-  );
-}
-
-function Metric({ label, value, accent }) {
-  return (
-    <div className="p-3 rounded-xl bg-white/70 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700">
-      <div className="text-xs opacity-70">{label}</div>
-      <div className={`mt-1 text-base font-semibold ${accent||""}`}>{value}</div>
-    </div>
-  );
+  )
 }

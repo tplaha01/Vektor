@@ -1,146 +1,252 @@
 import React, { useEffect, useState, useRef } from "react";
-import {
-  getHealth,
-  getSignal,
-  getPositions,
-  getOrders,
-  placeOrder,
-  wsConnect,
-  getNews,
-} from "./api";
-import Dashboard from "./components/Dashboard";
-import TickerSearch from "./components/TickerSearch";
-import OrderPanel from "./components/OrderPanel";
-import Positions from "./components/Positions";
-import NewsFeed from "./components/NewsFeed";
+import { getSignal, getPositions, placeOrder, wsConnect, getNews, getHealth } from "./api";
+import SignalCard    from "./components/SignalCard";
+import OrderPanel   from "./components/OrderPanel";
+import Positions    from "./components/Positions";
+import NewsFeed     from "./components/NewsFeed";
 import TradingViewWidget from "./components/TradingViewWidget";
-import ThemeToggle from "./components/ThemeToggle";
+import RiskDashboard     from "./components/RiskDashboard";
+import BacktestPanel     from "./components/BacktestPanel";
 import StrategyDashboard from "./components/StrategyDashboard";
 
+const TABS = [
+  { k:"chart",    l:"Chart"     },
+  { k:"backtest", l:"Backtest"  },
+  { k:"risk",     l:"Risk"      },
+  { k:"perf",     l:"Performance" },
+];
+
+const WATCHLIST = ["AAPL","MSFT","NVDA","SPY","TSLA","AMZN","GOOGL","META"];
+
 export default function App() {
-  const [symbol, setSymbol] = useState("AAPL");
-  const [signal, setSignal] = useState(null);
+  const [symbol,    setSymbol]    = useState("AAPL");
+  const [input,     setInput]     = useState("AAPL");
+  const [signal,    setSignal]    = useState(null);
   const [positions, setPositions] = useState([]);
-  const [orders, setOrders] = useState([]);
-  const [ticks, setTicks] = useState({});
-  const [news, setNews] = useState([]);
-  const [wsStatus, setWsStatus] = useState("connecting"); // connecting | live | disconnected
+  const [ticks,     setTicks]     = useState({});
+  const [news,      setNews]      = useState([]);
+  const [ws,        setWs]        = useState("connecting");
+  const [risk,      setRisk]      = useState(null);
+  const [tab,       setTab]       = useState("chart");
+  const [menuOpen,  setMenuOpen]  = useState(false);
   const wsRef = useRef(null);
 
-  // Initial load
+  const analyse = (sym) => {
+    const s = (sym || input).trim().toUpperCase();
+    if (!s) return;
+    setSymbol(s); setInput(s);
+    getSignal(s).then(setSignal).catch(console.warn);
+    getNews(s).then(setNews).catch(console.warn);
+    setMenuOpen(false);
+  };
+
   useEffect(() => {
     getHealth().catch(console.warn);
     getPositions().then(setPositions).catch(console.warn);
-    getOrders().then(setOrders).catch(console.warn);
   }, []);
 
-  // Symbol-dependent loads
   useEffect(() => {
     getSignal(symbol).then(setSignal).catch(console.warn);
     getNews(symbol).then(setNews).catch(console.warn);
   }, [symbol]);
 
-  // WebSocket — reconnects on disconnect
   useEffect(() => {
     let dead = false;
-
     function connect() {
       if (dead) return;
-      setWsStatus("connecting");
-      const ws = wsConnect((msg) => {
+      setWs("connecting");
+      const sock = wsConnect(msg => {
         if (msg.type === "tick_batch") {
-          setTicks((prev) => {
-            const map = { ...prev };
-            msg.data.forEach((d) => (map[d.symbol] = d));
-            return map;
-          });
-          setWsStatus("live");
+          setTicks(p => { const m={...p}; msg.data.forEach(d=>m[d.symbol]=d); return m; });
+          setWs("live");
         }
-        // Phase 2: server pushes position updates after trades / on interval
-        if (msg.type === "positions_update") {
-          setPositions(msg.data);
-        }
+        if (msg.type === "positions_update") setPositions(msg.data);
+        if (msg.type === "risk_update")      setRisk(msg.data);
       });
-
-      ws.onopen = () => setWsStatus("live");
-      ws.onclose = () => {
-        setWsStatus("disconnected");
-        if (!dead) setTimeout(connect, 3000); // auto-reconnect
-      };
-      ws.onerror = () => setWsStatus("disconnected");
-
-      wsRef.current = ws;
+      sock.onopen  = () => setWs("live");
+      sock.onclose = () => { setWs("disconnected"); if (!dead) setTimeout(connect, 3000); };
+      sock.onerror = () => setWs("disconnected");
+      wsRef.current = sock;
     }
-
     connect();
-
-    // REST fallback polling — only for orders (positions come via WS now)
-    const poll = setInterval(() => {
-      getOrders().then(setOrders).catch(console.warn);
-    }, 10_000);
-
-    return () => {
-      dead = true;
-      clearInterval(poll);
-      wsRef.current?.close();
-    };
+    const poll = setInterval(() => getPositions().then(setPositions).catch(console.warn), 10000);
+    return () => { dead=true; clearInterval(poll); wsRef.current?.close(); };
   }, []);
 
-  const current = ticks[symbol];
+  const tick = ticks[symbol];
+  const wsColor = ws==="live" ? "var(--green)" : ws==="connecting" ? "var(--amber)" : "var(--red)";
+  const wsLabel = ws==="live" ? "LIVE" : ws==="connecting" ? "CONNECTING" : "OFFLINE";
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gradient-to-b dark:from-black dark:to-green-950 text-gray-900 dark:text-gray-100 transition-colors duration-500">
-      <div className="max-w-7xl mx-auto p-4">
-        <div className="flex items-center justify-between border-b border-gray-300 dark:border-gray-700 pb-3">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold">Hybrid Trading Bot</h1>
-            {/* Live WS status indicator */}
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-              wsStatus === "live"
-                ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400"
-                : wsStatus === "connecting"
-                ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400"
-                : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"
-            }`}>
-              {wsStatus === "live" ? "● LIVE" : wsStatus === "connecting" ? "◌ connecting" : "○ disconnected"}
+    <div className="layout">
+
+      {/* ── TOP BAR ─────────────────────────── */}
+      <header style={{
+        gridArea:"topbar", background:"var(--bg1)", borderBottom:"1px solid var(--line)",
+        display:"flex", alignItems:"center", padding:"0 14px", gap:12, zIndex:200,
+      }}>
+        {/* Logo */}
+        <div style={{ display:"flex", alignItems:"center", gap:8, flexShrink:0 }}>
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <path d="M1 13 L5 8 L9 11 L13 5 L17 2" stroke="var(--amber)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            <circle cx="17" cy="2" r="1.5" fill="var(--amber)"/>
+          </svg>
+          <span style={{ fontFamily:"'Outfit'", fontWeight:700, fontSize:14, letterSpacing:"0.12em", color:"var(--amber)" }}>ALFRED</span>
+        </div>
+
+        <div style={{ width:1, height:20, background:"var(--line2)", flexShrink:0 }} />
+
+        {/* Search */}
+        <div style={{ display:"flex", gap:6, flexShrink:0 }}>
+          <input className="inp" value={input}
+            onChange={e=>setInput(e.target.value.toUpperCase())}
+            onKeyDown={e=>e.key==="Enter"&&analyse()}
+            placeholder="TICKER"
+            style={{ width:84, padding:"5px 9px", fontSize:12 }} />
+          <button className="btn btn-amber" onClick={()=>analyse()} style={{ padding:"5px 12px", fontSize:10 }}>
+            Analyse
+          </button>
+        </div>
+
+        {/* Ticker info — hidden on mobile */}
+        {tick && (
+          <div className="topbar-ticker" style={{ display:"flex", alignItems:"baseline", gap:8 }}>
+            <span style={{ fontFamily:"var(--f-data)", fontSize:11, color:"var(--txt2)" }}>{symbol}</span>
+            <span style={{ fontFamily:"var(--f-data)", fontSize:15, fontWeight:600 }}>${tick.price?.toFixed(2)}</span>
+            <span style={{ fontFamily:"var(--f-data)", fontSize:11,
+              color: tick.change>=0?"var(--green)":"var(--red)" }}>
+              {tick.change>=0?"▲":"▼"} {Math.abs(tick.change||0).toFixed(2)}
+              {" "}({tick.change_pct>=0?"+":""}{(tick.change_pct||0).toFixed(2)}%)
             </span>
           </div>
-          <ThemeToggle />
+        )}
+
+        {/* Tabs */}
+        <div style={{ display:"flex", gap:2, marginLeft:8 }}>
+          {TABS.map(({k,l}) => (
+            <button key={k} className={`btn btn-tab ${tab===k?"on":""}`} onClick={()=>setTab(k)}>{l}</button>
+          ))}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
-          <div className="lg:col-span-2 space-y-4">
-            <TickerSearch
-              value={symbol}
-              onChange={setSymbol}
-              onAnalyze={() => {
-                getSignal(symbol).then(setSignal).catch(console.warn);
-                getNews(symbol).then(setNews).catch(console.warn);
-              }}
-            />
+        {/* Status */}
+        <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:8 }}>
+          <Clock />
+          <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+            <div className="dot-live" style={{ background: wsColor }} />
+            <span style={{ fontFamily:"var(--f-data)", fontSize:9, letterSpacing:"0.15em", color: wsColor }}>
+              {wsLabel}
+            </span>
+          </div>
+        </div>
+      </header>
 
-            <Dashboard symbol={symbol} signal={signal} tick={current} />
-            <TradingViewWidget symbol={symbol} />
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <OrderPanel
-                symbol={symbol}
-                onPlace={async (o) => {
-                  await placeOrder(o);
-                  // Positions will update via WS push; orders need REST
-                  setOrders(await getOrders());
+      {/* ── LEFT SIDEBAR ────────────────────── */}
+      <aside className="sidebar" style={{
+        gridArea:"sidebar", background:"var(--bg1)", borderRight:"1px solid var(--line)",
+        overflowY:"auto", display:"flex", flexDirection:"column", gap:0,
+      }}>
+        {/* Watchlist */}
+        <div className="sec-head">
+          <span className="label">Watchlist</span>
+        </div>
+        <div style={{ padding:"4px 0" }}>
+          {WATCHLIST.map(sym => {
+            const t = ticks[sym];
+            const active = sym === symbol;
+            const chg = t?.change ?? 0;
+            return (
+              <div key={sym} onClick={()=>analyse(sym)}
+                style={{
+                  display:"flex", alignItems:"center", justifyContent:"space-between",
+                  padding:"7px 14px", cursor:"pointer", transition:"background 0.12s",
+                  background: active ? "rgba(245,166,35,0.07)" : "transparent",
+                  borderLeft: active ? "2px solid var(--amber)" : "2px solid transparent",
                 }}
-              />
-              <Positions items={positions} />
-            </div>
-            <StrategyDashboard />
-          </div>
-
-          <div className="lg:col-span-1 h-full sticky top-4">
-            <NewsFeed symbol={symbol} items={news} />
-          </div>
+                onMouseEnter={e=>e.currentTarget.style.background=active?"rgba(245,166,35,0.07)":"rgba(255,255,255,0.03)"}
+                onMouseLeave={e=>e.currentTarget.style.background=active?"rgba(245,166,35,0.07)":"transparent"}
+              >
+                <span style={{ fontFamily:"var(--f-data)", fontSize:12, fontWeight:600,
+                  color: active?"var(--amber)":"var(--txt)" }}>{sym}</span>
+                <div style={{ textAlign:"right" }}>
+                  {t ? (
+                    <>
+                      <div style={{ fontFamily:"var(--f-data)", fontSize:11, color:"var(--txt)" }}>
+                        ${t.price?.toFixed(2)}
+                      </div>
+                      <div style={{ fontFamily:"var(--f-data)", fontSize:9,
+                        color: chg>=0?"var(--green)":"var(--red)" }}>
+                        {chg>=0?"+":""}{chg.toFixed(2)}%
+                      </div>
+                    </>
+                  ) : (
+                    <span style={{ fontFamily:"var(--f-data)", fontSize:10, color:"var(--txt3)" }}>—</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
-      </div>
+
+        <div className="divider" />
+
+        {/* Positions in sidebar */}
+        <div className="sec-head" style={{ marginTop:0 }}>
+          <span className="label">Positions</span>
+          {positions.filter(p=>p.qty>0).length > 0 && (
+            <span style={{ fontFamily:"var(--f-data)", fontSize:10,
+              color: positions.reduce((s,p)=>s+(p.unrealized_pnl??0),0) >= 0 ? "var(--green)" : "var(--red)" }}>
+              {positions.reduce((s,p)=>s+(p.unrealized_pnl??0),0) >= 0 ? "+" : ""}
+              ${positions.reduce((s,p)=>s+(p.unrealized_pnl??0),0).toFixed(2)}
+            </span>
+          )}
+        </div>
+        <Positions items={positions} compact />
+
+        <div className="divider" />
+
+        {/* Order in sidebar */}
+        <div style={{ padding:"10px 14px" }}>
+          <OrderPanel symbol={symbol}
+            onPlace={async o => { await placeOrder(o); getPositions().then(setPositions); }} />
+        </div>
+      </aside>
+
+      {/* ── MAIN ────────────────────────────── */}
+      <main style={{
+        gridArea:"main", overflowY:"auto", background:"var(--bg0)",
+        display:"flex", flexDirection:"column", gap:10, padding:"10px 12px",
+      }}>
+        {/* Signal card always visible */}
+        <div className="fade d1">
+          <SignalCard signal={signal} symbol={symbol} tick={tick} />
+        </div>
+
+        {/* Tab content */}
+        <div className="fade d2" style={{ flex:1, display:"flex", flexDirection:"column", gap:10 }}>
+          {tab==="chart"    && <TradingViewWidget symbol={symbol} />}
+          {tab==="backtest" && <BacktestPanel />}
+          {tab==="risk"     && <RiskDashboard riskData={risk} />}
+          {tab==="perf"     && <StrategyDashboard />}
+        </div>
+      </main>
+
+      {/* ── NEWS ────────────────────────────── */}
+      <aside className="news-col" style={{
+        gridArea:"news", background:"var(--bg1)", borderLeft:"1px solid var(--line)",
+        overflowY:"auto", display:"flex", flexDirection:"column",
+      }}>
+        <NewsFeed symbol={symbol} items={news} />
+      </aside>
     </div>
+  );
+}
+
+function Clock() {
+  const [t, setT] = useState(new Date());
+  useEffect(() => { const id=setInterval(()=>setT(new Date()),1000); return()=>clearInterval(id); }, []);
+  return (
+    <span style={{ fontFamily:"var(--f-data)", fontSize:10, color:"var(--txt3)", letterSpacing:"0.08em" }}>
+      {t.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit",second:"2-digit"})}
+    </span>
   );
 }

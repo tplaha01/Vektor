@@ -1,44 +1,73 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useId } from "react"
 
 export default function TradingViewWidget({ symbol }) {
-  const container = useRef();
+  const ref  = useRef()
+  const uid  = useRef(`tv_${Math.random().toString(36).slice(2,9)}`)
 
   useEffect(() => {
-    if (!window.TradingView) {
-      const script = document.createElement("script");
-      script.src = "https://s3.tradingview.com/tv.js";
-      script.async = true;
-      script.onload = () => createWidget();
-      document.body.appendChild(script);
-    } else {
-      createWidget();
+    if (!ref.current) return
+    ref.current.innerHTML = ""
+
+    const container = document.createElement("div")
+    container.id = uid.current
+    container.style.cssText = "width:100%;height:100%;"
+    ref.current.appendChild(container)
+
+    const init = () => {
+      if (!window.TradingView || !document.getElementById(uid.current)) return
+      new window.TradingView.widget({
+        autosize:          true,
+        symbol:            symbol,
+        interval:          "15",
+        timezone:          "America/Phoenix",
+        theme:             "dark",
+        style:             "1",
+        locale:            "en",
+        enable_publishing: false,
+        hide_top_toolbar:  false,
+        hide_legend:       true,
+        hide_side_toolbar: false,
+        allow_symbol_change: true,
+        save_image:        false,
+        container_id:      uid.current,
+        loading_screen:    { backgroundColor:"#0c0d10", foregroundColor:"#f5a623" },
+        overrides: {
+          "paneProperties.background":              "#0c0d10",
+          "paneProperties.backgroundType":          "solid",
+          "paneProperties.vertGridProperties.color":"#111318",
+          "paneProperties.horzGridProperties.color":"#111318",
+          "scalesProperties.textColor":             "#4e5462",
+          "scalesProperties.backgroundColor":       "#0c0d10",
+          "mainSeriesProperties.candleStyle.upColor":       "#3ecf8e",
+          "mainSeriesProperties.candleStyle.downColor":     "#e05252",
+          "mainSeriesProperties.candleStyle.borderUpColor": "#3ecf8e",
+          "mainSeriesProperties.candleStyle.borderDownColor":"#e05252",
+          "mainSeriesProperties.candleStyle.wickUpColor":   "#3ecf8e",
+          "mainSeriesProperties.candleStyle.wickDownColor": "#e05252",
+        },
+        studies_overrides: {
+          "volume.volume.color.0": "#e05252",
+          "volume.volume.color.1": "#3ecf8e",
+          "volume.volume ma.color": "#f5a623",
+          "volume.volume ma.linewidth": 1,
+        },
+        custom_css_url: "",
+        toolbar_bg: "#0c0d10",
+      })
     }
 
-    function createWidget() {
-      if (container.current && typeof window.TradingView !== "undefined") {
-        container.current.innerHTML = ""; // clear previous widget
-        new window.TradingView.widget({
-          autosize: true,
-          loading_screen: { backgroundColor: "#000000" },
-          symbol: symbol || "NASDAQ:AAPL",
-          interval: "15",
-          timezone: "America/Phoenix",
-          theme: "dark",
-          style: "1",
-          locale: "en",
-          enable_publishing: false,
-          hide_top_toolbar: false,
-          hide_legend: false,
-          container_id: container.current.id,
-        });
-      }
+    if (window.TradingView) {
+      init()
+    } else {
+      const s = document.createElement("script")
+      s.src = "https://s3.tradingview.com/tv.js"
+      s.async = true
+      s.onload = init
+      document.head.appendChild(s)
     }
-  }, [symbol]);
+  }, [symbol])
 
   return (
-    <div className="p-4 rounded-2xl shadow bg-white/80 dark:bg-gray-800/60 backdrop-blur-sm border border-gray-200 dark:border-gray-700 transition-all duration-300 overflow-y-auto">
-      <div className="font-semibold mb-2">Live Chart</div>
-      <div id={`tv_chart_${symbol}`} ref={container} style={{ height: "400px" }}></div>
-    </div>
-  );
+    <div ref={ref} className="tv-wrap" style={{ height:"calc(100vh - 200px)", minHeight:340 }} />
+  )
 }
