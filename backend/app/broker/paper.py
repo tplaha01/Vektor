@@ -1,7 +1,9 @@
 from __future__ import annotations
+
+import random
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, List
+from typing import Callable, Dict, List
 
 
 @dataclass
@@ -15,115 +17,131 @@ class PaperOrder:
     status: str = "filled"
 
 
+# Realistic fill simulation
+_SLIPPAGE_BPS = 5       # 0.05% adverse slippage per trade
+_COMMISSION_PCT = 0.001  # 0.1% commission
+
+
+def _fill_price(side: str, price: float) -> float:
+    """Buys fill slightly above mid, sells slightly below. Adds small random noise."""
+    slip = price * (_SLIPPAGE_BPS / 10_000)
+    noise = price * random.uniform(0, _SLIPPAGE_BPS / 20_000)
+    if side == "buy":
+        return round(price + slip + noise, 4)
+    return round(price - slip - noise, 4)
+
+
 class PaperBroker:
 
     def __init__(self):
-        self.cash = 100_000.0
+        self.cash: float = 100_000.0
         self.positions: Dict[str, Dict] = {}
-        self.order_history: List[dict] = []
+        self.order_history: list = []
+        self._order_counter: int = 0
+        self._db_ready: bool = False
 
-    # --------------------------------------------------------
-    # Submit Order
-    # --------------------------------------------------------
+    # ── Persistence ───────────────────────────────────────────────────────────
 
-    def submit_order(self, symbol: str, side: str, qty: float, price: float):
+    def restore_from_db(self) -> None:
+        """Load state from SQLite on startup. Call after init_db()."""
+        try:
+            from app.storage.db import load_orders, load_positions, load_latest_cash
+            self.positions = load_positions()
+            self.order_history = load_orders()
+            self.cash = load_latest_cash(default=100_000.0)
+            self._order_counter = len(self.order_history)
+            self._db_ready = True
+            print(
+                f"💾 Broker restored — cash=${self.cash:,.2f} "
+                f"positions={list(self.positions.keys())} "
+                f"orders={len(self.order_history)}"
+            )
+        except Exception as e:
+            print(f"⚠️  Broker restore failed ({e}) — starting fresh")
 
+    def _persist(self, order_dict: dict) -> None:
+        if not self._db_ready:
+            return
+        try:
+            from app.storage.db import save_order, save_positions, save_cash
+            save_order(order_dict)
+            save_positions(self.positions)
+            save_cash(self.cash)
+        except Exception as e:
+            print(f"⚠️  DB persist error: {e}")
+
+    # ── Submit Order ──────────────────────────────────────────────────────────
+
+    def submit_order(self, symbol: str, side: str, qty: float, price: float) -> PaperOrder:
         symbol = symbol.upper()
         qty = float(qty)
         price = float(price)
+        filled_price = _fill_price(side, price)
+        commission = filled_price * qty * _COMMISSION_PCT
 
         if side == "buy":
-
-            cost = qty * price
-
+            cost = qty * filled_price + commission
             if cost > self.cash:
-                raise ValueError("Not enough cash")
-
+                raise ValueError(f"Insufficient cash: need ${cost:.2f}, have ${self.cash:.2f}")
             self.cash -= cost
-
             pos = self.positions.get(symbol)
-
             if pos:
                 total_qty = pos["qty"] + qty
-                new_avg = ((pos["avg_price"] * pos["qty"]) + (price * qty)) / total_qty
-
+                pos["avg_price"] = ((pos["avg_price"] * pos["qty"]) + (filled_price * qty)) / total_qty
                 pos["qty"] = total_qty
-                pos["avg_price"] = new_avg
             else:
-                self.positions[symbol] = {
-                    "symbol": symbol,
-                    "qty": qty,
-                    "avg_price": price
-                }
+                self.positions[symbol] = {"symbol": symbol, "qty": qty, "avg_price": filled_price}
 
         elif side == "sell":
-
             pos = self.positions.get(symbol)
-
             if not pos or pos["qty"] < qty:
-                raise ValueError("Not enough shares")
-
-            proceeds = qty * price
-            self.cash += proceeds
-
+                raise ValueError(f"Insufficient shares: have {pos['qty'] if pos else 0}, need {qty}")
+            self.cash += qty * filled_price - commission
             pos["qty"] -= qty
-
-            if pos["qty"] <= 0:
+            if pos["qty"] <= 1e-9:
                 del self.positions[symbol]
 
-        order = PaperOrder(
-            id=str(len(self.order_history) + 1),
+        self._order_counter += 1
+        now = datetime.utcnow().isoformat()
+        order_dict = {
+            "id":         str(self._order_counter),
+            "symbol":     symbol,
+            "side":       side,
+            "qty":        qty,
+            "avg_price":  filled_price,
+            "price":      filled_price,
+            "status":     "filled",
+            "created_at": now,
+        }
+        self.order_history.append(order_dict)
+        self._persist(order_dict)
+
+        return PaperOrder(
+            id=str(self._order_counter),
             symbol=symbol,
             side=side,
             qty=qty,
-            avg_price=price,
+            avg_price=filled_price,
             created_at=datetime.utcnow(),
         )
 
-        self.order_history.append({
-            "symbol": symbol,
-            "side": side,
-            "qty": qty,
-            "price": price,
-            "created_at": order.created_at.isoformat()
-        })
+    # ── Queries ───────────────────────────────────────────────────────────────
 
-        return order
-
-    # --------------------------------------------------------
-    # Live Positions (THIS FIXES YOUR PNL)
-    # --------------------------------------------------------
-
-    def list_positions(self, price_lookup):
-
+    def list_positions(self, price_lookup: Callable[[str], float]) -> list:
         results = []
-
         for symbol, pos in self.positions.items():
-
             qty = float(pos["qty"])
             avg_price = float(pos["avg_price"])
-
-            # THIS MUST COME FROM MARKET FEED
             market_price = float(price_lookup(symbol))
-
-            market_value = qty * market_price
-
-            unrealized_pnl = (market_price - avg_price) * qty
-
             results.append({
-                "symbol": symbol,
-                "qty": qty,
-                "avg_price": round(avg_price, 4),
-                "market_price": round(market_price, 4),
-                "market_value": round(market_value, 2),
-                "unrealized_pnl": round(unrealized_pnl, 2),
+                "symbol":         symbol,
+                "qty":            qty,
+                "avg_price":      round(avg_price, 4),
+                "market_price":   round(market_price, 4),
+                "market_value":   round(qty * market_price, 2),
+                "unrealized_pnl": round((market_price - avg_price) * qty, 2),
             })
-
         return results
 
-    # --------------------------------------------------------
-    # Orders
-    # --------------------------------------------------------
-
-    def list_orders(self):
-        return self.order_history
+    def list_orders(self) -> list:
+        return list(reversed(self.order_history))

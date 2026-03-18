@@ -139,6 +139,7 @@ class DrawdownBreaker:
         self.reset_recovery = reset_recovery   # resume when +5% recovered
         self._peak_equity: float = 0.0
         self._halted: bool = False
+        self._halt_equity: float = 0.0         # equity at the moment breaker triggered
         self._halt_ts: Optional[datetime] = None
 
     def update(self, equity: float) -> None:
@@ -165,10 +166,11 @@ class DrawdownBreaker:
     def status(self) -> dict:
         dd = 0.0
         if self._peak_equity > 0:
-            dd = (self._peak_equity - self._peak_equity) / self._peak_equity
+            dd = (self._peak_equity - self._halt_equity) / self._peak_equity if self._halted else 0.0
         return {
             "halted": self._halted,
             "peak_equity": self._peak_equity,
+            "current_drawdown": round(dd, 4),
             "max_drawdown_threshold": self.max_drawdown,
             "halt_timestamp": self._halt_ts.isoformat() if self._halt_ts else None,
         }

@@ -12,10 +12,16 @@ class Settings(BaseSettings):
     TECH_WEIGHT: float = 0.35
     FUND_WEIGHT: float = 0.20
     SENT_WEIGHT: float = 0.20
-    ML_WEIGHT:   float = 0.25   # Phase 3: LightGBM alpha
+    ML_WEIGHT:   float = 0.25
 
     WEBSOCKET_BROADCAST_INTERVAL: float = 2.0
+
+    # Auth — set a strong random value in .env for any non-dev deployment
     SECRET_KEY: str = "dev-secret"
+    API_KEY: str = "dev-api-key"   # clients must send X-API-Key: <this value>
+
+    # SQLite persistence path (relative to backend working dir)
+    SQLITE_PATH: str = "trading_bot.db"
 
     # Provider keys
     NEWSAPI_KEY:  str | None = None
