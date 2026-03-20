@@ -283,9 +283,10 @@ class RiskEngine:
         self._equity         = self.INITIAL_EQUITY
 
     def update_equity(self, positions: List[dict], realized_pnl: float = 0.0) -> float:
-        """Recompute equity = cash + open positions market value + realized PnL."""
+        """Recompute equity = broker cash + open positions market value."""
+        from app.core.context import broker as _broker
         open_value = sum(p.get("market_value", 0) for p in positions)
-        self._equity = self.INITIAL_EQUITY + realized_pnl + open_value
+        self._equity = _broker.cash + open_value
         self.dd_breaker.update(self._equity)
         return self._equity
 

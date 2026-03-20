@@ -82,16 +82,21 @@ async def auto_trading_loop():
                     tag = f"{sym:5s} | score={score:+.3f} | vol={sig.get('volatility') or 0:.2%} | {action.upper()}"
 
                     if action == "buy":
-                        qty = risk.size_order(sym, price, score, analytics)
-                        approved, reason = risk.pre_trade_check(sym, "buy", qty, price, positions)
-                        if approved:
-                            broker.submit_order(sym, "buy", qty, price)
-                            atr_val = _current_atr(sym)
-                            if atr_val > 0:
-                                risk.register_entry(sym, price, atr_val, "long")
-                            print(f"  🟢 BUY  {tag} | qty={qty}")
+                        # Don't add to a position we already hold
+                        already_held = any(p["symbol"] == sym and p["qty"] > 0 for p in positions)
+                        if already_held:
+                            print(f"  ⚪ SKIP {tag} (already holding)")
                         else:
-                            print(f"  ⛔ BUY blocked [{reason}] {tag}")
+                            qty = risk.size_order(sym, price, score, analytics)
+                            approved, reason = risk.pre_trade_check(sym, "buy", qty, price, positions)
+                            if approved:
+                                broker.submit_order(sym, "buy", qty, price)
+                                atr_val = _current_atr(sym)
+                                if atr_val > 0:
+                                    risk.register_entry(sym, price, atr_val, "long")
+                                print(f"  🟢 BUY  {tag} | qty={qty}")
+                            else:
+                                print(f"  ⛔ BUY blocked [{reason}] {tag}")
 
                     elif action == "sell":
                         # Only sell if we hold the position
