@@ -1,6 +1,7 @@
 from __future__ import annotations
 import asyncio
 import logging
+import os
 from datetime import datetime
 from typing import Any, Dict
 
@@ -33,12 +34,15 @@ settings = get_settings()
 
 app = FastAPI(title="Hybrid Trading Bot", version="5.1.0")
 
-# ── CORS — locked to known origins, not wildcard ──────────────────────────────
 _ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:3000",
     "http://127.0.0.1:5173",
 ]
+_frontend_url = os.getenv("FRONTEND_URL")
+if _frontend_url:
+    _ALLOWED_ORIGINS.append(_frontend_url)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_ALLOWED_ORIGINS,
@@ -49,7 +53,6 @@ app.add_middleware(
 
 app.include_router(backtest_router)
 
-# ── API Key Auth ──────────────────────────────────────────────────────────────
 _PUBLIC_PATHS = {"/health", "/ws", "/docs", "/openapi.json", "/redoc"}
 
 @app.middleware("http")
@@ -61,13 +64,11 @@ async def api_key_middleware(request: Request, call_next):
         return JSONResponse(status_code=401, content={"detail": "Invalid or missing API key"})
     return await call_next(request)
 
-# ── Startup ───────────────────────────────────────────────────────────────────
 @app.on_event("startup")
 async def startup_event():
     from app.storage.db import init_db
     init_db()
     broker.restore_from_db()
-
     asyncio.create_task(stream_loop())
     from app.strategies.auto_trader import auto_trading_loop
     asyncio.create_task(auto_trading_loop())
@@ -75,10 +76,8 @@ async def startup_event():
     ensure_model()
     from app.utils.sentiment import _ensure_finbert
     _ensure_finbert()
-
     logger.info("ALFRED started — version 5.1.0")
 
-# ── Routes ────────────────────────────────────────────────────────────────────
 @app.get("/health")
 async def health():
     from app.ml.alpha_model import model_status

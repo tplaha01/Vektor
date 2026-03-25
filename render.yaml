@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: alfred-backend
+    env: python
+    region: oregon
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: ENV
+        value: production
+      - key: API_KEY
+        generateValue: true
+      - key: SECRET_KEY
+        generateValue: true
+      - key: SQLITE_PATH
+        value: /var/data/trading_bot.db
+      - key: ALPACA_API_KEY
+        sync: false
+      - key: ALPACA_SECRET_KEY
+        sync: false
+      - key: ALPACA_BASE_URL
+        value: https://paper-api.alpaca.markets
+      - key: ALPACA_FEED
+        value: iex
+      - key: FINNHUB_KEY
+        sync: false
+      - key: FMP_KEY
+        sync: false
+      - key: NEWSAPI_KEY
+        sync: false
+      - key: BUY_THRESHOLD
+        value: "0.15"
+      - key: SELL_THRESHOLD
+        value: "-0.15"
+    disk:
+      name: alfred-db
+      mountPath: /var/data
+      sizeGB: 1

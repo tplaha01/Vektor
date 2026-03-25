@@ -8,7 +8,6 @@ class Settings(BaseSettings):
     BROKER: str = "paper"
     DATA_MODE: str = "live"
 
-    # Signal weights (must sum to meaningful total — normalised in hybrid.py)
     TECH_WEIGHT: float = 0.35
     FUND_WEIGHT: float = 0.20
     SENT_WEIGHT: float = 0.20
@@ -16,29 +15,27 @@ class Settings(BaseSettings):
 
     WEBSOCKET_BROADCAST_INTERVAL: float = 2.0
 
-    # Auth — set a strong random value in .env for any non-dev deployment
     SECRET_KEY: str = "dev-secret"
-    API_KEY: str = "dev-api-key"   # clients must send X-API-Key: <this value>
+    API_KEY: str = "dev-api-key"
 
-    # SQLite persistence path (relative to backend working dir)
     SQLITE_PATH: str = "trading_bot.db"
 
-    # Provider keys
     NEWSAPI_KEY:  str | None = None
     FMP_KEY:      str | None = None
     FINNHUB_KEY:  str | None = None
 
-    # Alpaca
     ALPACA_API_KEY:    str | None = None
     ALPACA_SECRET_KEY: str | None = None
     ALPACA_BASE_URL:   str = "https://paper-api.alpaca.markets"
     ALPACA_FEED:       str = "iex"
 
-    # Strategy tunables
     BUY_THRESHOLD:  float = 0.20
     SELL_THRESHOLD: float = -0.20
     ATR_PERIOD:     int   = 14
     VOL_THRESHOLD:  float = 0.035
+
+    # Set to your Vercel URL in production for CORS
+    FRONTEND_URL: str | None = None
 
     class Config:
         env_file = ".env"

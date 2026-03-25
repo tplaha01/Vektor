@@ -28,3 +28,8 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+backend/trading_bot.log
+backend/trading_bot.db
+*.log
+*.db
