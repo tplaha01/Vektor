@@ -1,4 +1,12 @@
 const BASE = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
+const API_KEY = import.meta.env.VITE_API_KEY || "";
+
+function authHeaders(extra = {}) {
+  return {
+    ...(API_KEY ? { "X-API-Key": API_KEY } : {}),
+    ...extra,
+  };
+}
 
 export async function getHealth() {
   const res = await fetch(`${BASE}/health`);
@@ -8,27 +16,30 @@ export async function getHealth() {
 export async function getSignal(symbol) {
   const res = await fetch(`${BASE}/signals/generate`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ symbol }),
   });
   return res.json();
 }
 
 export async function getPositions() {
-  const res = await fetch(`${BASE}/paper/positions`);
+  const res = await fetch(`${BASE}/paper/positions`, {
+    headers: authHeaders(),
+  });
   return res.json();
 }
 
 export async function getOrders() {
-  const res = await fetch(`${BASE}/paper/orders`);
+  const res = await fetch(`${BASE}/paper/orders`, {
+    headers: authHeaders(),
+  });
   return res.json();
 }
 
 export async function placeOrder(order) {
   const res = await fetch(`${BASE}/paper/order`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    // BUG FIX: was sending { qty } — backend OrderIn model expects { quantity }
+    headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({
       symbol: order.symbol,
       side: order.side,
@@ -39,8 +50,10 @@ export async function placeOrder(order) {
 }
 
 export function wsConnect(onMessage) {
-  // BUG FIX: was "/ws/stream" — backend only registers "/ws"
-  const url = BASE.replace(/^http/, "ws") + "/ws";
+  const url =
+    (API_KEY
+      ? BASE.replace(/^http/, "ws") + "/ws?api_key=" + API_KEY
+      : BASE.replace(/^http/, "ws") + "/ws");
   const ws = new WebSocket(url);
   ws.onmessage = (ev) => {
     try {
@@ -55,13 +68,16 @@ export function wsConnect(onMessage) {
 }
 
 export async function getNews(symbol) {
-  const res = await fetch(`${BASE}/news/${symbol}`);
+  const res = await fetch(`${BASE}/news/${symbol}`, {
+    headers: authHeaders(),
+  });
   return res.json();
 }
 
 export async function getAnalytics() {
-  // BUG FIX: was using window.BACKEND_URL (undefined in dev) instead of BASE
-  const res = await fetch(`${BASE}/analytics/summary`);
+  const res = await fetch(`${BASE}/analytics/summary`, {
+    headers: authHeaders(),
+  });
   if (!res.ok) throw new Error("analytics fetch failed");
   return res.json();
 }
