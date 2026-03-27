@@ -57,6 +57,8 @@ _PUBLIC_PATHS = {"/health", "/ws", "/docs", "/openapi.json", "/redoc"}
 
 @app.middleware("http")
 async def api_key_middleware(request: Request, call_next):
+    if request.method == "OPTIONS":
+        return await call_next(request)
     if settings.ENV == "dev" or request.url.path in _PUBLIC_PATHS:
         return await call_next(request)
     key = request.headers.get("X-API-Key") or request.query_params.get("api_key")
@@ -163,3 +165,4 @@ async def websocket_endpoint(ws: WebSocket):
             await ws.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(ws)
+        
