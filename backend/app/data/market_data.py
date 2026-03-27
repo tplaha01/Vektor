@@ -1,13 +1,17 @@
 from __future__ import annotations
 import threading
+import time
 from datetime import datetime, timedelta
 from typing import Dict, Callable, List
 import pandas as pd
-import yfinance as yf
 
 from app.config import get_settings
 
 settings = get_settings()
+
+# Price cache: symbol -> (price, timestamp)
+_price_cache: Dict[str, tuple[float, float]] = {}
+_CACHE_TTL = 30.0  # seconds
 
 
 class AlpacaRealtimeFeed:
@@ -17,16 +21,41 @@ class AlpacaRealtimeFeed:
         self._started = False
 
     def price(self, symbol: str) -> float:
+        # 1. Use streaming price if available and fresh
         if symbol in self._prices and self._prices[symbol] > 0:
             return self._prices[symbol]
-        return self._yf_price(symbol)
+
+        # 2. Check cache
+        now = time.time()
+        if symbol in _price_cache:
+            px, ts = _price_cache[symbol]
+            if now - ts < _CACHE_TTL and px > 0:
+                return px
+
+        # 3. Try Alpaca latest quote/bar
+        if settings.ALPACA_API_KEY:
+            try:
+                px = self._alpaca_latest_price(symbol)
+                if px > 0:
+                    self._prices[symbol] = px
+                    _price_cache[symbol] = (px, now)
+                    return px
+            except Exception as e:
+                print(f"⚠️ Alpaca price failed for {symbol}: {e}")
+
+        # 4. Last known price from cache (stale but better than 0)
+        if symbol in _price_cache and _price_cache[symbol][0] > 0:
+            return _price_cache[symbol][0]
+
+        return self._prices.get(symbol, 0.0)
 
     def history(self, symbol: str, bars: int = 200) -> pd.DataFrame:
         if settings.ALPACA_API_KEY:
             try:
                 return self._alpaca_bars(symbol, bars)
             except Exception as e:
-                print(f"⚠️ Alpaca bars failed for {symbol}: {e} — falling back to yfinance")
+                print(f"⚠️ Alpaca bars failed for {symbol}: {e}")
+        # yfinance only as last resort for history
         return self._yf_bars(symbol, bars)
 
     def subscribe(self, callback: Callable):
@@ -35,7 +64,7 @@ class AlpacaRealtimeFeed:
     def start_stream(self, symbols: List[str]):
         if self._started or not settings.ALPACA_API_KEY:
             if not settings.ALPACA_API_KEY:
-                print("ℹ️  No ALPACA_API_KEY — using yfinance polling fallback")
+                print("ℹ️  No ALPACA_API_KEY — using Alpaca REST polling")
             return
         self._started = True
         t = threading.Thread(
@@ -52,7 +81,6 @@ class AlpacaRealtimeFeed:
             from alpaca.data.live import StockDataStream
             from alpaca.data.enums import DataFeed
 
-            # alpaca-py requires DataFeed enum, not a raw string
             feed_map = {"iex": DataFeed.IEX, "sip": DataFeed.SIP}
             feed = feed_map.get(settings.ALPACA_FEED.lower(), DataFeed.IEX)
 
@@ -66,6 +94,7 @@ class AlpacaRealtimeFeed:
                 sym = trade.symbol
                 px = float(trade.price)
                 self._prices[sym] = px
+                _price_cache[sym] = (px, time.time())
                 for cb in self._subscribers:
                     try:
                         cb(sym, px)
@@ -76,8 +105,22 @@ class AlpacaRealtimeFeed:
             stream.run()
 
         except Exception as e:
-            print(f"⚠️ Alpaca stream error: {e} — using yfinance polling")
+            print(f"⚠️ Alpaca stream error: {e} — falling back to REST polling")
             self._started = False
+
+    def _alpaca_latest_price(self, symbol: str) -> float:
+        from alpaca.data.historical import StockHistoricalDataClient
+        from alpaca.data.requests import StockLatestTradeRequest
+
+        client = StockHistoricalDataClient(
+            settings.ALPACA_API_KEY,
+            settings.ALPACA_SECRET_KEY,
+        )
+        req = StockLatestTradeRequest(symbol_or_symbols=symbol)
+        resp = client.get_stock_latest_trade(req)
+        if symbol in resp:
+            return float(resp[symbol].price)
+        return 0.0
 
     def _alpaca_bars(self, symbol: str, bars: int) -> pd.DataFrame:
         from alpaca.data.historical import StockHistoricalDataClient
@@ -106,6 +149,7 @@ class AlpacaRealtimeFeed:
 
     def _yf_bars(self, symbol: str, bars: int) -> pd.DataFrame:
         try:
+            import yfinance as yf
             ticker = yf.Ticker(symbol)
             df = ticker.history(period="1y", interval="1d")
             if df.empty:
@@ -120,23 +164,6 @@ class AlpacaRealtimeFeed:
         except Exception as e:
             print(f"⚠️ yfinance bars failed for {symbol}: {e}")
             return pd.DataFrame(columns=["ts", "open", "high", "low", "close", "volume"])
-
-    def _yf_price(self, symbol: str) -> float:
-        try:
-            ticker = yf.Ticker(symbol)
-            px = ticker.fast_info.get("last_price") or ticker.fast_info.get("previousClose")
-            if px:
-                self._prices[symbol] = float(px)
-                return float(px)
-            # last resort — latest close from history
-            hist = ticker.history(period="5d")
-            if not hist.empty:
-                px = float(hist["Close"].iloc[-1])
-                self._prices[symbol] = px
-                return px
-        except Exception as e:
-            print(f"⚠️ yfinance price failed for {symbol}: {e}")
-        return self._prices.get(symbol, 0.0)
 
 
 FEED = AlpacaRealtimeFeed()
