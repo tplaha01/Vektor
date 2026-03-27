@@ -13,7 +13,7 @@ websockets==12.0
 pytest==8.3.3
 alpaca-py==0.36.0
 transformers==4.47.1
-torch==2.5.1
+torch==2.5.1+cpu --extra-index-url https://download.pytorch.org/whl/cpu
 lightgbm==4.5.0
 scikit-learn==1.5.2
 joblib==1.4.2
