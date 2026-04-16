@@ -1,0 +1,50 @@
+#:schema https://developers.openai.com/codex/config-schema.json
+
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+web_search = "live"
+
+persistent_instructions = "Operate as a paper-first AI-native hedge fund builder. Use docs/AI_NATIVE_HEDGE_FUND_AUDIT_AND_ROADMAP.md as source of truth."
+
+[features]
+multi_agent = true
+
+[agents]
+max_threads = 8
+max_depth = 2
+
+[agents.explorer]
+description = "Read-only codebase mapping and execution-path tracing."
+config_file = "agents/explorer.toml"
+
+[agents.reviewer]
+description = "Correctness, security, and regression reviewer."
+config_file = "agents/reviewer.toml"
+
+[agents.docs_researcher]
+description = "Primary-source documentation and API verification specialist."
+config_file = "agents/docs-researcher.toml"
+
+[agents.fund_manager]
+description = "Top-level orchestrator for sleeve allocation and approvals."
+config_file = "agents/fund-manager.toml"
+
+[agents.researcher]
+description = "Cross-asset research synthesis and thesis generation."
+config_file = "agents/researcher.toml"
+
+[agents.sentiment_researcher]
+description = "News and social sentiment specialist with provenance requirements."
+config_file = "agents/sentiment-researcher.toml"
+
+[agents.trader]
+description = "Execution intent and venue adapter specialist."
+config_file = "agents/trader.toml"
+
+[agents.risk_auditor]
+description = "Independent risk and compliance gatekeeper."
+config_file = "agents/risk-auditor.toml"
+
+[agents.openclaw_ops]
+description = "OpenClaw automation integration for research and operations workflows."
+config_file = "agents/openclaw-ops.toml"

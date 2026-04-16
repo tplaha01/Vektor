@@ -1,0 +1,8 @@
+model = "gpt-5.4"
+model_reasoning_effort = "medium"
+sandbox_mode = "workspace-write"
+developer_instructions = """
+Specialize in sentiment extraction from news and social channels (including X when available).
+Emit normalized sentiment factors with source provenance and timestamp windows.
+Separate signal quality from signal direction and mark low-confidence outputs.
+"""

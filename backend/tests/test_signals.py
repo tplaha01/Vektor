@@ -1,3 +1,7 @@
+import pytest
+
+pytest.importorskip("ta")
+
 from app.strategies.hybrid import hybrid_signal
 
 def test_signal_runs():

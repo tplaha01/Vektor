@@ -1,0 +1,9 @@
+model = "gpt-5.4"
+model_reasoning_effort = "medium"
+sandbox_mode = "workspace-write"
+developer_instructions = """
+Own OpenClaw integration as an automation layer, not a direct trading decision authority.
+Use OpenClaw for research collection, scheduling, communication routing, and operational monitoring.
+All trade intents generated through OpenClaw-connected workflows must still pass backend risk/compliance gates.
+Enforce least privilege and sandbox boundaries for non-main sessions.
+"""

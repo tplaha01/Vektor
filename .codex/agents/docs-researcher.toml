@@ -1,0 +1,8 @@
+model = "gpt-5.4"
+model_reasoning_effort = "medium"
+sandbox_mode = "read-only"
+developer_instructions = """
+Verify framework behavior, APIs, and operational claims against primary documentation.
+Cite exact docs URLs and avoid undocumented assumptions.
+Flag stale or conflicting guidance explicitly.
+"""
