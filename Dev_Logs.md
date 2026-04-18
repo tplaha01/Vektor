@@ -2743,3 +2743,21 @@ files:
 - DevViktor.md
 validation: py -3 -m pytest backend/tests/test_openclaw_command_adapter.py backend/tests/test_admin_runtime_controls.py backend/tests/test_admin_status_badges.py -q (pass)
 notes: Guard fixture snapshots `knowledge_graph/` before/after each adapter test to fail fast on hidden persistence side effects.
+
+
+[2026-04-18T01:54:57Z] [UPDATE]
+entry_id: devlog-20260418-codex-openclaw-halt-control-001
+actor_name: codex_cto
+actor_platform: codex
+actor_model: gpt-5.4
+actor_provider: openai
+run_id: run-viktor-hardening-008
+git_branch: codex/hardening-sprint
+git_commit_start: 53dca77df6e4036f86602d89a1e502128a33eda8
+git_commit_end:
+scope: Enabled OpenClaw control exceptions during strict halt for `clear_halt` and `runtime_status`, and expanded adapter control-action test coverage.
+files:
+- backend/app/fund/openclaw_command_adapter.py
+- backend/tests/test_openclaw_command_adapter.py
+validation: py -3 -m pytest backend/tests/test_openclaw_command_adapter.py backend/tests/test_admin_runtime_controls.py backend/tests/test_admin_status_badges.py -q (pass)
+notes: System remains fail-closed for trade-producing actions while halted; only observability and halt-clear controls bypass halt rejection.

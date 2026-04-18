@@ -297,12 +297,6 @@ class OpenClawCommandAdapter:
         now = _to_iso(self._clock())
         if not self._enabled:
             return self._reject(reason="commands_disabled", message=message, occurred_at=now)
-        if data_integrity_guard.halted():
-            return self._reject(
-                reason=data_integrity_guard.halt_reason() or "system_halted",
-                message=message,
-                occurred_at=now,
-            )
         if not self._is_authorized(token):
             return self._reject(reason="unauthorized", message=message, occurred_at=now, auth_failure=True)
         if not isinstance(message, dict):
@@ -313,6 +307,16 @@ class OpenClawCommandAdapter:
             return self._reject(reason="missing_command_text", message=message, occurred_at=now)
         if len(command) > self._max_text_length:
             return self._reject(reason="command_text_too_long", message=message, occurred_at=now)
+        control = _parse_control_command(command)
+
+        if data_integrity_guard.halted():
+            action = str((control or {}).get("action") or "").strip().lower()
+            if action not in {"clear_halt", "runtime_status"}:
+                return self._reject(
+                    reason=data_integrity_guard.halt_reason() or "system_halted",
+                    message=message,
+                    occurred_at=now,
+                )
 
         channel_id = str(message.get("channel_id") or "").strip().lower()
         channel_name = str(message.get("channel_name") or "").strip().lower()
@@ -326,7 +330,6 @@ class OpenClawCommandAdapter:
             if sender_id not in self._sender_allowlist and sender_name not in self._sender_allowlist:
                 return self._reject(reason="sender_not_allowed", message=message, occurred_at=now)
 
-        control = _parse_control_command(command)
         if control is not None:
             channel_roles = self._allowed_roles_for_channel(channel_id, channel_name)
             if "fund_manager" not in channel_roles:
