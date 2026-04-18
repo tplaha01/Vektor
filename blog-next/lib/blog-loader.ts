@@ -15,8 +15,34 @@ export interface BlogPost {
   content: string;
 }
 
+type FrontmatterValue = string | number | boolean | string[];
+type FrontmatterMap = Record<string, FrontmatterValue>;
+
+function asString(value: FrontmatterValue | undefined, fallback = ""): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) return value.join(", ");
+  return fallback;
+}
+
+function asStringArray(value: FrontmatterValue | undefined): string[] {
+  if (Array.isArray(value)) return value.map((item) => String(item));
+  if (typeof value === "string") return value ? [value] : [];
+  return [];
+}
+
+function asBoolean(value: FrontmatterValue | undefined, fallback = false): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true") return true;
+    if (normalized === "false") return false;
+  }
+  return fallback;
+}
+
 // Simple YAML frontmatter parser - handles various line ending formats
-function parseFrontmatter(content: string): { frontmatter: Record<string, any>; body: string } {
+function parseFrontmatter(content: string): { frontmatter: FrontmatterMap; body: string } {
   // Normalize line endings to \n
   const normalized = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   
@@ -30,7 +56,7 @@ function parseFrontmatter(content: string): { frontmatter: Record<string, any>; 
   }
   
   const [, frontmatterStr, body] = match;
-  const frontmatter: Record<string, any> = {};
+  const frontmatter: FrontmatterMap = {};
   
   // Parse YAML-like frontmatter line by line
   const lines = frontmatterStr.split('\n');
@@ -103,15 +129,15 @@ export async function getAllBlogPosts(): Promise<BlogPost[]> {
       
       return {
         slug: file.replace('.mdx', ''),
-        title: frontmatter.title || 'Untitled',
-        description: frontmatter.description || '',
-        date: frontmatter.date || new Date().toISOString(),
-        tags: frontmatter.tags || [],
-        featured: frontmatter.featured || false,
-        readTime: frontmatter.readTime || '',
-        author: frontmatter.author || '',
-        authorImage: frontmatter.authorImage || '',
-        thumbnail: frontmatter.thumbnail || '',
+        title: asString(frontmatter.title, 'Untitled'),
+        description: asString(frontmatter.description, ''),
+        date: asString(frontmatter.date, new Date().toISOString()),
+        tags: asStringArray(frontmatter.tags),
+        featured: asBoolean(frontmatter.featured, false),
+        readTime: asString(frontmatter.readTime, ''),
+        author: asString(frontmatter.author, ''),
+        authorImage: asString(frontmatter.authorImage, ''),
+        thumbnail: asString(frontmatter.thumbnail, ''),
         content: body,
       };
     });

@@ -2633,3 +2633,21 @@ files:
 - frontend/src/pages/Admin.jsx
 validation: py -3 -m pytest backend/tests/test_admin_status_badges.py backend/tests/test_task_bus_persistence.py backend/tests/test_runtime_guard.py -q (pass); py -3 -m pytest backend/tests/test_fund_agent_runtime.py backend/tests/test_fund_pipeline.py -q (pass); npm run build in frontend (pass)
 notes: Included pre-existing user blog-next modifications in branch per user direction.
+
+[2026-04-18T01:46:00Z] [UPDATE]
+entry_id: devlog-20260418-codex-blognext-buildfix-001
+actor_name: codex_cto
+actor_platform: codex
+actor_model: gpt-5.4
+actor_provider: openai
+run_id: run-viktor-hardening-002
+git_branch: codex/hardening-sprint
+git_commit_start: 0dd943c6ec2cc1041623d10f949af8185a577be6
+git_commit_end:
+scope: Resolved blog-next lint/type build blockers to make Next.js blog app compile cleanly for release readiness.
+files:
+- blog-next/lib/blog-loader.ts
+- blog-next/lib/blog-source.ts
+- blog-next/app/opengraph-image.tsx
+validation: npm run build in blog-next (pass); npm run build in frontend (pass)
+notes: Added explicit frontmatter coercion helpers and removed unused source interface.

@@ -1,22 +1,5 @@
 import { getAllBlogPosts } from "./blog-loader";
 
-interface BlogPageSource {
-  url: string;
-  data: {
-    title: string;
-    description: string;
-    date: string;
-    tags?: string[];
-    featured?: boolean;
-    readTime?: string;
-    author?: string;
-    authorImage?: string;
-    thumbnail?: string;
-    body?: React.ReactNode;  // Placeholder for MDX body
-    content: string; // Raw markdown/MDX content
-  };
-}
-
 // Create a source-like object that works with the fumadocs loader
 export async function createBlogSource() {
   const posts = await getAllBlogPosts();
