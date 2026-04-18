@@ -17,6 +17,53 @@ const ResearchDetail = ({ report, onBack }) => {
   const [showProvenance, setShowProvenance] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  const handleShare = async () => {
+    try {
+      const reportUrl = `${window.location.origin}/research?id=${report.id}`;
+      if (navigator.share) {
+        await navigator.share({
+          title: report.title,
+          text: report.summary,
+          url: reportUrl,
+        });
+      } else {
+        await navigator.clipboard.writeText(reportUrl);
+        alert('Report link copied to clipboard!');
+      }
+    } catch (err) {
+      console.error('Share error:', err);
+    }
+  };
+
+  const handleDownload = () => {
+    try {
+      // Create a simple text document for download
+      const reportText = `
+${report.title}
+${new Date(report.published_at).toLocaleDateString()}
+
+SUMMARY
+${report.summary}
+
+KEY FINDINGS
+${report.findings?.map((f, i) => `${i + 1}. ${f}`).join('\n')}
+
+ASSETS ANALYZED
+${report.asset_universe?.join(', ')}
+      `.trim();
+
+      const element = document.createElement('a');
+      element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(reportText));
+      element.setAttribute('download', `${report.title.replace(/\s+/g, '_')}_report.txt`);
+      element.style.display = 'none';
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
+    } catch (err) {
+      console.error('Download error:', err);
+    }
+  };
+
   const getConfidenceColor = (confidence) => {
     if (confidence > 0.7) return 'high';
     if (confidence > 0.4) return 'medium';
@@ -44,7 +91,7 @@ const ResearchDetail = ({ report, onBack }) => {
         </button>
 
         <div className="header-actions">
-          <button className="action-btn" title="Share">
+          <button className="action-btn" onClick={handleShare} title="Share">
             <Share2 size={18} />
           </button>
           <button
@@ -54,7 +101,7 @@ const ResearchDetail = ({ report, onBack }) => {
           >
             <BookmarkPlus size={18} />
           </button>
-          <button className="action-btn" title="Download PDF">
+          <button className="action-btn" onClick={handleDownload} title="Download PDF">
             <Download size={18} />
           </button>
         </div>
@@ -259,10 +306,24 @@ const ResearchDetail = ({ report, onBack }) => {
         </section>
 
         {/* Related Reports */}
-        <section className="detail-section">
-          <h2 className="section-title">Related Research</h2>
-          <p className="coming-soon">Related reports will appear here</p>
-        </section>
+        {report.related_reports && report.related_reports.length > 0 && (
+          <section className="detail-section">
+            <h2 className="section-title">Related Research</h2>
+            <div className="related-reports-grid">
+              {report.related_reports.map((relatedReport, idx) => (
+                <a
+                  key={idx}
+                  href={`?id=${relatedReport.id}`}
+                  className="related-report-card"
+                  title={relatedReport.title}
+                >
+                  <h4>{relatedReport.title}</h4>
+                  <p>{relatedReport.summary?.substring(0, 100)}...</p>
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
       </article>
     </div>
   );

@@ -69,7 +69,7 @@ copy .env.example .env
 npm run dev
 ```
 
-Frontend URL: `http://localhost:5173`
+Frontend URL: `http://localhost:9000`
 
 ### 3) Landing Site (Next SSR)
 
@@ -162,6 +162,23 @@ subagents/
 1. Keep running this hybrid setup (Next landing + React product app).
 2. Incrementally move product surfaces from `frontend` into Next routes.
 3. Keep backend contracts stable during UI migration.
+
+## Deploy (Vercel + Azure)
+
+- Frontend (`frontend`) -> Vercel
+- Backend (`backend`) -> Azure App Service (Linux/Python)
+
+See full runbook:
+
+- `docs/DEPLOY_VERCEL_AZURE.md`
+
+Quick start:
+
+```powershell
+vercel login
+az login --use-device-code
+.\scripts\deploy-all.ps1 -AzureAppName "<globally-unique-app-name>"
+```
 
 ## Startup Canonical Spec
 

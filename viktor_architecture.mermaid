@@ -1,0 +1,113 @@
+flowchart TD
+    %% Control Layer
+    CEO["CEO<br/>Task: Set investment mandate and risk limits"]
+    OC["OpenClaw Orchestrator<br/>Task: Execute runs and delegate research"]
+    RD["Research Director<br/>Task: Coordinate analysts and synthesize reports"]
+    
+    %% Research Analysts
+    TA["Technical Analyst<br/>Task: Generate price action and indicator signals"]
+    FA["Fundamental Analyst<br/>Task: Analyze financials and business models"]
+    SA["Sentiment Analyst<br/>Task: Extract market sentiment from news/social"]
+    MLA["ML Analyst<br/>Task: Train predictive models and forecast returns"]
+    IR["Insight Researcher<br/>Task: Identify alpha-generating market inefficiencies"]
+    HFR["Hedge Fund Researcher<br/>Task: Monitor institutional positions and flows"]
+    
+    %% Execution Layer
+    RA["Risk Auditor<br/>Task: Assess portfolio risk and validate compliance"]
+    TR["Trader<br/>Task: Execute orders and manage position sizing"]
+    BW["Blog Writer<br/>Task: Publish investment theses and market commentary"]
+    
+    %% Operational Entities
+    RUN["Run<br/>Task: Track single strategy execution cycle"]
+    AT["AgentTask<br/>Task: Record individual analyst assignment"]
+    RR["ResearchReport<br/>Task: Store analyst findings and recommendations"]
+    TT["TradeThesis<br/>Task: Document investment rationale and conviction"]
+    RISK["RiskAssessment<br/>Task: Quantify exposure and drawdown scenarios"]
+    DR["DecisionRecord<br/>Task: Log go/no-go verdict with reasoning"]
+    EI["ExecutionIntent<br/>Task: Specify order parameters and timing"]
+    ORD["Order<br/>Task: Capture broker execution details"]
+    POS["Position<br/>Task: Track holdings and unrealized PnL"]
+    CASH["CashSnapshot<br/>Task: Record available liquidity"]
+    TH["TaskHistory<br/>Task: Audit agent work and timestamps"]
+    LE["LedgerEvent<br/>Task: Append immutable transaction log"]
+    BP["BlogPost<br/>Task: Publish public-facing research"]
+    
+    %% Hierarchy
+    subgraph Control["Control Hierarchy"]
+        CEO --> OC
+        OC --> RD
+    end
+    
+    subgraph Research["Research Team"]
+        RD --> TA
+        RD --> FA
+        RD --> SA
+        RD --> MLA
+        RD --> IR
+        RD --> HFR
+    end
+    
+    subgraph Execution["Execution & Risk"]
+        RA
+        TR
+        BW
+    end
+    
+    subgraph Data["Data Entities"]
+        RUN
+        AT
+        RR
+        TT
+        RISK
+        DR
+        EI
+        ORD
+        POS
+        CASH
+        TH
+        LE
+        BP
+    end
+    
+    %% Operational Flow
+    OC --> RUN
+    RUN --> AT
+    AT --> RR
+    
+    TA --> RR
+    FA --> RR
+    SA --> RR
+    MLA --> RR
+    IR --> RR
+    HFR --> RR
+    
+    RR --> TT
+    TT --> RISK
+    CASH --> RISK
+    
+    RA --> RISK
+    RISK --> DR
+    DR --> EI
+    
+    TR --> EI
+    EI --> ORD
+    ORD --> POS
+    
+    DR --> LE
+    ORD --> LE
+    
+    AT --> TH
+    RUN --> TH
+    
+    RR --> BP
+    RUN --> BP
+    BW --> BP
+    
+    %% Styling
+    classDef controlClass fill:#1a1a2e,stroke:#16213e,stroke-width:3px,color:#fff
+    classDef agentClass fill:#0f3460,stroke:#16213e,stroke-width:2px,color:#fff
+    classDef entityClass fill:#533483,stroke:#16213e,stroke-width:1px,color:#fff
+    
+    class CEO,OC,RD controlClass
+    class TA,FA,SA,MLA,IR,HFR,RA,TR,BW agentClass
+    class RUN,AT,RR,TT,RISK,DR,EI,ORD,POS,CASH,TH,LE,BP entityClass

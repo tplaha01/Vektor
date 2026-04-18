@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import math
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Iterable
+from urllib.parse import quote_plus
 from uuid import uuid4
 
 from app.fund.ai_role_adapter import ai_role_adapter
@@ -14,6 +15,11 @@ from app.storage import db as storage_db
 
 def _utc_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _utc_date_start_iso() -> str:
+    now = datetime.now(timezone.utc)
+    return now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _slugify(value: str) -> str:
@@ -30,7 +36,6 @@ def _ensure_unique_slug(value: str) -> str:
     if not storage_db.load_blog_post(base):
         return base
 
-    # Keep suffix room for retries while preserving readability.
     trimmed_base = base[:70].rstrip("-")
     for idx in range(2, 100):
         candidate = f"{trimmed_base}-{idx}"
@@ -54,7 +59,7 @@ def _author_name_for_role(role: str) -> str:
         "insight_researcher": "Insight Research Agent",
         "hedge_fund_researcher": "Hedge Fund Research Agent",
         "signal_committee": "Signal Committee Agent",
-        "blog_writer": "Vektor Blog Agent",
+        "blog_writer": "Vektor Editorial Agent",
     }
     return role_map.get(str(role or "").strip().lower(), "Vektor Research Agent")
 
@@ -68,12 +73,151 @@ def _category_for_role(role: str) -> str:
         "insight_researcher": "Market Analysis",
         "hedge_fund_researcher": "Hedge Fund Research",
         "signal_committee": "Multi-Signal Intelligence",
-        "blog_writer": "Market Analysis",
+        "blog_writer": "AI-Fintech Research",
     }
-    return role_map.get(str(role or "").strip().lower(), "Market Analysis")
+    return role_map.get(str(role or "").strip().lower(), "AI-Fintech Research")
+
+
+def _first_sentence(text: str, fallback: str) -> str:
+    raw = str(text or "").strip()
+    if not raw:
+        return fallback
+    sentence = re.split(r"(?<=[.!?])\s+", raw, maxsplit=1)[0].strip()
+    return sentence[:240] if sentence else fallback
+
+
+def _topic_bundle(summary: str, findings: list[str], assets: list[str]) -> dict[str, Any]:
+    blob = " ".join([summary, *findings]).lower()
+    if any(token in blob for token in ("liquidity", "order book", "spread", "volatility regime", "volatility")):
+        topic = "Liquidity Regime and Volatility Structure"
+        image_query = "trading desk market volatility chart"
+        tags = ("market microstructure", "liquidity", "volatility")
+    elif any(token in blob for token in ("valuation", "earnings", "margin", "cash flow", "balance sheet")):
+        topic = "Fundamental Drift and Valuation Repricing"
+        image_query = "equity valuation financial statements analysis"
+        tags = ("fundamental analysis", "valuation", "earnings")
+    elif any(token in blob for token in ("sentiment", "news", "x ", "twitter", "narrative")):
+        topic = "Narrative Rotation and Sentiment Regime Shift"
+        image_query = "financial news sentiment dashboard"
+        tags = ("sentiment", "market narrative", "alt data")
+    elif any(token in blob for token in ("ml", "timeseries", "forecast", "probability", "regime")):
+        topic = "Model Drift, Forecast Reliability, and Regime Detection"
+        image_query = "quantitative model time series analysis"
+        tags = ("quant research", "time series", "regime detection")
+    else:
+        topic = "AI-Native Hedge Fund Operations and Signal Discipline"
+        image_query = "ai fintech hedge fund operations"
+        tags = ("ai hedge fund", "portfolio operations", "risk")
+
+    asset_tags = tuple(item.lower() for item in assets[:4] if item)
+    return {"topic": topic, "image_query": image_query, "tags": tuple(dict.fromkeys((*tags, *asset_tags)))[:12]}
+
+
+def _build_fallback_content(
+    *,
+    symbol: str,
+    topic: str,
+    summary: str,
+    findings: list[str],
+) -> str:
+    bullet_rows = [f"- {item}" for item in findings[:10]]
+    if not bullet_rows:
+        bullet_rows = ["- No structured findings available; confidence is reduced until additional reports arrive."]
+
+    return "\n".join(
+        [
+            "## Executive Brief",
+            summary or f"{symbol} research package updated under {topic}.",
+            "",
+            "## Why This Matters Now",
+            (
+                f"{symbol} is showing a transition point in the current market regime. "
+                "For a paper-first hedge fund workflow, this matters because position sizing and sleeve-level allocations "
+                "must adjust before execution, not after slippage and volatility expansion."
+            ),
+            "",
+            "## Evidence and Context",
+            *bullet_rows,
+            "",
+            "## Execution Scenarios (30/90 day)",
+            (
+                "Base case (30d): controlled continuation with moderate dispersion. "
+                "Upside case (90d): thesis reinforcement through catalyst confirmation and sustained breadth. "
+                "Downside case (90d): thesis invalidation via liquidity deterioration and adverse macro repricing."
+            ),
+            "",
+            "## Risk Controls and Failure Modes",
+            (
+                "Use pre-trade risk gates, sleeve budgets, and concentration caps as hard constraints. "
+                "Failure modes include narrative overfitting, stale data latency, and structural breaks in volatility regimes."
+            ),
+            "",
+            "## What to Track Next",
+            (
+                "Track signal persistence, estimate error drift, cross-asset correlation shifts, and execution quality "
+                "versus expected slippage. Promote or demote conviction only on evidence."
+            ),
+            "",
+            "## Reader Takeaway",
+            (
+                "Treat this as a decision-support memo, not a prediction. "
+                "The advantage comes from disciplined iteration, provenance-backed evidence, and strict risk enforcement."
+            ),
+        ]
+    ).strip()
+
+
+def _markdown_to_excerpt(markdown: str, fallback: str) -> str:
+    text = re.sub(r"^#+\s*", "", str(markdown or ""), flags=re.MULTILINE)
+    text = re.sub(r"[*_`>-]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text[:220] if text else fallback
+
+
+def _hero_image_url(image_query: str) -> str:
+    query = quote_plus(str(image_query or "ai fintech market analysis"))
+    return f"https://source.unsplash.com/1600x900/?{query}"
 
 
 class BlogService:
+    def daily_quota_remaining(self, target_per_day: int) -> int:
+        target = max(0, int(target_per_day))
+        if target == 0:
+            return 0
+        published_today = storage_db.count_blog_posts_since(_utc_date_start_iso())
+        return max(0, target - int(published_today))
+
+    def has_post_for_report(self, report_id: str) -> bool:
+        key = str(report_id or "").strip()
+        if not key:
+            return False
+        return storage_db.load_blog_post_by_source_report(key) is not None
+
+    def select_editorial_candidates(
+        self,
+        *,
+        reports: Iterable[dict[str, Any]],
+        min_confidence: float,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        candidates: list[dict[str, Any]] = []
+        for row in reports:
+            report_id = str(row.get("report_id") or "").strip()
+            if not report_id or self.has_post_for_report(report_id):
+                continue
+            confidence = float(row.get("confidence") or 0.0)
+            if confidence < float(min_confidence):
+                continue
+            candidates.append(row)
+        candidates.sort(
+            key=lambda item: (
+                float(item.get("confidence") or 0.0),
+                str(item.get("created_at") or ""),
+            ),
+            reverse=True,
+        )
+        return candidates[: max(0, int(limit))]
+
     def publish_from_research(
         self,
         *,
@@ -95,74 +239,75 @@ class BlogService:
         if existing:
             return existing
 
-        ai_title = ""
-        ai_summary = ""
-        ai_findings: tuple[str, ...] = tuple()
+        topic_bundle = _topic_bundle(summary, findings, assets)
+        fallback_title = f"{symbol}: {topic_bundle['topic']}"
+        fallback_content = _build_fallback_content(
+            symbol=symbol,
+            topic=str(topic_bundle["topic"]),
+            summary=summary,
+            findings=findings,
+        )
+        fallback_excerpt = _first_sentence(summary, f"Research update on {symbol} for AI-native hedge-fund operators.")
+        fallback_tags = tuple(topic_bundle["tags"])
+        fallback_image_query = str(topic_bundle["image_query"])
+
         ai_metadata: dict[str, Any] = {"used": False}
+        ai_draft = None
         try:
-            ai_result = ai_role_adapter.analyze_specialist(
-                role="insight_researcher",
-                symbol=symbol,
+            ai_draft = ai_role_adapter.draft_blog_post(
                 run_id=run_id or f"run-blog-{uuid4().hex[:8]}",
-                payload={
-                    "command": command or "Write an expert blog post from research insights.",
-                    "report_id": report_id,
-                    "author_role": agent_role,
-                    "trigger_source": trigger_source,
-                },
-                context={"report": report_row},
-                fallback_summary=summary,
-                fallback_findings=tuple(findings or [summary]),
-                fallback_confidence=Decimal(str(max(min(confidence, 1.0), 0.0))),
-                fallback_provenance=tuple(),
+                symbol=symbol,
+                command=command
+                or (
+                    "Write a specific, useful article for AI-fintech-hedge-fund operators. "
+                    "Avoid generic statements and include execution-relevant context."
+                ),
+                report=report_row,
+                fallback_title=fallback_title,
+                fallback_excerpt=fallback_excerpt,
+                fallback_content_markdown=fallback_content,
+                fallback_tags=fallback_tags,
+                fallback_image_query=fallback_image_query,
             )
-            if ai_result:
-                ai_summary = ai_result.summary
-                ai_findings = ai_result.findings
-                ai_title = ai_result.summary.split(".")[0].strip()
-                ai_metadata = dict(ai_result.metadata or {"used": True})
+            if ai_draft:
+                ai_metadata = dict(ai_draft.metadata or {"used": True})
         except Exception:
             ai_metadata = {"used": False, "error": ai_role_adapter.health().get("last_error")}
 
-        final_summary = ai_summary or summary
-        final_findings = list(ai_findings or tuple(findings))
-        if not final_findings:
-            final_findings = [final_summary] if final_summary else ["Research update generated by Vektor."]
-        title_prefix = "/".join(assets[:3]) if assets else "Market"
-        title = ai_title if ai_title else f"{title_prefix}: {final_findings[0][:72]}"
-        title = title[:100].strip() or f"{title_prefix} Research Update"
-        excerpt = final_summary[:220].strip() or f"Latest research update on {title_prefix}."
+        final_title = str(ai_draft.title if ai_draft else fallback_title)[:120].strip() or fallback_title
+        final_content = str(ai_draft.content_markdown if ai_draft else fallback_content).strip() or fallback_content
+        final_excerpt = str(ai_draft.excerpt if ai_draft else _markdown_to_excerpt(final_content, fallback_excerpt)).strip()
+        final_excerpt = final_excerpt[:240] if final_excerpt else fallback_excerpt
+        final_tags = list(
+            dict.fromkeys(
+                [
+                    *(ai_draft.tags if ai_draft else fallback_tags),
+                    "vektor",
+                    "ai-native",
+                    "hedge-fund",
+                    "research",
+                ]
+            )
+        )[:12]
+        image_query = str(ai_draft.image_query if ai_draft else fallback_image_query).strip() or fallback_image_query
+        hero_url = _hero_image_url(image_query)
 
-        body_lines = [
-            final_summary,
-            "",
-            "Key Findings:",
-            *[f"- {item}" for item in final_findings[:8]],
-            "",
-            "What This Means:",
-            "This post is generated from live Vektor research workflows and is intended for paper-first decision support.",
-            "",
-            "Risk Note:",
-            "Signals and views can fail in real markets; validate thesis, risk limits, and execution controls before any live deployment.",
-        ]
-        content = "\n".join(body_lines).strip()
-        read_time = max(3, min(12, int(math.ceil(len(content.split()) / 220.0))))
-
+        read_time = max(4, min(20, int(math.ceil(len(final_content.split()) / 220.0))))
         post_id = f"blog-{uuid4().hex[:12]}"
-        slug = _ensure_unique_slug(title)
+        slug = _ensure_unique_slug(final_title)
         now = _utc_iso()
         post = {
             "id": post_id,
             "source_report_id": report_id or None,
             "source_run_id": run_id,
             "slug": slug,
-            "title": title,
-            "excerpt": excerpt,
+            "title": final_title,
+            "excerpt": final_excerpt,
             "category": _category_for_role(agent_role),
             "author": _author_name_for_role(agent_role),
             "author_role": agent_role,
-            "content": content,
-            "tags": list(dict.fromkeys([*assets[:5], "vektor", "ai-native", "research"])),
+            "content": final_content,
+            "tags": final_tags,
             "views": 0,
             "read_time_minutes": read_time,
             "status": "published",
@@ -172,14 +317,16 @@ class BlogService:
                 "confidence": confidence,
                 "report_id": report_id,
                 "assets": assets,
+                "topic": topic_bundle["topic"],
+                "image_query": image_query,
+                "hero_image_url": hero_url,
                 "ai": ai_metadata,
             },
             "created_at": now,
             "published_at": now,
             "updated_at": now,
         }
-        # Slug is unique in DB. Retry with a unique suffix if a concurrent
-        # writer inserted the same slug between check and save.
+
         for _ in range(4):
             try:
                 storage_db.save_blog_post(post)
@@ -227,6 +374,7 @@ class BlogService:
         return published
 
     def _to_blog_list_item(self, row: dict[str, Any]) -> dict[str, Any]:
+        metadata = dict(row.get("metadata") or {})
         return {
             "id": row.get("id"),
             "slug": row.get("slug"),
@@ -238,9 +386,11 @@ class BlogService:
             "views": int(row.get("views") or 0),
             "readTime": int(row.get("read_time_minutes") or 3),
             "tags": list(row.get("tags") or []),
+            "heroImageUrl": metadata.get("hero_image_url"),
         }
 
     def _to_blog_detail_item(self, row: dict[str, Any]) -> dict[str, Any]:
+        metadata = dict(row.get("metadata") or {})
         return {
             **self._to_blog_list_item(row),
             "authorRole": row.get("author_role"),
@@ -248,7 +398,8 @@ class BlogService:
             "sourceReportId": row.get("source_report_id"),
             "sourceRunId": row.get("source_run_id"),
             "content": row.get("content"),
-            "metadata": dict(row.get("metadata") or {}),
+            "metadata": metadata,
+            "heroImageUrl": metadata.get("hero_image_url"),
             "createdAt": row.get("created_at"),
             "updatedAt": row.get("updated_at"),
         }

@@ -71,7 +71,12 @@ class Settings(BaseSettings):
     AI_ROLE_MODEL_ML: str | None = None
     AI_ROLE_MODEL_INSIGHT: str | None = None
     AI_ROLE_MODEL_HEDGE_FUND: str | None = None
+    AI_ROLE_MODEL_BLOG: str | None = None
     AI_ROLE_REQUIRE_SUCCESS: bool = False
+    BLOG_AUTO_EDITORIAL_ENABLED: bool = True
+    BLOG_AUTO_EDITORIAL_INTERVAL_HOURS: int = 12
+    BLOG_AUTO_EDITORIAL_TARGET_PER_DAY: int = 2
+    BLOG_AUTO_EDITORIAL_MIN_CONFIDENCE: float = 0.55
 
     NEWSAPI_KEY:  str | None = None
     FMP_KEY:      str | None = None
@@ -81,6 +86,8 @@ class Settings(BaseSettings):
     ALPACA_SECRET_KEY: str | None = None
     ALPACA_BASE_URL:   str = "https://paper-api.alpaca.markets"
     ALPACA_FEED:       str = "iex"
+    ALPACA_STREAM_ENABLED: bool = True
+    WEBSOCKET_STREAM_FETCH_TIMEOUT_SECONDS: float = 1.5
 
     BUY_THRESHOLD:  float = 0.20
     SELL_THRESHOLD: float = -0.20

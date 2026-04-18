@@ -85,6 +85,23 @@ def _fetch_prev_closes() -> None:
     logger.info("Previous closes loaded for %s symbols", len(_prev_close))
 
 
+def _collect_tick_and_positions(symbols: list[str]) -> tuple[list[dict], list]:
+    """
+    Blocking market data + positions collection, intended to run off-thread.
+    """
+    tick_data: list[dict] = []
+    for sym in symbols:
+        px = FEED.price(sym)
+        if px and px > 0:
+            manager.update_tick(sym, px, _prev_close.get(sym))
+            tick_data.append(manager._tick_cache[sym])
+
+    from app.core.context import broker
+
+    positions = broker.list_positions(lambda s: FEED.price(s))
+    return tick_data, positions
+
+
 async def stream_loop():
     settings = get_settings()
 
@@ -92,7 +109,10 @@ async def stream_loop():
     _fetch_prev_closes()
 
     FEED.subscribe(_alpaca_tick_callback)
-    FEED.start_stream(WATCHLIST)
+    if settings.ALPACA_STREAM_ENABLED:
+        FEED.start_stream(WATCHLIST)
+    else:
+        logger.info("Alpaca stream disabled; using REST/cached prices only.")
 
     logger.info("Stream loop started; broadcast_interval=%ss", settings.WEBSOCKET_BROADCAST_INTERVAL)
 
@@ -103,12 +123,11 @@ async def stream_loop():
             continue
 
         try:
-            tick_data = []
-            for sym in WATCHLIST:
-                px = FEED.price(sym)
-                if px and px > 0:
-                    manager.update_tick(sym, px, _prev_close.get(sym))
-                    tick_data.append(manager._tick_cache[sym])
+            timeout_seconds = max(0.2, float(settings.WEBSOCKET_STREAM_FETCH_TIMEOUT_SECONDS))
+            tick_data, positions = await asyncio.wait_for(
+                asyncio.to_thread(_collect_tick_and_positions, WATCHLIST),
+                timeout=timeout_seconds,
+            )
 
             if tick_data:
                 await manager.broadcast(
@@ -118,10 +137,6 @@ async def stream_loop():
                         "ts": _utc_iso(),
                     }
                 )
-
-            from app.core.context import broker
-
-            positions = broker.list_positions(lambda s: FEED.price(s))
             if positions:
                 await manager.broadcast(
                     {
@@ -131,5 +146,7 @@ async def stream_loop():
                     }
                 )
 
+        except asyncio.TimeoutError:
+            logger.warning("Stream loop fetch timeout; skipping cycle")
         except Exception as exc:
             logger.warning("Stream loop error: %s", exc)

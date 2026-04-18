@@ -37,9 +37,10 @@ const SystemOverview = () => {
   // WebSocket connection for real-time updates
   useEffect(() => {
     const connectWebSocket = () => {
-      // Determine protocol and host
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const host = 'localhost:8000'; // Connect directly to backend
+      // Use backend URL from env or fallback to current host
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || `http://${window.location.host}`;
+      const protocol = backendUrl.startsWith('https') ? 'wss:' : 'ws:';
+      const host = backendUrl.replace(/^https?:\/\//, '');
       const wsUrl = `${protocol}//${host}/ws/agents`;
       
       console.log(`[SystemOverview] Attempting WebSocket connection to: ${wsUrl}`);

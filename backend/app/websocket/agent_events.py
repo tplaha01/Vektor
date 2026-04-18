@@ -69,6 +69,9 @@ class AgentEventStreamManager:
             }
             await ws.send_json(initial_state)
             logger.info(f"Agent stream connected; sent status snapshot with {len(self._agent_status_cache)} agents")
+        except RuntimeError:
+            logger.debug("Agent stream client disconnected before initial snapshot send")
+            await self.disconnect(ws)
         except Exception as e:
             logger.warning(f"Failed to send initial snapshot: {e}")
             await self.disconnect(ws)

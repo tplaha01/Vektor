@@ -89,12 +89,44 @@ def _normalize_citations(value: Any) -> tuple[str, ...]:
     return tuple(dict.fromkeys(rows))[:12]
 
 
+def _normalize_tags(value: Any) -> tuple[str, ...]:
+    rows: list[str] = []
+    if isinstance(value, list):
+        rows = [str(item).strip().lower() for item in value if str(item).strip()]
+    elif isinstance(value, str) and value.strip():
+        rows = [item.strip().lower() for item in re.split(r"[,\n]+", value) if item.strip()]
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for item in rows:
+        token = re.sub(r"[^a-z0-9\-_ ]", "", item).strip()
+        if not token:
+            continue
+        if token in seen:
+            continue
+        seen.add(token)
+        cleaned.append(token)
+    return tuple(cleaned[:12])
+
+
 @dataclass(frozen=True)
 class AIRoleAnalysis:
     summary: str
     findings: tuple[str, ...]
     confidence: Decimal
     citations: tuple[str, ...]
+    metadata: dict[str, Any]
+    provider: str
+    model: str
+    raw_text: str
+
+
+@dataclass(frozen=True)
+class AIBlogDraft:
+    title: str
+    excerpt: str
+    content_markdown: str
+    tags: tuple[str, ...]
+    image_query: str
     metadata: dict[str, Any]
     provider: str
     model: str
@@ -280,6 +312,125 @@ class AIRoleAdapter:
                 raise
             return None
 
+    def draft_blog_post(
+        self,
+        *,
+        run_id: str,
+        symbol: str,
+        command: str,
+        report: dict[str, Any],
+        fallback_title: str,
+        fallback_excerpt: str,
+        fallback_content_markdown: str,
+        fallback_tags: tuple[str, ...],
+        fallback_image_query: str,
+    ) -> AIBlogDraft | None:
+        if not self._enabled:
+            return None
+        model = self._model_for_role("blog_writer")
+        if not model:
+            self._last_error = "missing_model"
+            if self._require_success:
+                raise RuntimeError("ai_role_adapter_missing_model")
+            return None
+
+        system_prompt = (
+            "You are Vektor's principal editorial analyst for AI, fintech, and hedge-fund research. "
+            "Write specific, high-signal content for serious operators. "
+            "Avoid generic motivation, filler, or broad beginner advice."
+        )
+        user_payload = {
+            "run_id": run_id,
+            "symbol": symbol,
+            "command": command,
+            "report": report,
+            "editorial_constraints": {
+                "minimum_words": 900,
+                "tone": "institutional, precise, operator-focused",
+                "must_include_sections": [
+                    "Executive Brief",
+                    "Why This Matters Now",
+                    "Evidence and Context",
+                    "Execution Scenarios (30/90 day)",
+                    "Risk Controls and Failure Modes",
+                    "What to Track Next",
+                ],
+                "domain_scope": "ai-fintech-hedge-fund",
+            },
+            "fallback": {
+                "title": fallback_title,
+                "excerpt": fallback_excerpt,
+                "tags": list(fallback_tags),
+                "image_query": fallback_image_query,
+            },
+            "output_schema": {
+                "title": "string",
+                "excerpt": "string_<=240_chars",
+                "tags": ["string"],
+                "image_query": "string_2_to_8_words",
+                "content_markdown": "markdown_string_with_required_sections",
+            },
+        }
+        user_prompt = (
+            "Return only JSON matching output_schema. No markdown fences. "
+            "content_markdown must be full article body, not outline.\n"
+            + json.dumps(user_payload, sort_keys=True, default=str)
+        )
+
+        try:
+            raw_text, usage = self._invoke_model(model=model, system_prompt=system_prompt, user_prompt=user_prompt)
+            parsed = _extract_json_object(raw_text)
+            parse_retry_used = False
+            if not parsed:
+                parse_retry_used = True
+                retry_text, retry_usage = self._invoke_model(
+                    model=model,
+                    system_prompt=system_prompt,
+                    user_prompt=(
+                        f"{user_prompt}\n"
+                        "Previous output was invalid JSON. Return exactly one strict JSON object with double-quoted keys."
+                    ),
+                )
+                parsed = _extract_json_object(retry_text)
+                if parsed:
+                    raw_text = retry_text
+                    usage = {"initial": usage, "retry": retry_usage}
+                else:
+                    self._last_error = "invalid_blog_json_response"
+                    return None
+
+            title = str(parsed.get("title") or "").strip()[:120] or fallback_title
+            excerpt = str(parsed.get("excerpt") or "").strip()[:240] or fallback_excerpt
+            content_markdown = str(parsed.get("content_markdown") or "").strip() or fallback_content_markdown
+            if len(content_markdown.split()) < 600:
+                content_markdown = fallback_content_markdown
+            tags = _normalize_tags(parsed.get("tags")) or fallback_tags
+            image_query = str(parsed.get("image_query") or "").strip()[:80] or fallback_image_query
+
+            self._last_error = None
+            return AIBlogDraft(
+                title=title,
+                excerpt=excerpt,
+                content_markdown=content_markdown,
+                tags=tuple(tags),
+                image_query=image_query,
+                metadata={
+                    "used": True,
+                    "provider": self._provider,
+                    "model": model,
+                    "usage": usage,
+                    "parse_retry_used": parse_retry_used,
+                },
+                provider=self._provider,
+                model=model,
+                raw_text=raw_text,
+            )
+        except Exception as exc:
+            self._last_error = str(exc)
+            if self._require_success:
+                raise
+            return None
+
     def _invoke_model(self, *, model: str, system_prompt: str, user_prompt: str) -> tuple[str, dict[str, Any]]:
         if self._provider in {"openai_compatible", "openai"}:
             return self._invoke_openai_compatible(model=model, system_prompt=system_prompt, user_prompt=user_prompt)
@@ -366,6 +517,7 @@ class AIRoleAdapter:
             "ml_timeseries_analyst": "You are an elite quantitative timeseries analyst. Discuss regime, forecast uncertainty, and failure modes.",
             "insight_researcher": "You are an elite research analyst. Synthesize narrative catalysts and decision relevance.",
             "hedge_fund_researcher": "You are an elite hedge-fund research strategist. Provide scenario-driven, risk-aware views.",
+            "blog_writer": "You are an elite financial research editor writing for sophisticated AI-fintech-hedge-fund readers.",
         }
         base = expertise_map.get(role, "You are an elite investment analyst.")
         return (
@@ -384,6 +536,7 @@ def _build_adapter_from_settings() -> AIRoleAdapter:
         "ml_timeseries_analyst": settings.AI_ROLE_MODEL_ML or "",
         "insight_researcher": settings.AI_ROLE_MODEL_INSIGHT or "",
         "hedge_fund_researcher": settings.AI_ROLE_MODEL_HEDGE_FUND or "",
+        "blog_writer": settings.AI_ROLE_MODEL_BLOG or "",
     }
     return AIRoleAdapter(
         enabled=settings.AI_ROLE_ADAPTER_ENABLED,

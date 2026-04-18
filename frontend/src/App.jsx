@@ -4,9 +4,13 @@ import AlfredDashboard from "./pages/AlfredDashboard";
 import Admin from "./pages/Admin";
 import Research from "./pages/Research";
 import Blog from "./pages/Blog";
+import AuditTrail from "./pages/AuditTrail";
+import ThesisDetail from "./pages/ThesisDetail";
 import "./styles/admin.css";
 import "./styles/research.css";
 import "./styles/blog.css";
+import "./styles/audit.css";
+import "./styles/thesis.css";
 
 export default function App() {
   return (
@@ -16,6 +20,8 @@ export default function App() {
         <Route path="/admin" element={<Admin />} />
         <Route path="/research" element={<Research />} />
         <Route path="/blog" element={<Blog />} />
+        <Route path="/audit/:decisionId" element={<AuditTrail />} />
+        <Route path="/thesis/:thesisId" element={<ThesisDetail />} />
       </Routes>
     </BrowserRouter>
   );

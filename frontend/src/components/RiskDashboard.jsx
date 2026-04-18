@@ -12,10 +12,34 @@ function Cell({ label, value, color }) {
 
 export default function RiskDashboard({ riskData:ext }) {
   const [data,setData]=useState(ext||null)
-  useEffect(()=>{ const l=()=>fetch(`${BASE}/risk/status`).then(r=>r.json()).then(setData).catch(console.warn); l(); const id=setInterval(l,5000); return()=>clearInterval(id) },[])
-  useEffect(()=>{ if(ext)setData(ext) },[ext])
+  const [error, setError] = useState(null)
+  const [loading, setLoading] = useState(!ext)
+  
+  useEffect(()=>{ 
+    const l = async () => {
+      try {
+        const r = await fetch(`${BASE}/risk/status`)
+        if (!r.ok) throw new Error(`Risk endpoint returned ${r.status}`)
+        const d = await r.json()
+        setData(d)
+        setError(null)
+      } catch (err) {
+        console.error('Risk dashboard error:', err)
+        setError(err.message || 'Failed to load risk data')
+      } finally {
+        setLoading(false)
+      }
+    }
+    l()
+    const id = setInterval(l, 5000)
+    return () => clearInterval(id)
+  }, [])
+  
+  useEffect(()=>{ if(ext){setData(ext); setLoading(false)} },[ext])
 
-  if (!data) return <div style={{ padding:20, color:"var(--txt3)", fontFamily:"var(--f-data)", fontSize:10 }}>LOADING…</div>
+  if (error) return <div style={{ padding:20, color:"var(--red)", fontFamily:"var(--f-data)", fontSize:11 }}>⚠ {error}</div>
+  if (loading) return <div style={{ padding:20, color:"var(--txt3)", fontFamily:"var(--f-data)", fontSize:10 }}>LOADING…</div>
+  if (!data) return <div style={{ padding:20, color:"var(--txt3)", fontFamily:"var(--f-data)", fontSize:10 }}>NO DATA</div>
 
   const dd=data.drawdown_breaker??{}, stops=data.open_stops??[]
   const equity=data.equity??100000, peak=dd.peak_equity??equity

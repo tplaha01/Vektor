@@ -1,0 +1,275 @@
+/* ============================================================
+   THESIS DETAIL STYLES
+   ============================================================ */
+
+:root {
+  --bg0: #060608;
+  --bg1: #0c0d10;
+  --bg2: #111318;
+  --txt: #dde1ea;
+  --txt2: #8b919e;
+  --txt3: #4e5462;
+  --line: rgba(255, 255, 255, 0.03);
+  --line2: rgba(255, 255, 255, 0.05);
+  --green: #3ecf8e;
+  --red: #e05252;
+  --amber: #f5a623;
+  --blue: #4a9eff;
+  --purple: #9b7fe8;
+}
+
+.thesis-container {
+  min-height: 100vh;
+  background: var(--bg0);
+  color: var(--txt);
+  padding: 24px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.thesis-loading {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--txt2);
+  font-size: 16px;
+}
+
+.thesis-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  color: var(--blue);
+  cursor: pointer;
+  font-size: 14px;
+  margin-bottom: 24px;
+  padding: 0;
+  transition: color 0.2s;
+}
+
+.thesis-back-btn:hover {
+  color: var(--txt);
+}
+
+.thesis-article {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.thesis-header {
+  margin-bottom: 48px;
+  padding-bottom: 32px;
+  border-bottom: 1px solid var(--line);
+}
+
+.thesis-header h1 {
+  font-size: 36px;
+  font-weight: 700;
+  margin: 0 0 16px 0;
+}
+
+.thesis-subtitle {
+  font-size: 18px;
+  color: var(--txt2);
+  margin: 0 0 24px 0;
+  line-height: 1.6;
+}
+
+.thesis-meta {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--txt2);
+}
+
+.meta-item.confidence {
+  color: var(--green);
+  font-weight: 600;
+}
+
+.thesis-section {
+  margin-bottom: 40px;
+}
+
+.thesis-section h2 {
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0 0 16px 0;
+  color: var(--txt);
+}
+
+.thesis-text {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--txt2);
+  margin: 0 0 16px 0;
+}
+
+.timeframe-badge {
+  display: inline-block;
+  padding: 8px 16px;
+  background: rgba(156, 127, 232, 0.15);
+  border: 1px solid var(--purple);
+  border-radius: 6px;
+  font-size: 14px;
+  color: var(--purple);
+  font-weight: 600;
+}
+
+.drivers-list,
+.risks-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.driver-item,
+.risk-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  background: var(--bg1);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 14px;
+  color: var(--txt2);
+}
+
+.checkmark {
+  flex-shrink: 0;
+  color: var(--green);
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.warning {
+  flex-shrink: 0;
+  color: var(--amber);
+  font-size: 16px;
+}
+
+.assets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.asset-card {
+  padding: 16px;
+  background: var(--bg1);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  text-align: center;
+  transition: all 0.2s;
+}
+
+.asset-card:hover {
+  border-color: var(--blue);
+  background: var(--bg2);
+  transform: translateY(-2px);
+}
+
+.asset-ticker {
+  display: block;
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--blue);
+}
+
+.backtest-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.backtest-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  background: var(--bg1);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.backtest-item .label {
+  font-size: 12px;
+  color: var(--txt2);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.backtest-item .value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--txt);
+}
+
+.backtest-item .value.success {
+  color: var(--green);
+}
+
+.backtest-item .value.warning {
+  color: var(--amber);
+}
+
+.related-decisions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.decision-link {
+  padding: 12px;
+  background: var(--bg1);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--blue);
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.decision-link:hover {
+  background: var(--bg2);
+  border-color: var(--blue);
+  transform: translateX(4px);
+}
+
+@media (max-width: 768px) {
+  .thesis-container {
+    padding: 16px;
+  }
+
+  .thesis-header h1 {
+    font-size: 28px;
+  }
+
+  .thesis-section h2 {
+    font-size: 18px;
+  }
+
+  .assets-grid {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  }
+
+  .backtest-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .thesis-meta {
+    flex-direction: column;
+    gap: 12px;
+  }
+}

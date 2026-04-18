@@ -517,7 +517,7 @@ async def websocket_endpoint(ws: WebSocket):
     try:
         while True:
             await ws.receive_text()
-    except WebSocketDisconnect:
+    except (WebSocketDisconnect, RuntimeError):
         manager.disconnect(ws)
 
 
@@ -537,6 +537,6 @@ async def websocket_agent_events(ws: WebSocket):
         while True:
             # Just keep connection open; events are broadcast from task bus
             await ws.receive_text()
-    except WebSocketDisconnect:
+    except (WebSocketDisconnect, RuntimeError):
         await agent_event_stream.disconnect(ws)
         

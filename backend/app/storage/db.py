@@ -184,6 +184,18 @@ def count_blog_posts(*, category: str | None = None) -> int:
     return int(row["c"] if row else 0)
 
 
+def count_blog_posts_since(iso_timestamp: str) -> int:
+    key = str(iso_timestamp or "").strip()
+    if not key:
+        return 0
+    with get_db() as db:
+        row = db.execute(
+            "SELECT COUNT(*) AS c FROM blog_posts WHERE published_at >= ?",
+            (key,),
+        ).fetchone()
+    return int(row["c"] if row else 0)
+
+
 def load_blog_post(post_id_or_slug: str) -> Dict[str, Any] | None:
     key = str(post_id_or_slug or "").strip()
     if not key:

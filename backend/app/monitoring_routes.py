@@ -6,7 +6,7 @@ from typing import Any, Dict
 from fastapi import APIRouter
 from app.monitoring import monitor
 
-router = APIRouter(prefix="/monitor", tags=["monitoring"])
+router = APIRouter(prefix="/api/monitor", tags=["monitoring"])
 
 
 @router.get("/status")

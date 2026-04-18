@@ -16,6 +16,16 @@ $RunDir = Join-Path $RepoRoot ".run"
 $LogDir = Join-Path $RunDir "logs"
 $ManifestPath = Join-Path $RunDir "vektor-services.json"
 
+function Test-IsAdmin {
+    try {
+        $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+        $principal = [Security.Principal.WindowsPrincipal]::new($identity)
+        return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    } catch {
+        return $false
+    }
+}
+
 function Ensure-Dirs {
     if (-not (Test-Path $RunDir)) {
         New-Item -ItemType Directory -Path $RunDir | Out-Null
@@ -104,6 +114,54 @@ function Get-ListenersByPorts([int[]]$ports) {
     return $list
 }
 
+function Get-ListenerPids([int]$port) {
+    $rows = netstat -ano -p tcp | Where-Object { $_ -match "LISTENING" -and $_ -match ":$port(\s|$)" }
+    if (-not $rows) {
+        return @()
+    }
+    $pids = @()
+    foreach ($row in $rows) {
+        $text = ($row | Out-String).Trim()
+        if ([string]::IsNullOrWhiteSpace($text)) {
+            continue
+        }
+        $parts = $text -split "\s+"
+        if ($parts.Count -lt 5) {
+            continue
+        }
+        if ($parts[3] -ne "LISTENING") {
+            continue
+        }
+        $local = $parts[1]
+        $pidText = $parts[4]
+        if ($local -match ":(\d+)$" -and [int]$Matches[1] -eq $port) {
+            $pidVal = 0
+            if ([int]::TryParse($pidText, [ref]$pidVal) -and $pidVal -gt 0) {
+                $pids += $pidVal
+            }
+        }
+    }
+    return @($pids | Sort-Object -Unique)
+}
+
+function Stop-PortListeners([int]$port, [int]$attempts = 3) {
+    for ($i = 0; $i -lt $attempts; $i++) {
+        $pids = Get-ListenerPids -port $port
+        if (@($pids).Count -eq 0) {
+            return @()
+        }
+        foreach ($procId in $pids) {
+            try {
+                Stop-Process -Id $procId -Force -ErrorAction Stop
+            } catch {
+                # Continue trying other PIDs; unresolved ones are returned to caller.
+            }
+        }
+        Start-Sleep -Milliseconds 350
+    }
+    return Get-ListenerPids -port $port
+}
+
 function Stop-VektorServices {
     $manifestRows = Load-Manifest
     foreach ($row in $manifestRows) {
@@ -119,15 +177,29 @@ function Stop-VektorServices {
     }
 
     $ports = @(8000, 9000, 3000, 3001, 5173, 5174)
-    $listeners = Get-ListenersByPorts -ports $ports
-    foreach ($conn in $listeners) {
-        if ($conn.OwningProcess -gt 0) {
-            Stop-Process -Id $conn.OwningProcess -Force -ErrorAction SilentlyContinue
+    $stale = @()
+    foreach ($p in $ports) {
+        $remaining = Stop-PortListeners -port $p
+        if (@($remaining).Count -gt 0) {
+            $stale += @(
+                [PSCustomObject]@{
+                    Port = $p
+                    PID = ($remaining -join ",")
+                }
+            )
         }
     }
 
     Save-Manifest -rows @()
-    Write-Host "Vektor services stopped."
+    if ($stale.Count -gt 0) {
+        Write-Warning "Some listeners could not be stopped. Run PowerShell as Administrator and terminate these PIDs:"
+        if (-not (Test-IsAdmin)) {
+            Write-Warning "Current shell is not elevated. Open 'Windows PowerShell (Administrator)' and retry."
+        }
+        $stale | Format-Table -AutoSize | Out-Host
+    } else {
+        Write-Host "Vektor services stopped."
+    }
 }
 
 function Start-ServiceRow($svc) {
@@ -136,12 +208,13 @@ function Start-ServiceRow($svc) {
     if (-not (Test-Path $stdout)) { New-Item -ItemType File -Path $stdout | Out-Null }
     if (-not (Test-Path $stderr)) { New-Item -ItemType File -Path $stderr | Out-Null }
 
-    $existing = Get-NetTCPConnection -State Listen -LocalPort $svc.port -ErrorAction SilentlyContinue
-    if ($existing) {
-        foreach ($conn in $existing) {
-            Stop-Process -Id $conn.OwningProcess -Force -ErrorAction SilentlyContinue
+    $baselinePids = @(Get-ListenerPids -port $svc.port)
+    $remaining = Stop-PortListeners -port $svc.port
+    if (@($remaining).Count -gt 0) {
+        if (-not (Test-IsAdmin)) {
+            throw "Port $($svc.port) is still in use by PID(s): $($remaining -join ', '). Current shell is not elevated. Open PowerShell as Administrator, stop those processes, then retry."
         }
-        Start-Sleep -Milliseconds 250
+        throw "Port $($svc.port) is still in use by PID(s): $($remaining -join ', '). Start PowerShell as Administrator, stop those processes, then retry."
     }
 
     $proc = Start-Process `
@@ -152,17 +225,26 @@ function Start-ServiceRow($svc) {
         -RedirectStandardError $stderr `
         -PassThru
 
-    $listenConn = $null
+    $listenPid = 0
     for ($i = 0; $i -lt 20; $i++) {
-        $candidate = Get-NetTCPConnection -State Listen -LocalPort $svc.port -ErrorAction SilentlyContinue | Select-Object -First 1
-        if ($candidate) {
-            $listenConn = $candidate
+        $currentPids = @(Get-ListenerPids -port $svc.port)
+        $newPids = @($currentPids | Where-Object { $_ -notin $baselinePids })
+        if ($newPids.Count -gt 0) {
+            $listenPid = [int]$newPids[0]
+            break
+        }
+        if ($currentPids -contains [int]$proc.Id) {
+            $listenPid = [int]$proc.Id
+            break
+        }
+        $stillRunning = $null -ne (Get-Process -Id $proc.Id -ErrorAction SilentlyContinue)
+        if (-not $stillRunning) {
             break
         }
         Start-Sleep -Milliseconds 300
     }
-    $listening = $null -ne $listenConn
-    $actualPid = if ($listenConn) { [int]$listenConn.OwningProcess } else { [int]$proc.Id }
+    $listening = $listenPid -gt 0
+    $actualPid = if ($listenPid -gt 0) { $listenPid } else { [int]$proc.Id }
     return @{
         name = $svc.name
         pid = $actualPid
@@ -187,18 +269,18 @@ function Show-Status {
     foreach ($row in $manifestRows) {
         $pidVal = 0
         try { $pidVal = [int]$row.pid } catch { $pidVal = 0 }
-        $listener = Get-NetTCPConnection -State Listen -LocalPort ([int]$row.port) -ErrorAction SilentlyContinue | Select-Object -First 1
-        $activePid = if ($listener) { [int]$listener.OwningProcess } else { $pidVal }
+        $listenerPids = @(Get-ListenerPids -port ([int]$row.port))
+        $activePid = if ($listenerPids.Count -gt 0) { [int]$listenerPids[0] } else { $pidVal }
         $proc = $null
         if ($activePid -gt 0) {
             $proc = Get-Process -Id $activePid -ErrorAction SilentlyContinue
         }
-        $listening = [bool]$listener
+        $listening = $listenerPids.Count -gt 0
         $rows += [PSCustomObject]@{
             Service = $row.name
-            PID = if ($proc) { $activePid } else { "-" }
+            PID = if ($activePid -gt 0) { $activePid } else { "-" }
             Port = $row.port
-            State = if ($proc -and $listening) { "running" } elseif ($proc) { "process-only" } else { "stopped" }
+            State = if ($listening) { "running" } elseif ($proc) { "process-only" } else { "stopped" }
             URL = $row.url
             Stdout = $row.stdout
             Stderr = $row.stderr

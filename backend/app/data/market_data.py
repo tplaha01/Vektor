@@ -211,6 +211,13 @@ class AlpacaRealtimeFeed:
                 detail="test_stub_stream",
             )
             return
+        if not settings.ALPACA_STREAM_ENABLED:
+            data_integrity_guard.record_provider_event(
+                provider="alpaca_stream",
+                mode="fallback",
+                detail="stream_disabled_by_config",
+            )
+            return
         if self._started or not settings.ALPACA_API_KEY:
             if not settings.ALPACA_API_KEY:
                 print("No ALPACA_API_KEY - using Alpaca REST polling")

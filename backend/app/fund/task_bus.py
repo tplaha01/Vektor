@@ -59,6 +59,8 @@ class TaskBus:
             payload=payload or {},
             created_at=_utc_iso(),
         )
+        row: dict[str, Any]
+        event_payload: dict[str, Any]
         with self._lock:
             self._tasks[task.task_id] = task
             normalized_details = self._normalize_details(task, status=task.status, details={})
@@ -75,20 +77,21 @@ class TaskBus:
                 "payload": dict(task.payload or {}),
             }
             self._history.append(row)
-            self._persist_history_row(row)
-            self._emit_event(
-                {
-                    "event_id": task.task_id,
-                    "event_type": "task.created",
-                    "ts": task.created_at,
-                    "run_id": task.run_id,
-                    "agent_id": task.agent_id,
-                    "payload": task.model_dump(mode="json"),
-                }
-            )
+            event_payload = {
+                "event_id": task.task_id,
+                "event_type": "task.created",
+                "ts": task.created_at,
+                "run_id": task.run_id,
+                "agent_id": task.agent_id,
+                "payload": task.model_dump(mode="json"),
+            }
+        self._persist_history_row(row)
+        self._emit_event(event_payload)
         return task
 
     def set_status(self, task_id: str, status: TaskStatus, details: dict[str, Any] | None = None) -> AgentTask | None:
+        row: dict[str, Any]
+        event_payload: dict[str, Any]
         with self._lock:
             existing = self._tasks.get(task_id)
             if existing is None:
@@ -107,30 +110,31 @@ class TaskBus:
                 "details": normalized_details,
             }
             self._history.append(row)
-            self._persist_history_row(row)
-            self._emit_event(
-                {
-                    "event_id": f"{task_id}:{status}:{len(self._history)}",
-                    "event_type": "task.status_updated",
-                    "ts": _utc_iso(),
-                    "run_id": updated.run_id,
-                    "agent_id": updated.agent_id,
-                    "decision_id": (details or {}).get("decision_id"),
-                    "payload": {
-                        "task_id": task_id,
-                        "status": status,
-                        "details": normalized_details,
-                        "role": updated.role,
-                    },
-                }
-            )
-            return updated
+            event_payload = {
+                "event_id": f"{task_id}:{status}:{len(self._history)}",
+                "event_type": "task.status_updated",
+                "ts": _utc_iso(),
+                "run_id": updated.run_id,
+                "agent_id": updated.agent_id,
+                "decision_id": (details or {}).get("decision_id"),
+                "payload": {
+                    "task_id": task_id,
+                    "status": status,
+                    "details": normalized_details,
+                    "role": updated.role,
+                },
+            }
+        self._persist_history_row(row)
+        self._emit_event(event_payload)
+        return updated
 
     def claim_next_queued(self, role: str) -> AgentTask | None:
         """
         Atomically claim the highest-priority queued task for a role.
         Claimed task status is set to running.
         """
+        row: dict[str, Any]
+        event_payload: dict[str, Any]
         with self._lock:
             candidates = [
                 task
@@ -155,21 +159,20 @@ class TaskBus:
                 "details": claim_details,
             }
             self._history.append(row)
-            self._persist_history_row(row)
-            self._emit_event(
-                {
-                    "event_id": f"{selected.task_id}:claimed:{len(self._history)}",
-                    "event_type": "task.claimed",
-                    "ts": _utc_iso(),
-                    "run_id": updated.run_id,
-                    "agent_id": updated.agent_id,
-                    "payload": {
-                        "task_id": selected.task_id,
-                        "role": role,
-                    },
-                }
-            )
-            return updated
+            event_payload = {
+                "event_id": f"{selected.task_id}:claimed:{len(self._history)}",
+                "event_type": "task.claimed",
+                "ts": _utc_iso(),
+                "run_id": updated.run_id,
+                "agent_id": updated.agent_id,
+                "payload": {
+                    "task_id": selected.task_id,
+                    "role": role,
+                },
+            }
+        self._persist_history_row(row)
+        self._emit_event(event_payload)
+        return updated
 
     def block_queued(
         self,
@@ -184,6 +187,8 @@ class TaskBus:
         normalized_reason = str(reason or "system_halted").strip() or "system_halted"
         role_filter = {str(item).strip() for item in (roles or []) if str(item).strip()}
         blocked_ids: list[str] = []
+        rows_to_persist: list[dict[str, Any]] = []
+        events_to_emit: list[dict[str, Any]] = []
 
         with self._lock:
             for task_id, task in list(self._tasks.items()):
@@ -207,8 +212,8 @@ class TaskBus:
                     "details": normalized_details,
                 }
                 self._history.append(row)
-                self._persist_history_row(row)
-                self._emit_event(
+                rows_to_persist.append(row)
+                events_to_emit.append(
                     {
                         "event_id": f"{task_id}:blocked:{len(self._history)}",
                         "event_type": "task.status_updated",
@@ -225,6 +230,11 @@ class TaskBus:
                     }
                 )
                 blocked_ids.append(task_id)
+
+        for row in rows_to_persist:
+            self._persist_history_row(row)
+        for event in events_to_emit:
+            self._emit_event(event)
 
         return {"blocked_count": len(blocked_ids), "task_ids": blocked_ids, "reason": normalized_reason}
 
@@ -247,6 +257,37 @@ class TaskBus:
         if limit < 0:
             return rows
         return rows[-limit:]
+
+    def query_history(
+        self,
+        *,
+        limit: int = 200,
+        run_id: str | None = None,
+        agent_id: str | None = None,
+        role: str | None = None,
+        status: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """
+        Filter task history without copying/scanning the full list in normal limited queries.
+        Scans from newest backward and stops once limit is satisfied.
+        """
+        max_items = None if limit < 0 else max(1, int(limit))
+        out: list[dict[str, Any]] = []
+        with self._lock:
+            for row in reversed(self._history):
+                if run_id and row.get("run_id") != run_id:
+                    continue
+                if agent_id and row.get("agent_id") != agent_id:
+                    continue
+                if role and row.get("role") != role:
+                    continue
+                if status and row.get("status") != status:
+                    continue
+                out.append(dict(row))
+                if max_items is not None and len(out) >= max_items:
+                    break
+        out.reverse()
+        return out
 
     def list_tasks(self) -> list[AgentTask]:
         with self._lock:

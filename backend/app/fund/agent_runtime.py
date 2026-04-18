@@ -202,6 +202,10 @@ class FundAgentRuntime:
         autopilot_default_side: Literal["buy", "sell"] = "buy",
         autopilot_default_quantity: float = 1.0,
         autopilot_sleeve: Sleeve = Sleeve.TACTICAL,
+        blog_editorial_enabled: bool = True,
+        blog_editorial_interval_hours: int = 12,
+        blog_editorial_target_per_day: int = 2,
+        blog_editorial_min_confidence: float = 0.55,
     ) -> None:
         self._orchestrator = orchestrator
         self._task_bus = task_bus_service
@@ -229,6 +233,16 @@ class FundAgentRuntime:
         self._autopilot_last_run_at: str | None = None
         self._autopilot_last_error: str | None = None
         self._last_halt_drain_reason: str | None = None
+        self._blog_editorial_enabled = bool(blog_editorial_enabled)
+        self._blog_editorial_interval_seconds = max(60.0, float(max(1, int(blog_editorial_interval_hours)) * 3600))
+        self._blog_editorial_target_per_day = max(0, int(blog_editorial_target_per_day))
+        self._blog_editorial_min_confidence = max(0.0, min(1.0, float(blog_editorial_min_confidence)))
+        self._blog_editorial_task: asyncio.Task | None = None
+        self._blog_editorial_cycles = 0
+        self._blog_editorial_enqueued = 0
+        self._blog_editorial_last_run_id: str | None = None
+        self._blog_editorial_last_run_at: str | None = None
+        self._blog_editorial_last_error: str | None = None
 
     async def start(self) -> None:
         if not self._enabled or self._started:
@@ -254,6 +268,8 @@ class FundAgentRuntime:
             self._worker_tasks[role] = asyncio.create_task(self._worker_loop(role), name=f"fund-worker:{role}")
         if self._autopilot_enabled:
             self._autopilot_task = asyncio.create_task(self._autopilot_loop(), name="fund-autopilot")
+        if self._blog_editorial_enabled and self._blog_editorial_target_per_day > 0:
+            self._blog_editorial_task = asyncio.create_task(self._blog_editorial_loop(), name="fund-blog-editorial")
 
     async def stop(self) -> None:
         tasks = list(self._worker_tasks.values())
@@ -262,6 +278,9 @@ class FundAgentRuntime:
         if self._autopilot_task is not None:
             tasks.append(self._autopilot_task)
             self._autopilot_task = None
+        if self._blog_editorial_task is not None:
+            tasks.append(self._blog_editorial_task)
+            self._blog_editorial_task = None
         for task in tasks:
             task.cancel()
         if tasks:
@@ -289,6 +308,18 @@ class FundAgentRuntime:
                 "last_run_id": self._autopilot_last_run_id,
                 "last_run_at": self._autopilot_last_run_at,
                 "last_error": self._autopilot_last_error,
+            }
+            blog_editorial = {
+                "enabled": self._blog_editorial_enabled,
+                "running": self._blog_editorial_task is not None and not self._blog_editorial_task.done(),
+                "interval_seconds": self._blog_editorial_interval_seconds,
+                "target_per_day": self._blog_editorial_target_per_day,
+                "min_confidence": self._blog_editorial_min_confidence,
+                "cycles": self._blog_editorial_cycles,
+                "enqueued_count": self._blog_editorial_enqueued,
+                "last_run_id": self._blog_editorial_last_run_id,
+                "last_run_at": self._blog_editorial_last_run_at,
+                "last_error": self._blog_editorial_last_error,
             }
             halt_guard = {
                 "halted": data_integrity_guard.halted(),
@@ -319,6 +350,7 @@ class FundAgentRuntime:
             "ai_role_adapter": ai_role_adapter.health(),
             "data_integrity": data_integrity_guard.status(),
             "halt_guard": halt_guard,
+            "blog_editorial": blog_editorial,
         }
 
     def enqueue_ceo_command(
@@ -649,6 +681,26 @@ class FundAgentRuntime:
                     self._autopilot_last_run_at = _utc_iso()
             await asyncio.sleep(self._autopilot_interval_seconds)
 
+    async def _blog_editorial_loop(self) -> None:
+        while True:
+            try:
+                if data_integrity_guard.halted():
+                    with self._state_lock:
+                        self._blog_editorial_last_error = data_integrity_guard.halt_reason() or "system_halted"
+                        self._blog_editorial_last_run_at = _utc_iso()
+                    await asyncio.sleep(self._blog_editorial_interval_seconds)
+                    continue
+
+                cycle_run_id = f"run-blog-editorial-{uuid4().hex[:10]}"
+                self._enqueue_blog_editorial_cycle(cycle_run_id)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                with self._state_lock:
+                    self._blog_editorial_last_error = str(exc)
+                    self._blog_editorial_last_run_at = _utc_iso()
+            await asyncio.sleep(self._blog_editorial_interval_seconds)
+
     def _enqueue_autopilot_cycle(self, run_id: str) -> dict[str, Any]:
         queued_ids: list[str] = []
         for symbol in self._autopilot_symbols:
@@ -677,6 +729,67 @@ class FundAgentRuntime:
             self._autopilot_last_error = None
 
         return {"run_id": run_id, "enqueued_count": len(queued_ids), "task_ids": queued_ids, "symbol_count": len(self._autopilot_symbols)}
+
+    def _enqueue_blog_editorial_cycle(self, run_id: str) -> dict[str, Any]:
+        remaining = blog_service.daily_quota_remaining(self._blog_editorial_target_per_day)
+        if remaining <= 0:
+            with self._state_lock:
+                self._blog_editorial_cycles += 1
+                self._blog_editorial_last_run_id = run_id
+                self._blog_editorial_last_run_at = _utc_iso()
+                self._blog_editorial_last_error = None
+            return {"run_id": run_id, "enqueued_count": 0, "reason": "daily_quota_reached"}
+
+        reports = self._orchestrator.list_recent_research_reports(limit=200)
+        candidates = blog_service.select_editorial_candidates(
+            reports=reports,
+            min_confidence=self._blog_editorial_min_confidence,
+            limit=remaining,
+        )
+
+        queued_task_ids: list[str] = []
+        for report in candidates:
+            report_id = str(report.get("report_id") or "").strip()
+            if not report_id:
+                continue
+            symbol = str((report.get("asset_universe") or ["MARKET"])[0]).upper().strip()
+            confidence = float(report.get("confidence") or 0.0)
+            task = self._task_bus.create_task(
+                run_id=run_id,
+                agent_id="editorial_coordinator",
+                role="blog_writer",
+                priority=8,
+                payload={
+                    "report_ids": [report_id],
+                    "symbol": symbol,
+                    "command": (
+                        f"Write a specific AI-fintech-hedge-fund editorial for {symbol} "
+                        f"(source confidence={confidence:.2f}). Include scenario map, risk controls, and concrete monitoring checklist."
+                    ),
+                    "trigger_source": "scheduled_editorial",
+                    "metadata": {
+                        "scheduled": True,
+                        "confidence": confidence,
+                        "target_per_day": self._blog_editorial_target_per_day,
+                    },
+                },
+            )
+            queued_task_ids.append(task.task_id)
+
+        with self._state_lock:
+            self._blog_editorial_cycles += 1
+            self._blog_editorial_enqueued += len(queued_task_ids)
+            self._blog_editorial_last_run_id = run_id
+            self._blog_editorial_last_run_at = _utc_iso()
+            self._blog_editorial_last_error = None
+
+        return {
+            "run_id": run_id,
+            "enqueued_count": len(queued_task_ids),
+            "task_ids": queued_task_ids,
+            "candidate_count": len(candidates),
+            "remaining_quota": max(0, remaining - len(queued_task_ids)),
+        }
 
     def _has_inflight_analyst_tasks(self, *, symbol: str) -> bool:
         normalized_symbol = str(symbol).upper().strip()
@@ -913,7 +1026,11 @@ class FundAgentRuntime:
                 payload={
                     "report_ids": [report_id],
                     "symbol": symbol,
-                    "command": payload.get("command") or f"Publish research blog for {symbol}",
+                    "command": payload.get("command")
+                    or (
+                        f"Write a specific AI-fintech-hedge-fund editorial on {symbol}. "
+                        "Use evidence from report findings, include execution scenarios, risk controls, and what to monitor next."
+                    ),
                     "trigger_source": "research_auto_publish",
                     "metadata": {"origin_role": role},
                 },
@@ -1010,7 +1127,10 @@ class FundAgentRuntime:
             payload={
                 "report_ids": [saved["report_id"]],
                 "symbol": state.symbol,
-                "command": f"Publish multi-signal research blog for {state.symbol}",
+                "command": (
+                    f"Write an institutional multi-signal editorial for {state.symbol} from the analyst swarm output. "
+                    "Avoid generic framing, explain why the signal stack matters now, and include failure modes."
+                ),
                 "trigger_source": "signal_swarm",
                 "metadata": {"signal_pack_id": state.signal_pack_id, "analyst_roles": ordered_roles},
             },
@@ -1132,7 +1252,13 @@ class FundAgentRuntime:
                 continue
             post = blog_service.publish_from_research(
                 report=report,
-                command=str(payload.get("command") or "Publish expert blog post."),
+                command=str(
+                    payload.get("command")
+                    or (
+                        "Write a high-signal AI-fintech-hedge-fund article with actionable context. "
+                        "No generic commentary."
+                    )
+                ),
                 trigger_source=str(payload.get("trigger_source") or "agent_runtime"),
             )
             posts.append(post)
@@ -1157,6 +1283,10 @@ def _build_runtime() -> FundAgentRuntime:
         autopilot_default_side="sell" if settings.AGENT_RUNTIME_AUTOPILOT_DEFAULT_SIDE.strip().lower() == "sell" else "buy",
         autopilot_default_quantity=settings.AGENT_RUNTIME_AUTOPILOT_DEFAULT_QUANTITY,
         autopilot_sleeve=_normalize_sleeve(settings.AGENT_RUNTIME_AUTOPILOT_SLEEVE),
+        blog_editorial_enabled=settings.BLOG_AUTO_EDITORIAL_ENABLED,
+        blog_editorial_interval_hours=settings.BLOG_AUTO_EDITORIAL_INTERVAL_HOURS,
+        blog_editorial_target_per_day=settings.BLOG_AUTO_EDITORIAL_TARGET_PER_DAY,
+        blog_editorial_min_confidence=settings.BLOG_AUTO_EDITORIAL_MIN_CONFIDENCE,
     )
 
 

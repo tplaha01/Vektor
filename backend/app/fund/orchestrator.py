@@ -627,21 +627,13 @@ class FirmOrchestrator:
         role: str | None = None,
         status: str | None = None,
     ) -> list[dict[str, Any]]:
-        rows = self._task_bus.history(limit=-1)
-        filtered: list[dict[str, Any]] = []
-        for row in rows:
-            if run_id and row.get("run_id") != run_id:
-                continue
-            if agent_id and row.get("agent_id") != agent_id:
-                continue
-            if role and row.get("role") != role:
-                continue
-            if status and row.get("status") != status:
-                continue
-            filtered.append(dict(row))
-        if limit >= 0:
-            return filtered[-max(1, limit) :]
-        return filtered
+        return self._task_bus.query_history(
+            limit=limit,
+            run_id=run_id,
+            agent_id=agent_id,
+            role=role,
+            status=status,
+        )
 
     def list_pending_decisions(self) -> list[dict[str, Any]]:
         return [row.model_dump(mode="json") for row in self._decision_ledger.pending_decisions()]
