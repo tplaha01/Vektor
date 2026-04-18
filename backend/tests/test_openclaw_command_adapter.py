@@ -1,4 +1,5 @@
 from app.fund.audit_log import AuditLog
+import app.fund.openclaw_command_adapter as openclaw_adapter_module
 from app.fund.openclaw_command_adapter import OpenClawCommandAdapter
 
 
@@ -6,6 +7,10 @@ class _StubRuntime:
     def __init__(self) -> None:
         self.calls = []
         self.swarm_calls = []
+        self.started = True
+        self.start_calls = 0
+        self.stop_calls = 0
+        self.kick_calls = 0
 
     def enqueue_ceo_command(
         self,
@@ -63,6 +68,30 @@ class _StubRuntime:
             "run_id": run_id,
             "status": "queued",
         }
+
+    async def start(self) -> None:
+        self.started = True
+        self.start_calls += 1
+
+    async def stop(self) -> None:
+        self.started = False
+        self.stop_calls += 1
+
+    def is_started(self) -> bool:
+        return bool(self.started)
+
+    def status(self) -> dict:
+        return {
+            "started": bool(self.started),
+            "autopilot": {"enabled": True, "running": False},
+            "data_integrity": {"halted": False, "halt_reason": None},
+        }
+
+    def kick_autopilot(self, run_id: str | None = None) -> dict:
+        self.kick_calls += 1
+        if not self.started:
+            return {"accepted": False, "reason": "runtime_not_started"}
+        return {"accepted": True, "run_id": run_id or "run-kick-test"}
 
 
 def test_openclaw_command_adapter_rejects_unauthorized():
@@ -237,3 +266,71 @@ def test_openclaw_command_adapter_fund_manager_mode_routes_analyst_to_swarm():
         "insight_researcher",
         "technical_analyst",
     ]
+
+
+def test_openclaw_command_adapter_routes_runtime_pause_control(monkeypatch):
+    runtime = _StubRuntime()
+    adapter = OpenClawCommandAdapter(
+        runtime=runtime,
+        token="adapter-secret",
+        enabled=True,
+        channel_allowlist=["vektor-ceo"],
+        role_allowlist={"fund_manager"},
+        channel_role_policies={"vektor-ceo": {"fund_manager"}},
+        fund_manager_mode=False,
+        log=AuditLog(),
+    )
+
+    # Ensure strict-halt guard does not block this test.
+    monkeypatch.setattr(openclaw_adapter_module.data_integrity_guard, "halted", lambda: False)
+    monkeypatch.setattr(openclaw_adapter_module.data_integrity_guard, "halt_reason", lambda: None)
+
+    accepted = adapter.route_message(
+        {
+            "platform": "discord",
+            "channel_name": "vektor-ceo",
+            "sender_name": "ceo",
+            "text": "pause runtime now",
+            "run_id": "run-ocmd-control-1",
+        },
+        token="adapter-secret",
+    )
+    assert accepted["accepted"] is True
+    assert accepted["role"] == "runtime_control"
+    assert accepted["route_result"]["action"] == "pause_runtime"
+    assert accepted["route_result"]["status"] in {"pausing", "already_paused"}
+    assert runtime.stop_calls == 1
+
+
+def test_openclaw_command_adapter_rejects_resume_when_halted(monkeypatch):
+    runtime = _StubRuntime()
+    adapter = OpenClawCommandAdapter(
+        runtime=runtime,
+        token="adapter-secret",
+        enabled=True,
+        channel_allowlist=["vektor-ceo"],
+        role_allowlist={"fund_manager"},
+        channel_role_policies={"vektor-ceo": {"fund_manager"}},
+        fund_manager_mode=False,
+        log=AuditLog(),
+    )
+
+    monkeypatch.setattr(openclaw_adapter_module.data_integrity_guard, "halted", lambda: True)
+    monkeypatch.setattr(
+        openclaw_adapter_module.data_integrity_guard,
+        "halt_reason",
+        lambda: "real_data_required:test_provider:fallback",
+    )
+
+    rejected = adapter.route_message(
+        {
+            "platform": "discord",
+            "channel_name": "vektor-ceo",
+            "sender_name": "ceo",
+            "text": "resume runtime",
+            "run_id": "run-ocmd-control-2",
+        },
+        token="adapter-secret",
+    )
+    assert rejected["accepted"] is False
+    assert rejected["reason"] == "real_data_required:test_provider:fallback"

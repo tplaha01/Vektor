@@ -2691,3 +2691,20 @@ files:
 - frontend/src/styles/admin.css
 validation: py -3 -m pytest backend/tests/test_admin_runtime_controls.py backend/tests/test_admin_status_badges.py backend/tests/test_runtime_guard.py -q (pass); npm --prefix frontend run build (pass)
 notes: Control history rows derive from runtime namespace KB events `runtime.control.*` and include action/status/reason/timestamp.
+
+[2026-04-18T01:43:15Z] [UPDATE]
+entry_id: devlog-20260418-codex-openclaw-control-002
+actor_name: codex_cto
+actor_platform: codex
+actor_model: gpt-5.4
+actor_provider: openai
+run_id: run-viktor-hardening-005
+git_branch: codex/hardening-sprint
+git_commit_start: bb3ae2c6b16e08454694a7bee70af4357924d1ef
+git_commit_end:
+scope: Implemented OpenClaw runtime control command adapter parity (pause/resume/clear-halt/kick-autopilot/status), persisted control events into audit+KB, and added adapter safety tests.
+files:
+- backend/app/fund/openclaw_command_adapter.py
+- backend/tests/test_openclaw_command_adapter.py
+validation: py -3 -m pytest backend/tests/test_openclaw_command_adapter.py backend/tests/test_admin_runtime_controls.py backend/tests/test_admin_status_badges.py -q (pass); npm --prefix frontend run build (pass)
+notes: Runtime control commands are fund_manager-gated by channel role policy; resume remains blocked when strict halt is active.
