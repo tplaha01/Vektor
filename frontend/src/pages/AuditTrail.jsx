@@ -2,63 +2,94 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CheckCircle, AlertCircle, Clock } from 'lucide-react';
 import '../styles/audit.css';
+import { adminAPI } from '../api/adminAPI';
 
 const AuditTrail = () => {
   const { decisionId } = useParams();
   const navigate = useNavigate();
   const [auditData, setAuditData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    // Mock data - replace with actual API call
-    setTimeout(() => {
-      setAuditData({
-        id: decisionId,
-        title: 'Trading Decision Audit Trail',
-        timestamp: new Date().toISOString(),
-        status: 'approved',
-        events: [
-          {
-            timestamp: new Date(Date.now() - 3600000).toISOString(),
-            actor: 'Research Director',
-            action: 'created_decision',
-            details: 'Initial trading decision created based on market analysis'
+    let mounted = true;
+
+    const load = async () => {
+      try {
+        setError('');
+        const payload = await adminAPI.getLineageRunDetail(decisionId, 300);
+        const timeline = Array.isArray(payload?.audit_timeline) ? payload.audit_timeline : [];
+        const taskEvents = Array.isArray(payload?.task_events) ? payload.task_events : [];
+
+        const events = [...timeline, ...taskEvents]
+          .map((event, idx) => ({
+            id: event.event_id || event.task_id || `evt-${idx}`,
+            timestamp: event.timestamp || event.ts || event.created_at || new Date().toISOString(),
+            actor: event.agent_id || event.actor || event.role || 'system',
+            action: event.event_type || event.status || event.task_type || 'event',
+            details:
+              event.details?.reason ||
+              event.payload?.reason ||
+              event.reason ||
+              JSON.stringify(event.details || event.payload || event).slice(0, 200),
+          }))
+          .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+        if (!mounted) return;
+        setAuditData({
+          id: decisionId,
+          title: 'Decision / Run Audit Trail',
+          status: payload?.decision?.status || 'unknown',
+          metadata: {
+            decisionType: payload?.decision?.status || 'unknown',
+            confidence: Number(payload?.decision?.confidence || 0),
+            riskScore: Number(payload?.decision?.risk_score || 0),
+            assets: payload?.decision?.symbol ? [payload.decision.symbol] : [],
           },
-          {
-            timestamp: new Date(Date.now() - 1800000).toISOString(),
-            actor: 'Risk Auditor',
-            action: 'reviewed',
-            details: 'Risk assessment passed - within acceptable parameters'
-          },
-          {
-            timestamp: new Date(Date.now() - 900000).toISOString(),
-            actor: 'Compliance Officer',
-            action: 'approved',
-            details: 'Compliance gates passed - decision approved for execution'
-          },
-          {
-            timestamp: new Date(Date.now() - 300000).toISOString(),
-            actor: 'Trading System',
-            action: 'executed',
-            details: 'Trade executed successfully'
-          }
-        ],
-        metadata: {
-          decisionType: 'BUY_SIGNAL',
-          assets: ['AAPL', 'MSFT', 'GOOGL'],
-          expectedReturn: '3.2%',
-          riskScore: 2.1,
-          confidence: 0.87
-        }
-      });
-      setLoading(false);
-    }, 800);
+          events,
+        });
+      } catch (e) {
+        if (!mounted) return;
+        setError(String(e?.message || e));
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      mounted = false;
+    };
   }, [decisionId]);
 
   if (loading) {
     return (
       <div className="audit-container">
         <div className="audit-loading">Loading audit trail...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="audit-container">
+        <button className="audit-back-btn" onClick={() => navigate(-1)}>
+          <ArrowLeft size={20} />
+          Back
+        </button>
+        <div className="audit-loading">Unable to load audit trail: {error}</div>
+      </div>
+    );
+  }
+
+  if (!auditData) {
+    return (
+      <div className="audit-container">
+        <button className="audit-back-btn" onClick={() => navigate(-1)}>
+          <ArrowLeft size={20} />
+          Back
+        </button>
+        <div className="audit-loading">No audit record for this run yet.</div>
       </div>
     );
   }
@@ -102,9 +133,9 @@ const AuditTrail = () => {
           {auditData.events.map((event, idx) => (
             <div key={idx} className="timeline-event">
               <div className="event-marker">
-                {event.action === 'approved' ? (
+                {String(event.action).toLowerCase().includes('approved') || String(event.action).toLowerCase().includes('executed') ? (
                   <CheckCircle size={24} className="event-icon success" />
-                ) : event.action === 'rejected' ? (
+                ) : String(event.action).toLowerCase().includes('reject') || String(event.action).toLowerCase().includes('blocked') || String(event.action).toLowerCase().includes('failed') ? (
                   <AlertCircle size={24} className="event-icon error" />
                 ) : (
                   <Clock size={24} className="event-icon info" />

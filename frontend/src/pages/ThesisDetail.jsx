@@ -2,56 +2,84 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, TrendingUp, Users, BarChart3, Calendar } from 'lucide-react';
 import '../styles/thesis.css';
+import { adminAPI } from '../api/adminAPI';
 
 const ThesisDetail = () => {
   const { thesisId } = useParams();
   const navigate = useNavigate();
   const [thesisData, setThesisData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    // Mock data - replace with actual API call
-    setTimeout(() => {
-      setThesisData({
-        id: thesisId,
-        title: 'Tech Sector Outperformance Thesis',
-        author: 'Research Director',
-        createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-        summary: 'Technology sector expected to outperform broader market due to strong earnings growth and AI momentum.',
-        hypothesis: 'Large-cap tech companies will deliver above-market returns in the next 2-3 quarters due to AI adoption tailwinds.',
-        confidence: 0.78,
-        timeframe: '2-3 quarters',
-        primaryAssets: ['AAPL', 'MSFT', 'GOOGL', 'NVDA'],
-        keyDrivers: [
-          'AI adoption accelerating across enterprise',
-          'Cloud computing growth continuing',
-          'Strong earnings guidance from mega-cap tech',
-          'Favorable valuation vs historical averages'
-        ],
-        risks: [
-          'Regulatory headwinds on big tech',
-          'Macroeconomic slowdown',
-          'Interest rate spike',
-          'AI hype cycle reversal'
-        ],
-        relatedDecisions: [thesisId + '-001', thesisId + '-002'],
-        backtestResults: {
-          startDate: '2022-01-01',
-          endDate: '2024-01-01',
-          returns: '24.3%',
-          sharpeRatio: 1.45,
-          maxDrawdown: '15.2%',
-          winRate: '68%'
-        }
-      });
-      setLoading(false);
-    }, 800);
+    let mounted = true;
+    const load = async () => {
+      try {
+        setError('');
+        const payload = await adminAPI.getLineageRunDetail(thesisId, 300);
+        const decision = payload?.decision || {};
+        const runRows = Array.isArray(payload?.task_events) ? payload.task_events : [];
+        const createdAt = runRows.length ? runRows[0].ts || runRows[0].created_at : new Date().toISOString();
+        const symbol = decision.symbol || 'n/a';
+        if (!mounted) return;
+        setThesisData({
+          id: thesisId,
+          title: `Run Thesis Context: ${symbol}`,
+          author: 'Viktor Research Runtime',
+          createdAt,
+          summary: decision.thesis || 'No explicit thesis text available for this run yet.',
+          hypothesis: decision.thesis || 'This run has not generated a formal thesis body yet.',
+          confidence: Number(decision.confidence || 0),
+          timeframe: decision.sleeve || 'tactical',
+          primaryAssets: symbol === 'n/a' ? [] : [symbol],
+          keyDrivers: [
+            `Decision status: ${decision.status || 'unknown'}`,
+            `Intent ID: ${decision.intent_id || 'n/a'}`,
+            `Decision ID: ${decision.decision_id || 'n/a'}`,
+          ],
+          risks: (decision.risk_flags || []).length ? decision.risk_flags : ['Risk details not provided in this record.'],
+          relatedDecisions: decision.decision_id ? [decision.decision_id] : [],
+          backtestResults: {
+            startDate: createdAt,
+            endDate: new Date().toISOString(),
+            returns: 'n/a',
+            sharpeRatio: 'n/a',
+            maxDrawdown: 'n/a',
+            winRate: 'n/a'
+          }
+        });
+      } catch (e) {
+        if (mounted) setError(String(e?.message || e));
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      mounted = false;
+    };
   }, [thesisId]);
 
   if (loading) {
     return (
       <div className="thesis-container">
         <div className="thesis-loading">Loading thesis...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="thesis-container">
+        <div className="thesis-loading">Unable to load thesis context: {error}</div>
+      </div>
+    );
+  }
+
+  if (!thesisData) {
+    return (
+      <div className="thesis-container">
+        <div className="thesis-loading">No thesis context available for this run.</div>
       </div>
     );
   }
@@ -149,7 +177,7 @@ const ThesisDetail = () => {
             </div>
             <div className="backtest-item">
               <span className="label">Max Drawdown</span>
-              <span className="value warning">-{thesisData.backtestResults.maxDrawdown}</span>
+              <span className="value warning">{thesisData.backtestResults.maxDrawdown}</span>
             </div>
           </div>
         </section>

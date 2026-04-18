@@ -15,6 +15,7 @@ import AuditTimeline from '../components/admin/AuditTimeline';
 import PositionsPanel from '../components/admin/PositionsPanel';
 import LineagePanel from '../components/admin/LineagePanel';
 import SystemOverview from '../components/admin/SystemOverview';
+import AgentGraphCanvas from '../components/admin/AgentGraphCanvas';
 
 const Admin = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -39,26 +40,43 @@ const Admin = () => {
     try {
       setConnectionStatus(prev => (prev === 'connected' ? 'connected' : 'connecting'));
 
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Request timeout')), 15000)
-      );
+      const withTimeout = (promise, label, timeoutMs = 15000) =>
+        Promise.race([
+          promise,
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error(`${label} timeout`)), timeoutMs)
+          ),
+        ]);
 
-      const [metricsPayload, systemPayload, runtimePayload, historyPayload] = await Promise.race([
-        Promise.all([
-          adminAPI.getMetricsSummary(),
-          adminAPI.getSystemStatusBadges(),
-          adminAPI.getRuntimeControlStatus(),
-          adminAPI.getRuntimeControlHistory(20),
-        ]),
-        timeoutPromise,
+      const [metricsResult, systemResult, runtimeResult, historyResult] = await Promise.allSettled([
+        withTimeout(adminAPI.getMetricsSummary(), 'metrics'),
+        withTimeout(adminAPI.getSystemStatusBadges(), 'status-badges'),
+        withTimeout(adminAPI.getRuntimeControlStatus(), 'runtime-control'),
+        withTimeout(adminAPI.getRuntimeControlHistory(20), 'control-history'),
       ]);
 
       if (!isMounted.current) return;
 
-      setMetrics(metricsPayload);
-      setSystemStatus(systemPayload);
-      setRuntimeControl(runtimePayload);
-      setControlHistory(adminAPI.normalizeArray(historyPayload, 'rows'));
+      const fulfilledCount = [metricsResult, systemResult, runtimeResult, historyResult]
+        .filter((result) => result.status === 'fulfilled').length;
+
+      if (fulfilledCount === 0) {
+        throw new Error('All admin endpoints timed out');
+      }
+
+      if (metricsResult.status === 'fulfilled') {
+        setMetrics(metricsResult.value);
+      }
+      if (systemResult.status === 'fulfilled') {
+        setSystemStatus(systemResult.value);
+      }
+      if (runtimeResult.status === 'fulfilled') {
+        setRuntimeControl(runtimeResult.value);
+      }
+      if (historyResult.status === 'fulfilled') {
+        setControlHistory(adminAPI.normalizeArray(historyResult.value, 'rows'));
+      }
+
       setConnectionStatus('connected');
       setLastUpdate(new Date());
       setRetryCount(0);
@@ -102,6 +120,10 @@ const Admin = () => {
   // Fetch admin metrics - simple, prevents rapid toggling
   useEffect(() => {
     isMounted.current = true;
+    const hashTab = String(window.location.hash || '').replace('#', '').trim();
+    if (hashTab && navigationItems.find((item) => item.id === hashTab)) {
+      setActiveTab(hashTab);
+    }
     fetchMetrics();
 
     const interval = setInterval(() => {
@@ -425,6 +447,10 @@ const Admin = () => {
                   <div className="tab-agents">
                     <section className="content-section">
                       <h2 className="section-title">Agent Monitor</h2>
+                      <AgentGraphCanvas onRefresh={handleRefresh} />
+                    </section>
+                    <section className="content-section">
+                      <h3 className="section-subtitle">Hierarchy and Runtime Detail</h3>
                       <AgentMonitor expanded />
                     </section>
                   </div>
@@ -548,14 +574,23 @@ const Admin = () => {
 
                         <div className="setting-group">
                           <h3>Model Routing</h3>
-                          <p className="setting-desc">OpenClaw and role-model routing is configured in backend env and runtime config.</p>
-                          <button className="btn-secondary" disabled>Configure Routes (planned)</button>
+                          <p className="setting-desc">Role-model routing is currently controlled by backend environment variables and can be verified in runtime health badges.</p>
+                          <p className="setting-runtime-hint">Tip: Use this page to validate LLM role health before triggering swarms.</p>
                         </div>
 
                         <div className="setting-group">
                           <h3>Runtime Config</h3>
-                          <p className="setting-desc">Strict real-data mode and risk thresholds are server-side protected.</p>
-                          <button className="btn-secondary" disabled>Edit Config (planned)</button>
+                          <p className="setting-desc">Strict real-data mode and guardrails are enforced server-side. Client controls are intentionally read-only.</p>
+                          <div className="setting-runtime-meta">
+                            <div className="setting-runtime-row">
+                              <span>Strict Real Data</span>
+                              <strong>{runtimeControl?.strict_real_data_only ? 'Enabled' : 'Disabled'}</strong>
+                            </div>
+                            <div className="setting-runtime-row">
+                              <span>Poll Interval</span>
+                              <strong>30s dashboard refresh</strong>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </section>

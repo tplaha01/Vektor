@@ -1,13 +1,14 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
 :root {
-  --bg: #050b14;
-  --bg-soft: #101a2a;
-  --surface: #121f33;
-  --line: #22344f;
-  --text: #e7edf8;
-  --muted: #a2b4d0;
-  --accent: #41d9a5;
-  --accent-soft: #183d37;
-  --danger: #ff8d8d;
+  --bg: #0b1118;
+  --surface: #121c2a;
+  --line: #2d3f59;
+  --text: #eaf2ff;
+  --muted: #9eb2cc;
+  --accent: #7be2ff;
+  --accent-2: #ffd16b;
+  --danger: #ff9f9f;
   --max: 1120px;
 }
 
@@ -20,11 +21,29 @@ body {
   margin: 0;
   padding: 0;
   background:
-    radial-gradient(1200px 650px at 75% -45%, #1f3154 0%, transparent 58%),
-    radial-gradient(950px 500px at -10% 105%, #122740 0%, transparent 62%),
+    radial-gradient(1200px 650px at 75% -45%, #29476d 0%, transparent 58%),
+    radial-gradient(950px 500px at -10% 105%, #3a2a17 0%, transparent 62%),
     var(--bg);
   color: var(--text);
-  font-family: "Segoe UI", "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: "Space Grotesk", "Segoe UI", sans-serif;
+}
+
+.particle-field {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 14% 22%, rgba(123, 226, 255, 0.35) 0 1.1px, transparent 1.6px),
+    radial-gradient(circle at 42% 82%, rgba(255, 209, 107, 0.28) 0 1.1px, transparent 1.7px),
+    radial-gradient(circle at 84% 38%, rgba(123, 226, 255, 0.23) 0 1px, transparent 1.5px);
+  background-size: 280px 280px, 360px 360px, 320px 320px;
+  opacity: 0.35;
+  animation: particleFloat 20s linear infinite;
+}
+
+@keyframes particleFloat {
+  from { transform: translateY(0); }
+  to { transform: translateY(-24px); }
 }
 
 a {
@@ -40,8 +59,8 @@ a {
 
 .topbar {
   border-bottom: 1px solid var(--line);
-  background: rgba(7, 12, 20, 0.75);
-  backdrop-filter: blur(6px);
+  background: rgba(7, 12, 20, 0.68);
+  backdrop-filter: blur(10px);
 }
 
 .topbar-inner {
@@ -52,14 +71,14 @@ a {
 }
 
 .brand {
-  font-size: 18px;
+  font-size: 17px;
   letter-spacing: 0.08em;
   font-weight: 700;
   text-transform: uppercase;
 }
 
 .brand em {
-  color: var(--accent);
+  color: var(--accent-2);
   font-style: normal;
 }
 
@@ -67,16 +86,16 @@ a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 10px;
+  border-radius: 999px;
   padding: 10px 16px;
   border: 1px solid var(--line);
   font-weight: 600;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .btn.primary {
-  background: linear-gradient(180deg, #1fefba 0%, #1ec59a 100%);
-  color: #042519;
+  background: linear-gradient(130deg, #7be2ff, #ffd16b);
+  color: #151617;
   border: none;
 }
 
@@ -85,11 +104,11 @@ a {
 }
 
 .hero {
-  padding: 84px 0 36px;
+  padding: 96px 0 40px;
 }
 
 .eyebrow {
-  color: var(--accent);
+  color: var(--accent-2);
   font-size: 13px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -106,8 +125,8 @@ a {
 .hero p {
   margin: 0;
   color: var(--muted);
-  max-width: 760px;
-  font-size: clamp(16px, 2.4vw, 20px);
+  max-width: 780px;
+  font-size: clamp(17px, 2.2vw, 20px);
   line-height: 1.45;
 }
 
@@ -130,22 +149,22 @@ a {
   border-radius: 999px;
   padding: 8px 12px;
   font-size: 12px;
-  color: var(--muted);
-  background: rgba(255, 255, 255, 0.03);
+  color: #d4e6ff;
+  background: rgba(123, 226, 255, 0.1);
 }
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
   margin: 34px 0 56px;
 }
 
 .card {
   border: 1px solid var(--line);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
   border-radius: 14px;
-  padding: 18px;
+  padding: 20px;
 }
 
 .card h3 {
@@ -176,6 +195,10 @@ a {
   line-height: 1.55;
 }
 
+.section li + li {
+  margin-top: 8px;
+}
+
 .split {
   display: grid;
   grid-template-columns: 1.25fr 1fr;
@@ -189,6 +212,17 @@ a {
   padding: 14px;
   color: #ffd7d7;
   font-size: 14px;
+}
+
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity 0.55s ease, transform 0.55s ease;
+}
+
+[data-reveal].revealed {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .footer {

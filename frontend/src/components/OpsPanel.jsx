@@ -31,7 +31,19 @@ function CompactList({ title, items, renderItem }) {
     <section style={{ background: "var(--bg1)", border: "1px solid var(--line)", borderRadius: 8, padding: 12 }}>
       <div style={{ fontFamily: "var(--f-data)", fontSize: 11, color: "var(--txt2)", marginBottom: 8 }}>{title}</div>
       {items.length === 0 ? (
-        <div style={{ fontFamily: "var(--f-data)", fontSize: 11, color: "var(--txt3)" }}>No items</div>
+        <div
+          style={{
+            fontFamily: "var(--f-data)",
+            fontSize: 11,
+            color: "var(--txt3)",
+            border: "1px dashed var(--line2)",
+            borderRadius: 6,
+            padding: "10px 8px",
+            background: "rgba(255,255,255,0.02)",
+          }}
+        >
+          System is healthy and idle. No actionable items in this stream right now.
+        </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>{items.map(renderItem)}</div>
       )}
@@ -97,8 +109,23 @@ export default function OpsPanel() {
         <button className="btn btn-tab on" onClick={refresh} style={{ padding: "6px 12px" }}>
           Refresh Ops
         </button>
-        {error ? <span style={{ color: "var(--red)", fontSize: 11 }}>{error}</span> : null}
+        {error ? <span style={{ color: "var(--red)", fontSize: 11 }}>Runtime warning: {error}</span> : null}
       </div>
+
+      {!error && tasks.length === 0 && pending.length === 0 && blocked.length === 0 ? (
+        <div
+          style={{
+            border: "1px solid rgba(62,207,142,0.35)",
+            background: "rgba(62,207,142,0.08)",
+            borderRadius: 8,
+            padding: "10px 12px",
+            fontSize: 11,
+            color: "var(--txt2)",
+          }}
+        >
+          Orchestration is online with no pending bottlenecks. You can kick autopilot to generate a fresh cycle.
+        </div>
+      ) : null}
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         <StatCard label="Active Tasks" value={tasks.length} />

@@ -1,103 +1,108 @@
-const productUrl = process.env.NEXT_PUBLIC_PRODUCT_APP_URL || "http://localhost:5173";
+"use client";
+
+import { useEffect } from "react";
+
+const productUrl = process.env.NEXT_PUBLIC_PRODUCT_APP_URL || "http://localhost:9000";
 
 export default function Page() {
+  useEffect(() => {
+    const nodes = Array.from(document.querySelectorAll("[data-reveal]"));
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("revealed");
+          }
+        });
+      },
+      { threshold: 0.15 }
+    );
+    nodes.forEach((node) => observer.observe(node));
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <>
+      <div className="particle-field" aria-hidden="true" />
       <header className="topbar">
         <div className="container topbar-inner">
-          <a href="/" className="brand">
-            Vektor <em>Capital</em>
-          </a>
+          <a href="/" className="brand">Viktor <em>Fund OS</em></a>
           <div className="hero-actions">
-            <a className="btn ghost" href="#architecture">
-              Architecture
-            </a>
-            <a className="btn primary" href={productUrl}>
-              Open Product App
-            </a>
+            <a className="btn ghost" href="#how">How It Works</a>
+            <a className="btn ghost" href="#safety">Safety</a>
+            <a className="btn primary" href={productUrl}>Open Live Product</a>
           </div>
         </div>
       </header>
 
       <main className="container">
-        <section className="hero">
-          <div className="eyebrow">AI-Native Hedge Fund OS</div>
-          <h1>Build Vektor as a real operating firm, paper-first.</h1>
+        <section className="hero" data-reveal>
+          <p className="eyebrow">AI-Native Hedge Fund Operating System</p>
+          <h1>A calm, transparent trading brain you can actually understand.</h1>
           <p>
-            Vektor separates marketing/SEO from trading operations: this Next.js SSR site is
-            optimized for indexing, while the React product app runs the fund workflows,
-            orchestration APIs, risk gates, and audit timelines.
+            Think of Viktor like a team of specialists in one control room. One part researches,
+            one part checks risk, one part executes. Every decision is recorded so you can inspect
+            exactly what happened and why.
           </p>
           <div className="hero-actions">
-            <a className="btn primary" href={productUrl}>
-              Enter Trader Workspace
-            </a>
-            <a className="btn ghost" href="#ops">
-              See Operating Model
-            </a>
+            <a className="btn primary" href={productUrl}>Go To Product Console</a>
+            <a className="btn ghost" href="/legacy">Open Legacy Workspace</a>
           </div>
           <div className="hero-stats">
-            <span className="pill">Paper Trading Only</span>
-            <span className="pill">Decision IDs End-to-End</span>
-            <span className="pill">Risk Gate Before Execution</span>
+            <span className="pill">Paper-first execution</span>
+            <span className="pill">Traceable decisions</span>
+            <span className="pill">Role-based orchestration</span>
           </div>
         </section>
 
-        <section className="grid" id="architecture">
+        <section className="grid" id="how" data-reveal>
           <article className="card">
-            <h3>Research Layer</h3>
-            <p>
-              Research and sentiment agents gather market/news inputs and create source-backed
-              reports with provenance.
-            </p>
+            <h3>1. Research</h3>
+            <p>Specialist agents read market data and news, then produce reports with source links.</p>
           </article>
           <article className="card">
-            <h3>Decision Layer</h3>
-            <p>
-              Fund manager and sleeve allocator transform theses into execution intents with
-              immutable IDs and full lineage.
-            </p>
+            <h3>2. Decide</h3>
+            <p>The fund manager forms a thesis, sleeve, and execution intent tied to a decision ID.</p>
           </article>
           <article className="card">
-            <h3>Control Layer</h3>
-            <p>
-              Risk and audit agents enforce policy gates, block invalid actions, and maintain
-              inspectable timelines for every order.
-            </p>
+            <h3>3. Guard</h3>
+            <p>Risk and policy checks must pass before any trade intent reaches execution.</p>
+          </article>
+          <article className="card">
+            <h3>4. Execute</h3>
+            <p>Orders execute in paper mode while timelines log every step for audits and review.</p>
           </article>
         </section>
 
-        <section className="section split" id="ops">
+        <section className="section split" id="safety" data-reveal>
           <article className="card">
-            <h2>Operating sleeves</h2>
+            <h2>Safety by default</h2>
             <ul>
-              <li>Long-term allocation sleeve for multi-month theses.</li>
-              <li>Recurring investment sleeve for scheduled accumulation.</li>
-              <li>Tactical sleeve for day/swing opportunities under strict limits.</li>
+              <li>Paper mode is the default execution path.</li>
+              <li>Strict real-data checks can halt unsafe workflows automatically.</li>
+              <li>Runtime controls let operators pause, resume, and clear halts quickly.</li>
             </ul>
           </article>
           <article className="card">
-            <h2>What runs where</h2>
+            <h2>Clear mental model</h2>
             <ul>
-              <li>Landing site: Next.js SSR (`landing-next`) for SEO and conversion.</li>
-              <li>Product app: React/Vite (`frontend`) for dashboards and ops UI.</li>
-              <li>Backend: FastAPI (`backend`) for orchestration, risk, execution, and audit.</li>
+              <li>Public PnL page for simple daily visibility.</li>
+              <li>Admin portal for deep control and audit-level detail.</li>
+              <li>Research and blog layers for explainability, not black boxes.</li>
             </ul>
           </article>
         </section>
 
-        <section className="section">
+        <section className="section" data-reveal>
           <div className="warning">
-            Live trading remains disabled by design. All execution flows are paper-first until you
-            explicitly add a compliant live-trading program later.
+            This system is intentionally paper-first today. Live capital routing should only be enabled
+            after formal compliance, controls, and monitoring sign-off.
           </div>
         </section>
       </main>
 
       <footer className="footer">
-        <div className="container">
-          Vektor Capital OS • AI-native hedge fund architecture • paper-first mode
-        </div>
+        <div className="container">Viktor Fund OS • Orchestrated multi-agent trading • Explainable by design</div>
       </footer>
     </>
   );
