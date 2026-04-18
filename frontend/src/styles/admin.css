@@ -1079,6 +1079,24 @@ a:focus-visible {
   background: rgba(245,166,35,0.08);
 }
 
+.agent-graph-timeline-controls {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.agent-graph-timeline-range {
+  width: 100%;
+  accent-color: var(--amber);
+}
+
+.agent-graph-timeline-meta {
+  font-size: 10px;
+  color: var(--txt3);
+}
+
 .agent-graph-body {
   display: grid;
   grid-template-columns: 1.4fr 1fr;
@@ -1234,6 +1252,23 @@ a:focus-visible {
   line-height: 1.4;
 }
 
+.agent-graph-hovercard {
+  display: grid;
+  gap: 3px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(74, 158, 255, 0.08);
+  padding: 8px;
+  margin-bottom: 10px;
+  font-size: 10px;
+  color: var(--txt2);
+}
+
+.agent-graph-hovercard strong {
+  color: var(--txt);
+  font-size: 11px;
+}
+
 .agent-graph-task-list {
   display: grid;
   gap: 8px;
@@ -1265,6 +1300,22 @@ a:focus-visible {
 
 .agent-graph-link:hover {
   color: var(--amber);
+}
+
+.agent-graph-timeline-event {
+  display: grid;
+  gap: 3px;
+  border-top: 1px solid var(--line);
+  margin-top: 12px;
+  padding-top: 10px;
+  font-size: 10px;
+  color: var(--txt2);
+}
+
+.agent-graph-timeline-event h5 {
+  margin: 0;
+  font-size: 11px;
+  color: var(--txt);
 }
 
 @media (max-width: 960px) {

@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { adminAPI } from "../../api/adminAPI";
 
+const GRAPH_PREFS_KEY = "admin.graph.prefs.v1";
+
 const NODE_LAYOUT = [
   { id: "ceo", label: "CEO", role: "ceo", x: 50, y: 10, group: "control" },
   { id: "openclaw", label: "OpenClaw", role: "openclaw_orchestrator", x: 50, y: 24, group: "control" },
@@ -69,7 +71,18 @@ export default function AgentGraphCanvas({ onRefresh }) {
   const [pendingDecisions, setPendingDecisions] = useState([]);
   const [knowledgeEvents, setKnowledgeEvents] = useState([]);
   const [selectedRole, setSelectedRole] = useState("");
-  const [laneFilter, setLaneFilter] = useState("all");
+  const [hoveredRole, setHoveredRole] = useState("");
+  const [laneFilter, setLaneFilter] = useState(() => {
+    try {
+      const raw = localStorage.getItem(GRAPH_PREFS_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      return parsed?.laneFilter || "all";
+    } catch {
+      return "all";
+    }
+  });
+  const [timelineIndex, setTimelineIndex] = useState(0);
+  const [timelinePlaying, setTimelinePlaying] = useState(false);
   const [loading, setLoading] = useState(true);
   const containerRef = useRef(null);
 
@@ -105,6 +118,19 @@ export default function AgentGraphCanvas({ onRefresh }) {
 
   const byRole = useMemo(() => new Map(workers.map((w) => [w.role, w])), [workers]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        GRAPH_PREFS_KEY,
+        JSON.stringify({
+          laneFilter,
+        })
+      );
+    } catch {
+      // noop if localStorage is unavailable
+    }
+  }, [laneFilter]);
+
   const activeTaskByRole = useMemo(() => {
     const map = new Map();
     tasks.forEach((task) => {
@@ -120,9 +146,56 @@ export default function AgentGraphCanvas({ onRefresh }) {
     return tasks.filter((task) => String(task.role || "") === selectedRole).slice(0, 8);
   }, [selectedRole, tasks]);
 
+  const normalizedEvents = useMemo(() => {
+    const out = [...knowledgeEvents]
+      .map((evt, idx) => {
+        const rawTs = evt.timestamp || evt.ts || evt.created_at || evt.time || "";
+        const ms = rawTs ? Date.parse(rawTs) : NaN;
+        return {
+          ...evt,
+          _eventKey: evt.event_id || evt.id || `${rawTs}-${idx}`,
+          _eventMs: Number.isFinite(ms) ? ms : 0,
+        };
+      })
+      .sort((a, b) => a._eventMs - b._eventMs);
+    return out;
+  }, [knowledgeEvents]);
+
+  useEffect(() => {
+    if (!normalizedEvents.length) {
+      setTimelineIndex(0);
+      return;
+    }
+    setTimelineIndex((prev) => {
+      const max = normalizedEvents.length - 1;
+      return prev > max ? max : prev;
+    });
+  }, [normalizedEvents]);
+
+  useEffect(() => {
+    if (!timelinePlaying || normalizedEvents.length <= 1) return;
+    const max = normalizedEvents.length - 1;
+    const id = setInterval(() => {
+      setTimelineIndex((prev) => {
+        if (prev >= max) {
+          setTimelinePlaying(false);
+          return max;
+        }
+        return prev + 1;
+      });
+    }, 700);
+    return () => clearInterval(id);
+  }, [timelinePlaying, normalizedEvents]);
+
+  const visibleEvents = useMemo(() => {
+    if (!normalizedEvents.length) return [];
+    const safeIdx = Math.min(Math.max(timelineIndex, 0), normalizedEvents.length - 1);
+    return normalizedEvents.slice(0, safeIdx + 1);
+  }, [normalizedEvents, timelineIndex]);
+
   const liveFlow = useMemo(() => {
     const eventTypes = new Set(
-      knowledgeEvents.map((evt) => String(evt.event_type || evt.type || "").toLowerCase())
+      visibleEvents.map((evt) => String(evt.event_type || evt.type || "").toLowerCase())
     );
     return {
       decision: pendingDecisions.length > 0 || eventTypes.has("decision.created") || eventTypes.has("decision.approved"),
@@ -131,7 +204,7 @@ export default function AgentGraphCanvas({ onRefresh }) {
       position: eventTypes.has("position.updated") || eventTypes.has("portfolio.updated"),
       blog: eventTypes.has("blog.created") || eventTypes.has("blog.published"),
     };
-  }, [knowledgeEvents, pendingDecisions]);
+  }, [visibleEvents, pendingDecisions]);
 
   const rolesInOrder = NODE_LAYOUT.map((n) => n.role);
   const selectedIndex = rolesInOrder.indexOf(selectedRole);
@@ -149,6 +222,8 @@ export default function AgentGraphCanvas({ onRefresh }) {
   };
 
   const selectedTaskPreview = selectedTasks[0] || null;
+  const hoveredWorker = hoveredRole ? byRole.get(hoveredRole) : null;
+  const timelineCurrent = normalizedEvents.length ? normalizedEvents[timelineIndex] : null;
 
   useEffect(() => {
     const onKeyDown = (event) => {
@@ -175,7 +250,7 @@ export default function AgentGraphCanvas({ onRefresh }) {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  });
+  }, [onRefresh, selectedIndex, rolesInOrder.length]);
 
   const shouldShowNode = (node) => {
     if (laneFilter === "all") return true;
@@ -194,6 +269,38 @@ export default function AgentGraphCanvas({ onRefresh }) {
           <button className={`agent-graph-legend-btn ${laneFilter === "research" ? "active" : ""}`} onClick={() => setLaneFilter("research")}>Research</button>
           <button className={`agent-graph-legend-btn ${laneFilter === "execution" ? "active" : ""}`} onClick={() => setLaneFilter("execution")}>Execution</button>
           <button className={`agent-graph-legend-btn ${laneFilter === "entity" ? "active" : ""}`} onClick={() => setLaneFilter("entity")}>Entity Flow</button>
+        </div>
+        <div className="agent-graph-timeline-controls">
+          <button
+            className="agent-graph-nav-btn"
+            onClick={() => {
+              if (timelineIndex >= normalizedEvents.length - 1) {
+                setTimelineIndex(0);
+              }
+              setTimelinePlaying((prev) => !prev);
+            }}
+            disabled={normalizedEvents.length <= 1}
+            aria-label="Play timeline"
+          >
+            {timelinePlaying ? "Pause Timeline" : "Play Timeline"}
+          </button>
+          <input
+            className="agent-graph-timeline-range"
+            type="range"
+            min={0}
+            max={Math.max(normalizedEvents.length - 1, 0)}
+            value={Math.min(timelineIndex, Math.max(normalizedEvents.length - 1, 0))}
+            onChange={(e) => {
+              setTimelinePlaying(false);
+              setTimelineIndex(Number(e.target.value) || 0);
+            }}
+            aria-label="Scrub knowledge-event timeline"
+          />
+          <span className="agent-graph-timeline-meta">
+            {normalizedEvents.length
+              ? `${timelineIndex + 1}/${normalizedEvents.length} events`
+              : "No events"}
+          </span>
         </div>
       </div>
 
@@ -235,6 +342,8 @@ export default function AgentGraphCanvas({ onRefresh }) {
                 key={node.id}
                 className={`agent-graph-node ${status} ${isSelected ? "selected" : ""}`}
                 onClick={() => setSelectedRole((prev) => (prev === node.role ? "" : node.role))}
+                onMouseEnter={() => setHoveredRole(node.role)}
+                onMouseLeave={() => setHoveredRole("")}
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => {
@@ -297,6 +406,14 @@ export default function AgentGraphCanvas({ onRefresh }) {
 
         <aside className="agent-graph-sidepanel">
           <h4>{selectedRole ? `${selectedRole.replace(/_/g, " ")} Tasks` : "Role Inspector"}</h4>
+          {hoveredRole && (
+            <div className="agent-graph-hovercard" role="status" aria-live="polite">
+              <strong>{hoveredRole.replace(/_/g, " ")}</strong>
+              <span>Status: {roleStatus(hoveredWorker)}</span>
+              <span>Running: {hoveredWorker?.running ? "yes" : "no"}</span>
+              {hoveredWorker?.last_error ? <span>Last error: {String(hoveredWorker.last_error).slice(0, 80)}</span> : null}
+            </div>
+          )}
           <div className="agent-graph-nav-row">
             <button className="agent-graph-nav-btn" onClick={selectPrevRole} aria-label="Select previous role">Prev Role</button>
             <button className="agent-graph-nav-btn" onClick={selectNextRole} aria-label="Select next role">Next Role</button>
@@ -327,6 +444,13 @@ export default function AgentGraphCanvas({ onRefresh }) {
               ) : null}
             </div>
           )}
+          {timelineCurrent ? (
+            <div className="agent-graph-timeline-event">
+              <h5>Timeline Cursor</h5>
+              <span>{timelineCurrent.timestamp ? new Date(timelineCurrent.timestamp).toLocaleString() : "no timestamp"}</span>
+              <span>{timelineCurrent.event_type || timelineCurrent.type || "event"}</span>
+            </div>
+          ) : null}
         </aside>
       </div>
     </section>
