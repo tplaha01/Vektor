@@ -23,6 +23,7 @@ from app.fund.audit_log import audit_log
 from app.fund.blog_service import blog_service
 from app.fund.contracts import ProvenanceRef, ResearchReport as ContractResearchReport
 from app.fund.decision_ledger import decision_ledger
+from app.fund.knowledge_graph import knowledge_graph
 from app.fund.orchestrator import firm_orchestrator
 from app.fund.runtime_guard import data_integrity_guard
 from app.fund.sentiment_ingest import sentiment_ingest
@@ -359,6 +360,39 @@ def _normalize_binary_status(value: str, *, default: str) -> str:
     return default
 
 
+def _record_runtime_control_event(
+    *,
+    action: str,
+    status: str,
+    reason: str | None,
+    payload: dict[str, Any] | None = None,
+    run_id: str | None = None,
+) -> dict[str, Any]:
+    control_run_id = str(run_id or f"run-admin-control-{uuid.uuid4().hex[:12]}")
+    control_payload = {
+        "action": str(action or "unknown").strip().lower(),
+        "status": str(status or "unknown").strip().lower(),
+        "reason": str(reason or "").strip() or None,
+        "actor": "api.admin",
+        **dict(payload or {}),
+    }
+    audit_log.record(
+        "runtime.control",
+        {
+            "run_id": control_run_id,
+            "agent_id": "api.admin",
+            **control_payload,
+        },
+    )
+    return knowledge_graph.ingest(
+        source="runtime",
+        event_type=f"runtime.control.{control_payload['action']}",
+        run_id=control_run_id,
+        agent_id="api.admin",
+        payload=control_payload,
+    )
+
+
 # ====================================================================
 # Admin Endpoints (live-backed)
 # ====================================================================
@@ -549,24 +583,64 @@ async def get_runtime_control_status():
     }
 
 
+@router.get("/system/control-history", response_model=dict)
+async def get_runtime_control_history(limit: int = Query(30, ge=1, le=200)):
+    events = knowledge_graph.list_events(limit=max(limit * 8, 200), namespace="runtime", source="runtime")
+    rows: list[dict[str, Any]] = []
+    for event in events:
+        event_type = str(event.get("event_type") or "").strip()
+        if not event_type.startswith("runtime.control."):
+            continue
+        payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
+        rows.append(
+            {
+                "event_id": str(event.get("event_id") or ""),
+                "timestamp": event.get("occurred_at"),
+                "run_id": event.get("run_id"),
+                "event_type": event_type,
+                "action": str(payload.get("action") or event_type.split(".")[-1]).strip().lower(),
+                "status": str(payload.get("status") or "unknown").strip().lower(),
+                "reason": str(payload.get("reason") or "").strip() or None,
+                "actor": str(payload.get("actor") or event.get("agent_id") or "api.admin"),
+                "payload": payload,
+            }
+        )
+        if len(rows) >= limit:
+            break
+    return {"rows": rows, "total": len(rows), "limit": limit}
+
+
 @router.post("/system/runtime/pause", response_model=dict)
 async def pause_runtime(body: RuntimeControlIn):
     was_started = fund_agent_runtime.is_started()
     if was_started:
         await fund_agent_runtime.stop()
     runtime = fund_agent_runtime.status()
-    return {
+    response = {
         "ok": True,
         "action": "paused" if was_started else "already_paused",
         "reason": body.reason,
         "runtime_started": bool(runtime.get("started")),
         "active_task_count": len(firm_orchestrator.list_active_tasks()),
     }
+    _record_runtime_control_event(
+        action="pause",
+        status=str(response["action"]),
+        reason=body.reason,
+        payload={"runtime_started": response["runtime_started"]},
+    )
+    return response
 
 
 @router.post("/system/runtime/resume", response_model=dict)
 async def resume_runtime(body: RuntimeControlIn):
     if data_integrity_guard.halted():
+        _record_runtime_control_event(
+            action="resume",
+            status="rejected",
+            reason=data_integrity_guard.halt_reason() or "strict_real_data_halt",
+            payload={"blocked": True},
+        )
         raise HTTPException(
             status_code=409,
             detail={
@@ -579,33 +653,62 @@ async def resume_runtime(body: RuntimeControlIn):
     if not already_started:
         await fund_agent_runtime.start()
     runtime = fund_agent_runtime.status()
-    return {
+    response = {
         "ok": True,
         "action": "resumed" if not already_started else "already_running",
         "reason": body.reason,
         "runtime_started": bool(runtime.get("started")),
         "active_task_count": len(firm_orchestrator.list_active_tasks()),
     }
+    _record_runtime_control_event(
+        action="resume",
+        status=str(response["action"]),
+        reason=body.reason,
+        payload={"runtime_started": response["runtime_started"]},
+    )
+    return response
 
 
 @router.post("/system/halt/clear", response_model=dict)
 async def clear_system_halt(body: RuntimeControlIn):
     result = data_integrity_guard.clear_halt(reason=body.reason)
     runtime = fund_agent_runtime.status()
-    return {
+    response = {
         "ok": True,
         "action": "halt_cleared",
         "runtime_started": bool(runtime.get("started")),
         **result,
     }
+    _record_runtime_control_event(
+        action="clear_halt",
+        status="halt_cleared",
+        reason=body.reason,
+        payload={"previous_halt_reason": result.get("previous_halt_reason")},
+    )
+    return response
 
 
 @router.post("/system/autopilot/kick", response_model=dict)
 async def kick_autopilot(body: AutopilotKickIn):
     result = fund_agent_runtime.kick_autopilot(run_id=body.run_id)
     if not result.get("accepted"):
+        _record_runtime_control_event(
+            action="kick_autopilot",
+            status="rejected",
+            reason=str(result.get("reason") or "autopilot_rejected"),
+            payload={"accepted": False, "run_id": body.run_id},
+            run_id=body.run_id,
+        )
         raise HTTPException(status_code=400, detail=result.get("reason", "autopilot_rejected"))
-    return {"ok": True, **result}
+    response = {"ok": True, **result}
+    _record_runtime_control_event(
+        action="kick_autopilot",
+        status="accepted",
+        reason=None,
+        payload={"accepted": True},
+        run_id=str(result.get("run_id") or body.run_id or ""),
+    )
+    return response
 
 
 @router.get("/agents/workers/status", response_model=dict)

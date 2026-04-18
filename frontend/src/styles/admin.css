@@ -572,6 +572,91 @@
   line-height: 1.4;
 }
 
+.setting-control-history {
+  margin-top: 12px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.setting-control-history-title {
+  margin: 0 0 8px 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--txt2);
+}
+
+.setting-control-history-empty {
+  margin: 0;
+  color: var(--txt2);
+  font-size: 11px;
+}
+
+.setting-control-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.setting-control-history-row {
+  border: 1px solid var(--line);
+  background: var(--bg3);
+  border-radius: var(--r-sm);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.setting-control-history-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.setting-control-history-action {
+  font-size: 12px;
+  color: var(--txt);
+  font-family: var(--f-data);
+}
+
+.setting-control-history-status {
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 2px 8px;
+  border: 1px solid var(--line2);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.setting-control-history-status-ok {
+  color: var(--green);
+  background: rgba(62, 207, 142, 0.1);
+}
+
+.setting-control-history-status-bad {
+  color: var(--red);
+  background: rgba(224, 82, 82, 0.1);
+}
+
+.setting-control-history-status-wait {
+  color: var(--amber2);
+  background: rgba(245, 166, 35, 0.1);
+}
+
+.setting-control-history-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 10px;
+  color: var(--txt2);
+  font-family: var(--f-data);
+}
+
 /* ====================================================================
    Status Badge
    ==================================================================== */

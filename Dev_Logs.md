@@ -2671,3 +2671,23 @@ files:
 - frontend/src/styles/admin.css
 validation: py -3 -m pytest backend/tests/test_admin_runtime_controls.py backend/tests/test_admin_status_badges.py backend/tests/test_runtime_guard.py -q (pass); npm --prefix frontend run build (pass)
 notes: Runtime resume is fail-closed while strict real-data halt is active; operator must clear halt first.
+
+[2026-04-18T02:05:00Z] [UPDATE]
+entry_id: devlog-20260418-codex-control-history-001
+actor_name: codex_cto
+actor_platform: codex
+actor_model: gpt-5.4
+actor_provider: openai
+run_id: run-viktor-hardening-004
+git_branch: codex/hardening-sprint
+git_commit_start: f2cd66988dd7ec889be09473ea8a9cde57600d00
+git_commit_end:
+scope: Added persistent runtime-control event lineage (audit + KB), new Admin control-history API, and Settings UI timeline for CEO control actions.
+files:
+- backend/app/admin_research_routes.py
+- backend/tests/test_admin_runtime_controls.py
+- frontend/src/api/adminAPI.js
+- frontend/src/pages/Admin.jsx
+- frontend/src/styles/admin.css
+validation: py -3 -m pytest backend/tests/test_admin_runtime_controls.py backend/tests/test_admin_status_badges.py backend/tests/test_runtime_guard.py -q (pass); npm --prefix frontend run build (pass)
+notes: Control history rows derive from runtime namespace KB events `runtime.control.*` and include action/status/reason/timestamp.

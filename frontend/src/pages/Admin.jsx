@@ -21,6 +21,7 @@ const Admin = () => {
   const [metrics, setMetrics] = useState(null);
   const [systemStatus, setSystemStatus] = useState(null);
   const [runtimeControl, setRuntimeControl] = useState(null);
+  const [controlHistory, setControlHistory] = useState([]);
   const [controlBusy, setControlBusy] = useState('');
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState(new Date());
@@ -41,11 +42,12 @@ const Admin = () => {
         setTimeout(() => reject(new Error('Request timeout')), 15000)
       );
 
-      const [metricsPayload, systemPayload, runtimePayload] = await Promise.race([
+      const [metricsPayload, systemPayload, runtimePayload, historyPayload] = await Promise.race([
         Promise.all([
           adminAPI.getMetricsSummary(),
           adminAPI.getSystemStatusBadges(),
           adminAPI.getRuntimeControlStatus(),
+          adminAPI.getRuntimeControlHistory(20),
         ]),
         timeoutPromise,
       ]);
@@ -55,6 +57,7 @@ const Admin = () => {
       setMetrics(metricsPayload);
       setSystemStatus(systemPayload);
       setRuntimeControl(runtimePayload);
+      setControlHistory(adminAPI.normalizeArray(historyPayload, 'rows'));
       setConnectionStatus('connected');
       setLastUpdate(new Date());
       setRetryCount(0);
@@ -89,6 +92,7 @@ const Admin = () => {
         halt_reason: err.message,
         autopilot: { enabled: false, running: false },
       });
+      setControlHistory([]);
     } finally {
       fetchInProgress.current = false;
     }
@@ -509,6 +513,29 @@ const Admin = () => {
                           {systemStatus?.halt?.reason && (
                             <p className="setting-runtime-hint">Current halt reason: {systemStatus.halt.reason}</p>
                           )}
+                          <div className="setting-control-history">
+                            <h4 className="setting-control-history-title">Control History</h4>
+                            {(controlHistory || []).length === 0 ? (
+                              <p className="setting-control-history-empty">No control actions recorded yet.</p>
+                            ) : (
+                              <div className="setting-control-history-list">
+                                {(controlHistory || []).map((row) => (
+                                  <div key={row.event_id} className="setting-control-history-row">
+                                    <div className="setting-control-history-main">
+                                      <span className="setting-control-history-action">{row.action}</span>
+                                      <span className={`setting-control-history-status setting-control-history-status-${badgeTone(row.status)}`}>
+                                        {row.status}
+                                      </span>
+                                    </div>
+                                    <div className="setting-control-history-meta">
+                                      <span>{row.timestamp ? new Date(row.timestamp).toLocaleString() : 'n/a'}</span>
+                                      <span>{row.reason || 'no_reason'}</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </div>
 
                         <div className="setting-group">

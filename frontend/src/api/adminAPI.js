@@ -50,6 +50,9 @@ export const adminAPI = {
   getRuntimeControlStatus: async () => {
     return fetchJson(`${API_BASE}/admin/system/runtime/control`);
   },
+  getRuntimeControlHistory: async (limit = 30) => {
+    return fetchJson(`${API_BASE}/admin/system/control-history?limit=${encodeURIComponent(limit)}`);
+  },
   pauseRuntime: async (reason = "manual_admin_pause") => {
     return fetchJson(`${API_BASE}/admin/system/runtime/pause`, {
       method: "POST",
