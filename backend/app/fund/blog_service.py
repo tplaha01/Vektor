@@ -25,6 +25,20 @@ def _slugify(value: str) -> str:
     return text[:80]
 
 
+def _ensure_unique_slug(value: str) -> str:
+    base = _slugify(value)
+    if not storage_db.load_blog_post(base):
+        return base
+
+    # Keep suffix room for retries while preserving readability.
+    trimmed_base = base[:70].rstrip("-")
+    for idx in range(2, 100):
+        candidate = f"{trimmed_base}-{idx}"
+        if not storage_db.load_blog_post(candidate):
+            return candidate
+    return f"{trimmed_base}-{uuid4().hex[:8]}"
+
+
 def _to_report_dict(report: ContractResearchReport | dict[str, Any]) -> dict[str, Any]:
     if isinstance(report, ContractResearchReport):
         return report.model_dump(mode="json")
@@ -135,7 +149,7 @@ class BlogService:
         read_time = max(3, min(12, int(math.ceil(len(content.split()) / 220.0))))
 
         post_id = f"blog-{uuid4().hex[:12]}"
-        slug = _slugify(title)
+        slug = _ensure_unique_slug(title)
         now = _utc_iso()
         post = {
             "id": post_id,
@@ -164,8 +178,17 @@ class BlogService:
             "published_at": now,
             "updated_at": now,
         }
-        storage_db.save_blog_post(post)
-        return storage_db.load_blog_post(post_id) or post
+        # Slug is unique in DB. Retry with a unique suffix if a concurrent
+        # writer inserted the same slug between check and save.
+        for _ in range(4):
+            try:
+                storage_db.save_blog_post(post)
+                return storage_db.load_blog_post(post_id) or post
+            except Exception as exc:  # pragma: no cover - defensive runtime retry
+                if "blog_posts.slug" not in str(exc):
+                    raise
+                post["slug"] = f"{slug[:70].rstrip('-')}-{uuid4().hex[:8]}"
+        raise RuntimeError("unable_to_persist_blog_post_due_to_slug_collisions")
 
     def list_posts(self, *, limit: int = 50, offset: int = 0, category: str | None = None) -> dict[str, Any]:
         rows = storage_db.load_blog_posts(limit=limit, offset=offset, category=category)

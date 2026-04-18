@@ -45,6 +45,28 @@ class DataIntegrityGuard:
     def strict_mode_enabled(self) -> bool:
         return self._strict
 
+    def set_strict_mode(self, enabled: bool, *, reason: str = "manual_update") -> dict[str, Any]:
+        now = _utc_iso()
+        normalized_reason = str(reason or "manual_update").strip() or "manual_update"
+        with self._lock:
+            previous = bool(self._strict)
+            self._strict = bool(enabled)
+            auto_cleared = False
+            if not self._strict and self._halted:
+                self._halted = False
+                self._halt_reason = None
+                self._halted_at = None
+                auto_cleared = True
+            status = self.status()
+        return {
+            "updated_at": now,
+            "reason": normalized_reason,
+            "strict_real_data_only_previous": previous,
+            "strict_real_data_only": bool(enabled),
+            "halt_auto_cleared": auto_cleared,
+            "status": status,
+        }
+
     def record_provider_event(
         self,
         *,

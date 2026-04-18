@@ -111,7 +111,24 @@ def test_lineage_run_detail_endpoint_returns_drilldown(monkeypatch):
     assert body["run_id"] == run_id
     assert body["summary"]["symbol"] == "AAPL"
     assert body["summary"]["decision_id"] == "decision-1"
+    assert body["summary"]["lineage_detail_path"] == f"/api/admin/lineage/run/{run_id}"
+    assert body["summary"]["decision_detail_path"] == "/api/admin/decisions/decision-1"
     assert "report-1" in body["related_research_report_ids"]
     assert "blog-1" in body["related_blog_post_ids"]
     assert body["decision"]["decision_id"] == "decision-1"
     assert len(body["task_events"]) >= 3
+
+    recent = client.get("/api/admin/lineage/recent?limit=5")
+    assert recent.status_code == 200
+    rows = recent.json()["rows"]
+    target = next((row for row in rows if row.get("run_id") == run_id), None)
+    assert target is not None
+    assert target["lineage_detail_path"] == f"/api/admin/lineage/run/{run_id}"
+    assert target["decision_detail_path"] == "/api/admin/decisions/decision-1"
+    assert "report-1" in target["report_ids"]
+
+    decision_detail = client.get("/api/admin/decisions/decision-1")
+    assert decision_detail.status_code == 200
+    detail_body = decision_detail.json()
+    assert detail_body["decision_id"] == "decision-1"
+    assert detail_body["lineage_detail_path"] == f"/api/admin/lineage/run/{run_id}"

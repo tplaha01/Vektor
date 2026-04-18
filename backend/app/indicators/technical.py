@@ -1,10 +1,25 @@
 from __future__ import annotations
+import logging
 import pandas as pd
 import numpy as np
-from ta.trend import ADXIndicator, MACD
-from ta.volatility import BollingerBands, AverageTrueRange
-from ta.volume import OnBalanceVolumeIndicator, VolumeWeightedAveragePrice
-from ta.momentum import StochasticOscillator, RSIIndicator
+
+try:
+    from ta.trend import ADXIndicator, MACD
+    from ta.volatility import BollingerBands, AverageTrueRange
+    from ta.volume import OnBalanceVolumeIndicator
+    from ta.momentum import StochasticOscillator, RSIIndicator
+    _TA_AVAILABLE = True
+except Exception:
+    ADXIndicator = None
+    MACD = None
+    BollingerBands = None
+    AverageTrueRange = None
+    OnBalanceVolumeIndicator = None
+    StochasticOscillator = None
+    RSIIndicator = None
+    _TA_AVAILABLE = False
+
+_log = logging.getLogger("alfred.indicators.technical")
 
 
 def detect_regime(c, h, l, v, adx_val, adx_pos, adx_neg):
@@ -142,6 +157,26 @@ def _high_vol_score(c, h, l, v) -> float:
 def technical_score(df: pd.DataFrame, debug: bool = False):
     if len(df) < 60:
         return 0.0
+
+    if not _TA_AVAILABLE:
+        # Minimal deterministic fallback when `ta` package is unavailable.
+        c = df["close"].astype(float)
+        momentum_5 = float((c.iloc[-1] - c.iloc[-6]) / (c.iloc[-6] + 1e-9))
+        sma20 = float(c.rolling(20).mean().iloc[-1])
+        sma50 = float(c.rolling(50).mean().iloc[-1])
+        trend = 1.0 if sma20 > sma50 else -1.0
+        price_position = 1.0 if float(c.iloc[-1]) > sma20 else -1.0
+        raw = (0.55 * trend) + (0.25 * price_position) + (0.20 * float(np.clip(momentum_5 * 12, -1.0, 1.0)))
+        final = float(np.clip(raw, -1.0, 1.0))
+        if debug:
+            return {
+                "regime": "FALLBACK_NO_TA",
+                "adx": None,
+                "atr_pct": None,
+                "score": round(final, 4),
+            }
+        _log.debug("technical_score_fallback_no_ta")
+        return final
 
     c = df["close"].astype(float)
     h = df["high"].astype(float)

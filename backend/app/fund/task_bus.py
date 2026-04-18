@@ -6,6 +6,7 @@ from typing import Any, Callable, Dict, List, Literal
 from uuid import uuid4
 
 from app.fund.contracts import AgentTask
+from app.websocket.agent_events import publish_agent_event
 
 TaskStatus = Literal["queued", "running", "completed", "failed", "blocked"]
 
@@ -255,10 +256,19 @@ class TaskBus:
         self._event_sink = sink
 
     def _emit_event(self, event: dict[str, Any]) -> None:
-        if self._event_sink is None:
-            return
+        event_copy = dict(event)
+        
+        # Emit to legacy event sink
+        if self._event_sink is not None:
+            try:
+                self._event_sink(event_copy)
+            except Exception:
+                pass
+        
+        # Publish to WebSocket stream for real-time clients
         try:
-            self._event_sink(dict(event))
+            event_type = event_copy.get("event_type", "unknown")
+            publish_agent_event(event_type, event_copy)
         except Exception:
             pass
 

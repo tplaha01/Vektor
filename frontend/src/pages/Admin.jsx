@@ -14,12 +14,16 @@ import RiskGauges from '../components/admin/RiskGauges';
 import AuditTimeline from '../components/admin/AuditTimeline';
 import PositionsPanel from '../components/admin/PositionsPanel';
 import LineagePanel from '../components/admin/LineagePanel';
+import SystemOverview from '../components/admin/SystemOverview';
 
 const Admin = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [metrics, setMetrics] = useState(null);
   const [systemStatus, setSystemStatus] = useState(null);
+  const [runtimeControl, setRuntimeControl] = useState(null);
+  const [controlHistory, setControlHistory] = useState([]);
+  const [controlBusy, setControlBusy] = useState('');
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [connectionStatus, setConnectionStatus] = useState('connecting');
@@ -39,10 +43,12 @@ const Admin = () => {
         setTimeout(() => reject(new Error('Request timeout')), 15000)
       );
 
-      const [metricsPayload, systemPayload] = await Promise.race([
+      const [metricsPayload, systemPayload, runtimePayload, historyPayload] = await Promise.race([
         Promise.all([
           adminAPI.getMetricsSummary(),
           adminAPI.getSystemStatusBadges(),
+          adminAPI.getRuntimeControlStatus(),
+          adminAPI.getRuntimeControlHistory(20),
         ]),
         timeoutPromise,
       ]);
@@ -51,6 +57,8 @@ const Admin = () => {
 
       setMetrics(metricsPayload);
       setSystemStatus(systemPayload);
+      setRuntimeControl(runtimePayload);
+      setControlHistory(adminAPI.normalizeArray(historyPayload, 'rows'));
       setConnectionStatus('connected');
       setLastUpdate(new Date());
       setRetryCount(0);
@@ -79,6 +87,13 @@ const Admin = () => {
           message: 'Unable to verify runtime health. Activities are treated as halted until recovery.',
         },
       });
+      setRuntimeControl({
+        runtime_started: false,
+        halted: true,
+        halt_reason: err.message,
+        autopilot: { enabled: false, running: false },
+      });
+      setControlHistory([]);
     } finally {
       fetchInProgress.current = false;
     }
@@ -102,6 +117,43 @@ const Admin = () => {
   const handleRefresh = () => {
     setLoading(true);
     fetchMetrics({ manual: true });
+  };
+
+  const runControlAction = async (action) => {
+    if (controlBusy) return;
+
+    try {
+      if (action === 'pause') {
+        const confirmed = window.confirm('Pause all runtime workers and autopilot now?');
+        if (!confirmed) return;
+      }
+      if (action === 'resume' && systemStatus?.halt?.halted) {
+        showError('Runtime is halted by strict real-data policy. Clear halt first.');
+        return;
+      }
+
+      setControlBusy(action);
+      let result = null;
+      if (action === 'pause') {
+        result = await adminAPI.pauseRuntime('ceo_admin_pause');
+      } else if (action === 'resume') {
+        result = await adminAPI.resumeRuntime('ceo_admin_resume');
+      } else if (action === 'clear_halt') {
+        result = await adminAPI.clearSystemHalt('ceo_admin_clear_halt');
+      } else if (action === 'kick_autopilot') {
+        result = await adminAPI.kickAutopilot('');
+      } else {
+        return;
+      }
+
+      success(`Control action complete: ${result?.action || action}`);
+      await fetchMetrics();
+    } catch (err) {
+      console.error('Control action failed:', err);
+      showError(`Control action failed: ${err.message}`);
+    } finally {
+      setControlBusy('');
+    }
   };
 
   const navigationItems = [
@@ -338,6 +390,13 @@ const Admin = () => {
                       <KPIGrid metrics={metrics} />
                     </section>
 
+                    <section className="content-section">
+                      <div className="section-header">
+                        <h2 className="section-title">Agent Orchestration Hierarchy</h2>
+                      </div>
+                      <SystemOverview />
+                    </section>
+
                     <div className="content-grid">
                       <section className="content-section">
                         <h3 className="section-subtitle">Agent Activity</h3>
@@ -413,21 +472,90 @@ const Admin = () => {
                       <h2 className="section-title">Configuration</h2>
                       <div className="settings-panel">
                         <div className="setting-group">
-                          <h3>Model Routing</h3>
-                          <p className="setting-desc">Configure model assignments and routing rules</p>
-                          <button className="btn-secondary">Configure Routes</button>
+                          <h3>Runtime Controls</h3>
+                          <p className="setting-desc">CEO actions for immediate runtime control.</p>
+                          <div className="setting-runtime-meta">
+                            <div className="setting-runtime-row">
+                              <span>Runtime</span>
+                              <strong>{runtimeControl?.runtime_started ? 'Running' : 'Paused'}</strong>
+                            </div>
+                            <div className="setting-runtime-row">
+                              <span>Halt</span>
+                              <strong>{systemStatus?.halt?.halted ? 'Active' : 'Clear'}</strong>
+                            </div>
+                            <div className="setting-runtime-row">
+                              <span>Autopilot</span>
+                              <strong>{runtimeControl?.autopilot?.enabled ? 'Enabled' : 'Disabled'}</strong>
+                            </div>
+                          </div>
+                          <div className="setting-action-row">
+                            <button
+                              className="btn-secondary"
+                              onClick={() => runControlAction('pause')}
+                              disabled={controlBusy !== ''}
+                            >
+                              {controlBusy === 'pause' ? 'Pausing...' : 'Pause Runtime'}
+                            </button>
+                            <button
+                              className="btn-secondary"
+                              onClick={() => runControlAction('resume')}
+                              disabled={controlBusy !== '' || Boolean(systemStatus?.halt?.halted)}
+                            >
+                              {controlBusy === 'resume' ? 'Resuming...' : 'Resume Runtime'}
+                            </button>
+                            <button
+                              className="btn-secondary"
+                              onClick={() => runControlAction('clear_halt')}
+                              disabled={controlBusy !== '' || !Boolean(systemStatus?.halt?.halted)}
+                            >
+                              {controlBusy === 'clear_halt' ? 'Clearing...' : 'Clear Halt'}
+                            </button>
+                            <button
+                              className="btn-secondary"
+                              onClick={() => runControlAction('kick_autopilot')}
+                              disabled={controlBusy !== '' || Boolean(systemStatus?.halt?.halted)}
+                            >
+                              {controlBusy === 'kick_autopilot' ? 'Kicking...' : 'Kick Autopilot'}
+                            </button>
+                          </div>
+                          {systemStatus?.halt?.reason && (
+                            <p className="setting-runtime-hint">Current halt reason: {systemStatus.halt.reason}</p>
+                          )}
+                          <div className="setting-control-history">
+                            <h4 className="setting-control-history-title">Control History</h4>
+                            {(controlHistory || []).length === 0 ? (
+                              <p className="setting-control-history-empty">No control actions recorded yet.</p>
+                            ) : (
+                              <div className="setting-control-history-list">
+                                {(controlHistory || []).map((row) => (
+                                  <div key={row.event_id} className="setting-control-history-row">
+                                    <div className="setting-control-history-main">
+                                      <span className="setting-control-history-action">{row.action}</span>
+                                      <span className={`setting-control-history-status setting-control-history-status-${badgeTone(row.status)}`}>
+                                        {row.status}
+                                      </span>
+                                    </div>
+                                    <div className="setting-control-history-meta">
+                                      <span>{row.timestamp ? new Date(row.timestamp).toLocaleString() : 'n/a'}</span>
+                                      <span>{row.reason || 'no_reason'}</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </div>
 
                         <div className="setting-group">
-                          <h3>Incident Controls</h3>
-                          <p className="setting-desc">Halt trading, pause agents, emergency procedures</p>
-                          <button className="btn-secondary">Manage Controls</button>
+                          <h3>Model Routing</h3>
+                          <p className="setting-desc">OpenClaw and role-model routing is configured in backend env and runtime config.</p>
+                          <button className="btn-secondary" disabled>Configure Routes (planned)</button>
                         </div>
 
                         <div className="setting-group">
                           <h3>Runtime Config</h3>
-                          <p className="setting-desc">System parameters, thresholds, and limits</p>
-                          <button className="btn-secondary">Edit Config</button>
+                          <p className="setting-desc">Strict real-data mode and risk thresholds are server-side protected.</p>
+                          <button className="btn-secondary" disabled>Edit Config (planned)</button>
                         </div>
                       </div>
                     </section>

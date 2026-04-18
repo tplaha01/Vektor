@@ -39,3 +39,4 @@ landing-next/.env
 *.db
 *.db-wal
 *.db-shm
+.run/

@@ -22,6 +22,8 @@ from app.fund.ingestion_adapters import market_ingestion
 from app.fund.orchestrator import FirmOrchestrator, firm_orchestrator
 from app.fund.runtime_guard import data_integrity_guard
 from app.fund.task_bus import TaskBus, task_bus
+from app.fund.agent_hierarchy import agent_hierarchy
+from app.websocket.agent_events import publish_agent_event
 
 
 AnalystRole = Literal[
@@ -232,6 +234,21 @@ class FundAgentRuntime:
         if not self._enabled or self._started:
             return
         self._started = True
+        
+        # Initialize agent hierarchy statuses
+        for role in self._roles:
+            agent_id = f"agent-{role}"
+            agent_hierarchy.update_agent_status(
+                agent_id=agent_id,
+                role=role,
+                status="idle",
+            )
+            publish_agent_event("agent.status_changed", {
+                "agent_id": agent_id,
+                "role": role,
+                "status": "idle",
+            })
+        
         for role in self._roles:
             self._states[role].started = True
             self._worker_tasks[role] = asyncio.create_task(self._worker_loop(role), name=f"fund-worker:{role}")
@@ -426,6 +443,29 @@ class FundAgentRuntime:
                 state = self._states[role]
                 state.running = True
                 state.last_heartbeat_at = _utc_iso()
+                
+                # Publish agent status to hierarchy
+                agent_id = f"agent-{role}"
+                agent_hierarchy.update_agent_status(
+                    agent_id=agent_id,
+                    role=role,
+                    status="running",
+                    last_task_id=state.last_task_id,
+                    task_count=state.completed_count + state.failed_count + state.blocked_count,
+                    success_count=state.completed_count,
+                    failed_count=state.failed_count,
+                    blocked_count=state.blocked_count,
+                )
+                
+                # Publish to WebSocket
+                publish_agent_event("agent.status_changed", {
+                    "agent_id": agent_id,
+                    "role": role,
+                    "status": "running",
+                    "last_heartbeat": state.last_heartbeat_at,
+                    "task_count": state.completed_count + state.failed_count + state.blocked_count,
+                })
+                
             if data_integrity_guard.halted():
                 halt_reason = data_integrity_guard.halt_reason() or "system_halted"
                 with self._state_lock:
@@ -441,6 +481,26 @@ class FundAgentRuntime:
                     state.running = False
                     state.last_error = halt_reason
                     state.last_task_status = "blocked"
+                    
+                    # Publish halted status
+                    agent_id = f"agent-{role}"
+                    agent_hierarchy.update_agent_status(
+                        agent_id=agent_id,
+                        role=role,
+                        status="idle",
+                        last_error=halt_reason,
+                        task_count=state.completed_count + state.failed_count + state.blocked_count,
+                        success_count=state.completed_count,
+                        failed_count=state.failed_count,
+                        blocked_count=state.blocked_count,
+                    )
+                    
+                    publish_agent_event("agent.status_changed", {
+                        "agent_id": agent_id,
+                        "role": role,
+                        "status": "idle",
+                        "last_error": halt_reason,
+                    })
                 await asyncio.sleep(max(self._poll_interval_seconds, 2.0))
                 continue
             with self._state_lock:
@@ -455,6 +515,27 @@ class FundAgentRuntime:
                 state.last_task_id = task.task_id
                 state.last_task_status = "running"
                 state.last_error = None
+                
+                # Publish task started
+                agent_id = f"agent-{role}"
+                agent_hierarchy.update_agent_status(
+                    agent_id=agent_id,
+                    role=role,
+                    status="running",
+                    current_task=task.task_id,
+                    task_count=state.completed_count + state.failed_count + state.blocked_count,
+                    success_count=state.completed_count,
+                    failed_count=state.failed_count,
+                    blocked_count=state.blocked_count,
+                )
+                
+                publish_agent_event("agent.task_started", {
+                    "agent_id": agent_id,
+                    "role": role,
+                    "task_id": task.task_id,
+                    "run_id": task.run_id,
+                    "status": "running",
+                })
 
             try:
                 result = await self._process_task(role, task.payload, run_id=task.run_id, task_id=task.task_id)
@@ -462,21 +543,89 @@ class FundAgentRuntime:
                 if status == "blocked":
                     self._task_bus.set_status(task.task_id, "blocked", result)
                     with self._state_lock:
-                        self._states[role].blocked_count += 1
-                        self._states[role].last_task_status = "blocked"
+                        state = self._states[role]
+                        state.blocked_count += 1
+                        state.last_task_status = "blocked"
+                        
+                        # Publish task blocked
+                        agent_id = f"agent-{role}"
+                        agent_hierarchy.update_agent_status(
+                            agent_id=agent_id,
+                            role=role,
+                            status="idle",
+                            last_task_id=task.task_id,
+                            last_task_status="blocked",
+                            task_count=state.completed_count + state.failed_count + state.blocked_count,
+                            success_count=state.completed_count,
+                            failed_count=state.failed_count,
+                            blocked_count=state.blocked_count,
+                        )
+                        
+                        publish_agent_event("agent.task_completed", {
+                            "agent_id": agent_id,
+                            "role": role,
+                            "task_id": task.task_id,
+                            "status": "blocked",
+                        })
                 else:
                     self._task_bus.set_status(task.task_id, "completed", result)
                     with self._state_lock:
-                        self._states[role].completed_count += 1
-                        self._states[role].last_task_status = "completed"
+                        state = self._states[role]
+                        state.completed_count += 1
+                        state.last_task_status = "completed"
+                        
+                        # Publish task completed
+                        agent_id = f"agent-{role}"
+                        agent_hierarchy.update_agent_status(
+                            agent_id=agent_id,
+                            role=role,
+                            status="idle",
+                            last_task_id=task.task_id,
+                            last_task_status="completed",
+                            task_count=state.completed_count + state.failed_count + state.blocked_count,
+                            success_count=state.completed_count,
+                            failed_count=state.failed_count,
+                            blocked_count=state.blocked_count,
+                        )
+                        
+                        publish_agent_event("agent.task_completed", {
+                            "agent_id": agent_id,
+                            "role": role,
+                            "task_id": task.task_id,
+                            "status": "completed",
+                        })
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
                 self._task_bus.set_status(task.task_id, "failed", {"error": str(exc)})
                 with self._state_lock:
-                    self._states[role].failed_count += 1
-                    self._states[role].last_task_status = "failed"
-                    self._states[role].last_error = str(exc)
+                    state = self._states[role]
+                    state.failed_count += 1
+                    state.last_task_status = "failed"
+                    state.last_error = str(exc)
+                    
+                    # Publish task failed
+                    agent_id = f"agent-{role}"
+                    agent_hierarchy.update_agent_status(
+                        agent_id=agent_id,
+                        role=role,
+                        status="error",
+                        last_task_id=task.task_id,
+                        last_task_status="failed",
+                        last_error=str(exc),
+                        task_count=state.completed_count + state.failed_count + state.blocked_count,
+                        success_count=state.completed_count,
+                        failed_count=state.failed_count,
+                        blocked_count=state.blocked_count,
+                    )
+                    
+                    publish_agent_event("agent.error", {
+                        "agent_id": agent_id,
+                        "role": role,
+                        "task_id": task.task_id,
+                        "error": str(exc),
+                        "status": "failed",
+                    })
             finally:
                 with self._state_lock:
                     self._states[role].last_heartbeat_at = _utc_iso()

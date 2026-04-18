@@ -12,11 +12,19 @@ Fixes:
 
 import numpy as np
 import pandas as pd
-import yfinance as yf
 from dataclasses import dataclass
 from typing import List, Optional, Dict, Any
 
-from ta.volatility import AverageTrueRange
+try:
+    import yfinance as yf
+except Exception:
+    yf = None
+
+try:
+    from ta.volatility import AverageTrueRange as _TaAverageTrueRange
+except Exception:
+    _TaAverageTrueRange = None
+
 from app.indicators.technical import technical_score
 from app.config import get_settings
 
@@ -62,6 +70,8 @@ class BacktestResult:
 
 
 def _fetch(symbol: str, period: str) -> pd.DataFrame:
+    if yf is None:
+        raise RuntimeError("yfinance package is not installed; backtest data fetch unavailable")
     ticker = yf.Ticker(symbol)
     df = ticker.history(period=period, interval="1d")
     if df.empty:
@@ -75,14 +85,30 @@ def _fetch(symbol: str, period: str) -> pd.DataFrame:
 
 
 def _compute_atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
-    ind = AverageTrueRange(
-        high=df["high"].astype(float),
-        low=df["low"].astype(float),
-        close=df["close"].astype(float),
-        window=period,
-        fillna=False,
-    )
-    return ind.average_true_range()
+    high = df["high"].astype(float)
+    low = df["low"].astype(float)
+    close = df["close"].astype(float)
+
+    if _TaAverageTrueRange is not None:
+        ind = _TaAverageTrueRange(
+            high=high,
+            low=low,
+            close=close,
+            window=period,
+            fillna=False,
+        )
+        return ind.average_true_range()
+
+    prev_close = close.shift(1)
+    tr = pd.concat(
+        [
+            (high - low).abs(),
+            (high - prev_close).abs(),
+            (low - prev_close).abs(),
+        ],
+        axis=1,
+    ).max(axis=1)
+    return tr.ewm(alpha=1 / max(int(period), 1), adjust=False, min_periods=period).mean()
 
 
 def _compute_signals_hybrid_like(df: pd.DataFrame, min_bars: int = 60) -> tuple[pd.Series, pd.Series]:

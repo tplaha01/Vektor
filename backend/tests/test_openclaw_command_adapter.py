@@ -1,11 +1,69 @@
+from hashlib import sha256
+from pathlib import Path
+
+import pytest
+
 from app.fund.audit_log import AuditLog
+import app.fund.openclaw_command_adapter as openclaw_adapter_module
 from app.fund.openclaw_command_adapter import OpenClawCommandAdapter
+
+
+def _snapshot_repo_knowledge_graph() -> dict:
+    repo_root = Path(__file__).resolve().parents[2]
+    kg_root = repo_root / "knowledge_graph"
+    events_file = kg_root / "events.jsonl"
+    events_dir = kg_root / "events"
+    entities_dir = kg_root / "entities"
+
+    events_hash = None
+    if events_file.exists():
+        events_hash = sha256(events_file.read_bytes()).hexdigest()
+
+    event_md_paths = sorted(
+        str(path.relative_to(kg_root))
+        for path in events_dir.glob("*.md")
+        if path.is_file()
+    )
+    entity_md_paths = sorted(
+        str(path.relative_to(kg_root))
+        for path in entities_dir.rglob("*.md")
+        if path.is_file()
+    )
+
+    return {
+        "events_hash": events_hash,
+        "event_md_paths": event_md_paths,
+        "entity_md_paths": entity_md_paths,
+    }
+
+
+@pytest.fixture(autouse=True)
+def _ensure_repo_knowledge_graph_is_unchanged():
+    before = _snapshot_repo_knowledge_graph()
+    yield
+    after = _snapshot_repo_knowledge_graph()
+    assert after == before
+
+
+def _stub_knowledge_graph(monkeypatch):
+    captured: list[dict] = []
+
+    def _ingest(**kwargs):
+        captured.append(dict(kwargs))
+        return {"event_id": "kge-test"}
+
+    monkeypatch.setattr(openclaw_adapter_module.knowledge_graph, "ingest", _ingest)
+    return captured
 
 
 class _StubRuntime:
     def __init__(self) -> None:
         self.calls = []
         self.swarm_calls = []
+        self.started = True
+        self.start_calls = 0
+        self.stop_calls = 0
+        self.kick_calls = 0
 
     def enqueue_ceo_command(
         self,
@@ -63,6 +121,30 @@ class _StubRuntime:
             "run_id": run_id,
             "status": "queued",
         }
+
+    async def start(self) -> None:
+        self.started = True
+        self.start_calls += 1
+
+    async def stop(self) -> None:
+        self.started = False
+        self.stop_calls += 1
+
+    def is_started(self) -> bool:
+        return bool(self.started)
+
+    def status(self) -> dict:
+        return {
+            "started": bool(self.started),
+            "autopilot": {"enabled": True, "running": False},
+            "data_integrity": {"halted": False, "halt_reason": None},
+        }
+
+    def kick_autopilot(self, run_id: str | None = None) -> dict:
+        self.kick_calls += 1
+        if not self.started:
+            return {"accepted": False, "reason": "runtime_not_started"}
+        return {"accepted": True, "run_id": run_id or "run-kick-test"}
 
 
 def test_openclaw_command_adapter_rejects_unauthorized():
@@ -237,3 +319,196 @@ def test_openclaw_command_adapter_fund_manager_mode_routes_analyst_to_swarm():
         "insight_researcher",
         "technical_analyst",
     ]
+
+
+def test_openclaw_command_adapter_routes_runtime_pause_control(monkeypatch):
+    runtime = _StubRuntime()
+    knowledge_events = _stub_knowledge_graph(monkeypatch)
+    adapter = OpenClawCommandAdapter(
+        runtime=runtime,
+        token="adapter-secret",
+        enabled=True,
+        channel_allowlist=["vektor-ceo"],
+        role_allowlist={"fund_manager"},
+        channel_role_policies={"vektor-ceo": {"fund_manager"}},
+        fund_manager_mode=False,
+        log=AuditLog(),
+    )
+
+    # Ensure strict-halt guard does not block this test.
+    monkeypatch.setattr(openclaw_adapter_module.data_integrity_guard, "halted", lambda: False)
+    monkeypatch.setattr(openclaw_adapter_module.data_integrity_guard, "halt_reason", lambda: None)
+
+    accepted = adapter.route_message(
+        {
+            "platform": "discord",
+            "channel_name": "vektor-ceo",
+            "sender_name": "ceo",
+            "text": "pause runtime now",
+            "run_id": "run-ocmd-control-1",
+        },
+        token="adapter-secret",
+    )
+    assert accepted["accepted"] is True
+    assert accepted["role"] == "runtime_control"
+    assert accepted["route_result"]["action"] == "pause_runtime"
+    assert accepted["route_result"]["status"] in {"pausing", "already_paused"}
+    assert runtime.stop_calls == 1
+    assert knowledge_events
+    assert knowledge_events[-1]["event_type"] == "runtime.control.pause_runtime"
+
+
+def test_openclaw_command_adapter_rejects_resume_when_halted(monkeypatch):
+    runtime = _StubRuntime()
+    knowledge_events = _stub_knowledge_graph(monkeypatch)
+    adapter = OpenClawCommandAdapter(
+        runtime=runtime,
+        token="adapter-secret",
+        enabled=True,
+        channel_allowlist=["vektor-ceo"],
+        role_allowlist={"fund_manager"},
+        channel_role_policies={"vektor-ceo": {"fund_manager"}},
+        fund_manager_mode=False,
+        log=AuditLog(),
+    )
+
+    monkeypatch.setattr(openclaw_adapter_module.data_integrity_guard, "halted", lambda: True)
+    monkeypatch.setattr(
+        openclaw_adapter_module.data_integrity_guard,
+        "halt_reason",
+        lambda: "real_data_required:test_provider:fallback",
+    )
+
+    rejected = adapter.route_message(
+        {
+            "platform": "discord",
+            "channel_name": "vektor-ceo",
+            "sender_name": "ceo",
+            "text": "resume runtime",
+            "run_id": "run-ocmd-control-2",
+        },
+        token="adapter-secret",
+    )
+    assert rejected["accepted"] is False
+    assert rejected["reason"] == "real_data_required:test_provider:fallback"
+    if knowledge_events:
+        assert knowledge_events[-1]["event_type"] == "runtime.control.resume_runtime"
+
+
+def test_openclaw_command_adapter_routes_runtime_status_control(monkeypatch):
+    runtime = _StubRuntime()
+    runtime.started = False
+    knowledge_events = _stub_knowledge_graph(monkeypatch)
+    adapter = OpenClawCommandAdapter(
+        runtime=runtime,
+        token="adapter-secret",
+        enabled=True,
+        channel_allowlist=["vektor-ceo"],
+        role_allowlist={"fund_manager"},
+        channel_role_policies={"vektor-ceo": {"fund_manager"}},
+        fund_manager_mode=False,
+        log=AuditLog(),
+    )
+    monkeypatch.setattr(openclaw_adapter_module.data_integrity_guard, "halted", lambda: True)
+    monkeypatch.setattr(
+        openclaw_adapter_module.data_integrity_guard,
+        "halt_reason",
+        lambda: "real_data_required:test_provider:fallback",
+    )
+
+    accepted = adapter.route_message(
+        {
+            "platform": "discord",
+            "channel_name": "vektor-ceo",
+            "sender_name": "ceo",
+            "text": "runtime status",
+            "run_id": "run-ocmd-control-status-1",
+        },
+        token="adapter-secret",
+    )
+    assert accepted["accepted"] is True
+    route_result = accepted["route_result"]
+    assert route_result["action"] == "runtime_status"
+    assert route_result["status"] == "reported"
+    assert route_result["runtime_started"] is False
+    assert route_result["halted"] is True
+    assert route_result["halt_reason"] == "real_data_required:test_provider:fallback"
+    assert knowledge_events[-1]["event_type"] == "runtime.control.runtime_status"
+
+
+def test_openclaw_command_adapter_routes_clear_halt_control(monkeypatch):
+    runtime = _StubRuntime()
+    knowledge_events = _stub_knowledge_graph(monkeypatch)
+    adapter = OpenClawCommandAdapter(
+        runtime=runtime,
+        token="adapter-secret",
+        enabled=True,
+        channel_allowlist=["vektor-ceo"],
+        role_allowlist={"fund_manager"},
+        channel_role_policies={"vektor-ceo": {"fund_manager"}},
+        fund_manager_mode=False,
+        log=AuditLog(),
+    )
+    monkeypatch.setattr(openclaw_adapter_module.data_integrity_guard, "halted", lambda: True)
+    monkeypatch.setattr(
+        openclaw_adapter_module.data_integrity_guard,
+        "clear_halt",
+        lambda *, reason: {
+            "cleared": True,
+            "cleared_at": "2026-04-17T00:00:00Z",
+            "reason": reason,
+            "previous_halt_reason": "real_data_required:test_provider:fallback",
+            "previous_halted_at": "2026-04-17T00:00:00Z",
+        },
+    )
+
+    accepted = adapter.route_message(
+        {
+            "platform": "discord",
+            "channel_name": "vektor-ceo",
+            "sender_name": "ceo",
+            "text": "clear halt",
+            "run_id": "run-ocmd-control-clear-1",
+        },
+        token="adapter-secret",
+    )
+    assert accepted["accepted"] is True
+    route_result = accepted["route_result"]
+    assert route_result["action"] == "clear_halt"
+    assert route_result["status"] == "halt_cleared"
+    assert route_result["clear_result"]["cleared"] is True
+    assert knowledge_events[-1]["event_type"] == "runtime.control.clear_halt"
+
+
+def test_openclaw_command_adapter_routes_kick_autopilot_control(monkeypatch):
+    runtime = _StubRuntime()
+    knowledge_events = _stub_knowledge_graph(monkeypatch)
+    adapter = OpenClawCommandAdapter(
+        runtime=runtime,
+        token="adapter-secret",
+        enabled=True,
+        channel_allowlist=["vektor-ceo"],
+        role_allowlist={"fund_manager"},
+        channel_role_policies={"vektor-ceo": {"fund_manager"}},
+        fund_manager_mode=False,
+        log=AuditLog(),
+    )
+    monkeypatch.setattr(openclaw_adapter_module.data_integrity_guard, "halted", lambda: False)
+    monkeypatch.setattr(openclaw_adapter_module.data_integrity_guard, "halt_reason", lambda: None)
+
+    accepted = adapter.route_message(
+        {
+            "platform": "discord",
+            "channel_name": "vektor-ceo",
+            "sender_name": "ceo",
+            "text": "kick autopilot",
+            "run_id": "run-ocmd-control-kick-1",
+        },
+        token="adapter-secret",
+    )
+    assert accepted["accepted"] is True
+    route_result = accepted["route_result"]
+    assert route_result["action"] == "kick_autopilot"
+    assert route_result["status"] == "accepted"
+    assert runtime.kick_calls == 1
+    assert knowledge_events[-1]["event_type"] == "runtime.control.kick_autopilot"

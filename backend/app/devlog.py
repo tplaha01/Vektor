@@ -164,7 +164,7 @@ class DevLogger:
         # Ingest to repo KB (direct file write)
         self._ingest_to_knowledge_graph(entry)
         
-        logger.info(f"✅ Session started: {entry.entry_id} (run: {entry.run_id})")
+        logger.info(f"Session started: {entry.entry_id} (run: {entry.run_id})")
         return entry
 
     def end_session(
@@ -187,7 +187,7 @@ class DevLogger:
         # Ingest to repo KB
         self._ingest_to_knowledge_graph(entry)
         
-        logger.info(f"✅ Session ended: {entry.entry_id} ({validation})")
+        logger.info(f"Session ended: {entry.entry_id} ({validation})")
 
     def _append_to_dev_logs(self, entry: DevLogEntry) -> None:
         """Append formatted entry to Dev_Logs.md"""
@@ -223,7 +223,7 @@ class DevLogger:
                     timeout=10.0,
                 )
                 if response.status_code == 200:
-                    logger.info(f"✅ Ingested to backend KB API: {entry.entry_id}")
+                    logger.info(f"Ingested to backend KB API: {entry.entry_id}")
                     return True
                 else:
                     logger.warning(

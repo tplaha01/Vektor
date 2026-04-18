@@ -11,12 +11,17 @@ Alpha signal:
   - Clipped to [-1, 1]
 """
 
+import logging
 import threading
-import joblib
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
-from typing import Optional
+
+try:
+    import joblib  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    joblib = None  # type: ignore[assignment]
 
 from app.ml.features import build_features
 
@@ -28,72 +33,80 @@ _feature_names = None
 _model_lock = threading.Lock()
 _model_ready = False
 _training = False
+logger = logging.getLogger("alfred.ml.alpha_model")
 
 
-def _train_model():
+def _train_model() -> None:
     """
     Train LightGBM on historical data for the watchlist.
     Uses TimeSeriesSplit to avoid lookahead bias.
-    Saves model to disk.
+    Saves model to disk when joblib is available.
     """
     global _model, _feature_names, _model_ready, _training
 
     try:
-        import lightgbm as lgb
-        from sklearn.model_selection import TimeSeriesSplit
+        import lightgbm as lgb  # type: ignore
+        import yfinance as yf  # type: ignore
         from sklearn.metrics import roc_auc_score
-        import yfinance as yf
+        from sklearn.model_selection import TimeSeriesSplit
 
-        print("🤖 Training LightGBM alpha model...")
+        logger.info("Training LightGBM alpha model")
 
-        WATCHLIST = ["AAPL", "MSFT", "NVDA", "SPY", "TSLA", "AMZN", "GOOGL", "META", "JPM", "GS"]
-        FORWARD_DAYS = 5
+        watchlist = ["AAPL", "MSFT", "NVDA", "SPY", "TSLA", "AMZN", "GOOGL", "META", "JPM", "GS"]
+        forward_days = 5
         all_rows = []
 
-        for sym in WATCHLIST:
+        for symbol in watchlist:
             try:
-                ticker = yf.Ticker(sym)
+                ticker = yf.Ticker(symbol)
                 df = ticker.history(period="2y", interval="1d")
                 if df.empty or len(df) < 100:
                     continue
 
                 df = df.reset_index()
                 df.columns = [c[0] if isinstance(c, tuple) else c for c in df.columns]
-                df = df.rename(columns={
-                    "Date": "ts", "Open": "open", "High": "high",
-                    "Low": "low", "Close": "close", "Volume": "volume",
-                })
+                df = df.rename(
+                    columns={
+                        "Date": "ts",
+                        "Open": "open",
+                        "High": "high",
+                        "Low": "low",
+                        "Close": "close",
+                        "Volume": "volume",
+                    }
+                )
 
-                for i in range(60, len(df) - FORWARD_DAYS):
-                    window = df.iloc[:i+1].copy()
+                for idx in range(60, len(df) - forward_days):
+                    window = df.iloc[: idx + 1].copy()
                     feat = build_features(window)
                     if not feat:
                         continue
 
-                    fwd_ret = (df["close"].iloc[i + FORWARD_DAYS] - df["close"].iloc[i]) / (df["close"].iloc[i] + 1e-9)
+                    fwd_ret = (df["close"].iloc[idx + forward_days] - df["close"].iloc[idx]) / (
+                        df["close"].iloc[idx] + 1e-9
+                    )
                     feat["_label"] = int(fwd_ret > 0.0)
-                    feat["_symbol"] = sym
+                    feat["_symbol"] = symbol
                     all_rows.append(feat)
 
-            except Exception as e:
-                print(f"  ⚠️ Skipping {sym}: {e}")
-                continue
+            except Exception as exc:
+                logger.warning("Skipping %s during alpha training: %s", symbol, exc)
 
         if len(all_rows) < 200:
-            print("⚠️ Not enough training data — alpha will be neutral until more data exists")
+            logger.warning("Not enough training data for alpha model; staying neutral")
             return
 
         data = pd.DataFrame(all_rows)
         feature_cols = [c for c in data.columns if not c.startswith("_")]
-        X = data[feature_cols].fillna(0.0)
-        y = data["_label"]
+        x_vals = data[feature_cols].fillna(0.0)
+        y_vals = data["_label"]
 
         tscv = TimeSeriesSplit(n_splits=5)
         auc_scores = []
 
-        for train_idx, val_idx in tscv.split(X):
-            X_tr, X_val = X.iloc[train_idx], X.iloc[val_idx]
-            y_tr, y_val = y.iloc[train_idx], y.iloc[val_idx]
+        for train_idx, val_idx in tscv.split(x_vals):
+            x_train, x_val = x_vals.iloc[train_idx], x_vals.iloc[val_idx]
+            y_train, y_val = y_vals.iloc[train_idx], y_vals.iloc[val_idx]
 
             clf = lgb.LGBMClassifier(
                 n_estimators=200,
@@ -108,13 +121,12 @@ def _train_model():
                 random_state=42,
                 verbose=-1,
             )
-            clf.fit(X_tr, y_tr)
-            prob = clf.predict_proba(X_val)[:, 1]
+            clf.fit(x_train, y_train)
+            prob = clf.predict_proba(x_val)[:, 1]
             if len(np.unique(y_val)) > 1:
                 auc_scores.append(roc_auc_score(y_val, prob))
 
-        avg_auc = np.mean(auc_scores) if auc_scores else 0.5
-        print(f"  📊 Cross-val AUC: {avg_auc:.4f} ({len(auc_scores)} folds)")
+        avg_auc = float(np.mean(auc_scores)) if auc_scores else 0.5
 
         final_model = lgb.LGBMClassifier(
             n_estimators=300,
@@ -129,46 +141,52 @@ def _train_model():
             random_state=42,
             verbose=-1,
         )
-        final_model.fit(X, y)
+        final_model.fit(x_vals, y_vals)
 
         with _model_lock:
             _model = final_model
             _feature_names = feature_cols
             _model_ready = True
 
-        joblib.dump(final_model, MODEL_PATH)
-        joblib.dump(feature_cols, FEATURE_NAMES_PATH)
-        print(f"✅ LightGBM alpha model trained — {len(feature_cols)} features, {len(all_rows)} samples, AUC={avg_auc:.4f}")
+        if joblib is not None:
+            joblib.dump(final_model, MODEL_PATH)
+            joblib.dump(feature_cols, FEATURE_NAMES_PATH)
 
-    except Exception as e:
-        print(f"⚠️ LightGBM training failed: {e}")
+        logger.info(
+            "Alpha model ready; features=%s samples=%s auc=%.4f persisted=%s",
+            len(feature_cols),
+            len(all_rows),
+            avg_auc,
+            bool(joblib is not None),
+        )
+    except Exception as exc:
+        logger.warning("LightGBM training failed; alpha remains neutral: %s", exc)
     finally:
         _training = False
 
 
-def _load_or_train():
+def _load_or_train() -> None:
     global _model, _feature_names, _model_ready, _training
 
-    if MODEL_PATH.exists() and FEATURE_NAMES_PATH.exists():
+    if joblib is not None and MODEL_PATH.exists() and FEATURE_NAMES_PATH.exists():
         try:
             with _model_lock:
                 _model = joblib.load(MODEL_PATH)
                 _feature_names = joblib.load(FEATURE_NAMES_PATH)
                 _model_ready = True
-            print("✅ LightGBM alpha model loaded from disk")
+                _training = False
+            logger.info("Alpha model loaded from disk")
             return
-        except Exception as e:
-            print(f"⚠️ Failed to load saved model: {e} — retraining")
+        except Exception as exc:
+            logger.warning("Failed to load saved alpha model: %s; retraining", exc)
 
     _training = True
-    t = threading.Thread(target=_train_model, daemon=True, name="lgbm-trainer")
-    t.start()
+    trainer = threading.Thread(target=_train_model, daemon=True, name="lgbm-trainer")
+    trainer.start()
 
 
-def ensure_model():
-    global _training
+def ensure_model() -> None:
     if not _model_ready and not _training:
-        _training = True
         _load_or_train()
 
 
@@ -180,7 +198,6 @@ def predict(df: pd.DataFrame) -> float:
     if not _model_ready or _model is None:
         return 0.0
 
-    # Accept either `ts` or `date` — training used `ts`.
     if "ts" not in df.columns and "date" in df.columns:
         df = df.rename(columns={"date": "ts"})
 
@@ -190,23 +207,23 @@ def predict(df: pd.DataFrame) -> float:
 
     try:
         with _model_lock:
-            # ✅ CRITICAL FIX:
-            # Use reindex(columns=...) to avoid KeyError / schema drift when features change.
-            X = pd.DataFrame([feat]).reindex(columns=_feature_names, fill_value=0.0)
-            prob_up = float(_model.predict_proba(X)[0][1])
+            x_vals = pd.DataFrame([feat]).reindex(columns=_feature_names, fill_value=0.0)
+            prob_up = float(_model.predict_proba(x_vals)[0][1])
 
         score = (prob_up - 0.5) * 2.0
         return float(np.clip(score, -1.0, 1.0))
-
-    except Exception as e:
-        print(f"⚠️ Alpha prediction failed: {e}")
+    except Exception as exc:
+        logger.warning("Alpha prediction failed; returning neutral: %s", exc)
         return 0.0
 
 
 def model_status() -> dict:
+    # Expose a consistent status: ready model should not report active training.
+    training_now = bool(_training and not _model_ready)
     return {
         "ready": _model_ready,
-        "training": _training,
+        "training": training_now,
         "features": len(_feature_names) if _feature_names else 0,
         "path": str(MODEL_PATH) if MODEL_PATH.exists() else None,
+        "joblib_available": bool(joblib is not None),
     }

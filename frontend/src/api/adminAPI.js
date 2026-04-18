@@ -47,6 +47,40 @@ export const adminAPI = {
   getSystemStatusBadges: async () => {
     return fetchJson(`${API_BASE}/admin/system/status-badges`);
   },
+  getRuntimeControlStatus: async () => {
+    return fetchJson(`${API_BASE}/admin/system/runtime/control`);
+  },
+  getRuntimeControlHistory: async (limit = 30) => {
+    return fetchJson(`${API_BASE}/admin/system/control-history?limit=${encodeURIComponent(limit)}`);
+  },
+  pauseRuntime: async (reason = "manual_admin_pause") => {
+    return fetchJson(`${API_BASE}/admin/system/runtime/pause`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason }),
+    });
+  },
+  resumeRuntime: async (reason = "manual_admin_resume") => {
+    return fetchJson(`${API_BASE}/admin/system/runtime/resume`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason }),
+    });
+  },
+  clearSystemHalt: async (reason = "manual_admin_clear_halt") => {
+    return fetchJson(`${API_BASE}/admin/system/halt/clear`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason }),
+    });
+  },
+  kickAutopilot: async (runId = "") => {
+    return fetchJson(`${API_BASE}/admin/system/autopilot/kick`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ run_id: runId || null }),
+    });
+  },
 
   /**
    * Get agent worker pool status
@@ -133,6 +167,13 @@ export const adminAPI = {
     ),
   getFundOrderAuditTimeline: async (orderId) =>
     fetchJson(`${FUND_BASE}/audit/orders/${encodeURIComponent(orderId)}/timeline`),
+  
+  // Agent Hierarchy & Orchestration
+  getAgentHierarchy: async () =>
+    fetchJson(`${API_BASE}/monitor/agents/hierarchy`),
+  getAgentHierarchyStats: async () =>
+    fetchJson(`${API_BASE}/monitor/agents/hierarchy/stats`),
+  
   getPaperPositions: async () => fetchJson(`${PAPER_BASE}/positions`),
   getMarketPrices: async () => fetchJson(`${MARKET_BASE}/prices`),
   placePaperOrder: async (payload) =>

@@ -35,6 +35,30 @@ async def get_agents_status() -> Dict[str, Any]:
     }
 
 
+@router.get("/agents/hierarchy")
+async def get_agent_hierarchy() -> Dict[str, Any]:
+    """Get agent organizational hierarchy and real-time status.
+    
+    Returns hierarchical view of all agents with their current status,
+    current tasks, and activity information. This is the primary endpoint
+    for building system overview visualizations.
+    """
+    from app.fund.agent_hierarchy import agent_hierarchy
+    
+    return {
+        "hierarchy": agent_hierarchy.get_hierarchy_view(),
+        "stats": agent_hierarchy.get_hierarchy_stats(),
+    }
+
+
+@router.get("/agents/hierarchy/stats")
+async def get_agent_hierarchy_stats() -> Dict[str, Any]:
+    """Get statistics about agent hierarchy (active, idle, error counts)."""
+    from app.fund.agent_hierarchy import agent_hierarchy
+    
+    return agent_hierarchy.get_hierarchy_stats()
+
+
 @router.get("/tasks")
 async def get_active_tasks() -> Dict[str, Any]:
     """Get all active fund tasks"""

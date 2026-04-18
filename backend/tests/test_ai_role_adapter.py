@@ -91,3 +91,131 @@ def test_ai_role_adapter_disabled_returns_none():
         fallback_provenance=(ProvenanceRef(source_type="research", source_id="src-fallback"),),
     )
     assert result is None
+
+
+def test_ai_role_adapter_retries_after_invalid_json_response():
+    calls = {"count": 0}
+
+    def _fake_post(url, json, headers, timeout):  # noqa: ANN001
+        calls["count"] += 1
+        if calls["count"] == 1:
+            content = "summary: invalid-json-first-attempt"
+        else:
+            content = '{"summary":"Recovered JSON","findings":["Recovered"],"confidence":0.66,"citations":["src-retry"]}'
+        return _FakeResponse({"choices": [{"message": {"content": content}}], "usage": {"call": calls["count"]}})
+
+    adapter = AIRoleAdapter(
+        enabled=True,
+        provider="openai_compatible",
+        base_url="http://mock-llm/v1",
+        api_key="test-key",
+        timeout_seconds=10,
+        temperature=0.1,
+        max_tokens=512,
+        default_model="gpt-test",
+        role_models={},
+        require_success=True,
+        http_post=_fake_post,
+    )
+
+    result = adapter.analyze_specialist(
+        role="fundamental_analyst",
+        symbol="MSFT",
+        run_id="run-retry-1",
+        payload={},
+        context={},
+        fallback_summary="fallback summary",
+        fallback_findings=("fallback finding",),
+        fallback_confidence=Decimal("0.50"),
+        fallback_provenance=(ProvenanceRef(source_type="research", source_id="src-fallback"),),
+    )
+
+    assert result is not None
+    assert result.summary == "Recovered JSON"
+    assert float(result.confidence) == 0.66
+    assert result.metadata["parse_retry_used"] is True
+    assert calls["count"] == 2
+
+
+def test_ai_role_adapter_parses_python_dict_style_output():
+    def _fake_post(url, json, headers, timeout):  # noqa: ANN001
+        return _FakeResponse(
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "content": "{'summary': 'Dict Style', 'findings': ['A', 'B'], 'confidence': 0.71, 'citations': ['src-1']}"
+                        }
+                    }
+                ]
+            }
+        )
+
+    adapter = AIRoleAdapter(
+        enabled=True,
+        provider="openai_compatible",
+        base_url="http://mock-llm/v1",
+        api_key="test-key",
+        timeout_seconds=10,
+        temperature=0.1,
+        max_tokens=512,
+        default_model="gpt-test",
+        role_models={},
+        require_success=True,
+        http_post=_fake_post,
+    )
+
+    result = adapter.analyze_specialist(
+        role="technical_analyst",
+        symbol="AAPL",
+        run_id="run-dict-style-1",
+        payload={},
+        context={},
+        fallback_summary="fallback summary",
+        fallback_findings=("fallback finding",),
+        fallback_confidence=Decimal("0.50"),
+        fallback_provenance=(ProvenanceRef(source_type="research", source_id="src-fallback"),),
+    )
+
+    assert result is not None
+    assert result.summary == "Dict Style"
+    assert result.findings == ("A", "B")
+    assert float(result.confidence) == 0.71
+
+
+def test_ai_role_adapter_degrades_to_fallback_after_double_invalid_json():
+    def _fake_post(url, json, headers, timeout):  # noqa: ANN001
+        return _FakeResponse({"choices": [{"message": {"content": "not-json-response"}}], "usage": {"call": 1}})
+
+    adapter = AIRoleAdapter(
+        enabled=True,
+        provider="openai_compatible",
+        base_url="http://mock-llm/v1",
+        api_key="test-key",
+        timeout_seconds=10,
+        temperature=0.1,
+        max_tokens=512,
+        default_model="gpt-test",
+        role_models={},
+        require_success=True,
+        http_post=_fake_post,
+    )
+
+    result = adapter.analyze_specialist(
+        role="fundamental_analyst",
+        symbol="SPY",
+        run_id="run-fallback-1",
+        payload={},
+        context={},
+        fallback_summary="fallback summary",
+        fallback_findings=("fallback finding",),
+        fallback_confidence=Decimal("0.55"),
+        fallback_provenance=(ProvenanceRef(source_type="research", source_id="src-fallback"),),
+    )
+
+    assert result is not None
+    assert result.summary == "fallback summary"
+    assert result.findings == ("fallback finding",)
+    assert float(result.confidence) == 0.55
+    assert result.metadata["used"] is False
+    assert result.metadata["degraded_reason"] == "invalid_json_response"

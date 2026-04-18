@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 import math
 
 @dataclass
@@ -21,6 +21,23 @@ class RoundTrip:
     avg_buy: float
     avg_sell: float
     pnl: float
+
+
+def _coerce_ts(value: Any) -> datetime:
+    """Normalize timestamps to timezone-aware UTC datetimes."""
+    if isinstance(value, datetime):
+        dt = value
+    elif isinstance(value, str):
+        try:
+            dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except Exception:
+            return datetime.now(timezone.utc)
+    else:
+        return datetime.now(timezone.utc)
+
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
 
 def _fifo_round_trips(fills: List[Fill]) -> List[RoundTrip]:
     """Pair buys and sells FIFO per symbol to produce round trips (realized trades)."""
@@ -104,9 +121,7 @@ def build_metrics_from_broker(broker) -> Dict[str, Any]:
     """
     fills: List[Fill] = []
     for o in broker.order_history:  # adjust to your broker attribute
-        ts = o.get("created_at")
-        if isinstance(ts, str):
-            ts = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        ts = _coerce_ts(o.get("created_at"))
         fills.append(Fill(
             ts=ts,
             symbol=o["symbol"],

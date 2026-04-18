@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import os
 import secrets
 import re
@@ -11,6 +12,7 @@ from uuid import uuid4
 from app.config import get_settings
 from app.fund.agent_runtime import FundAgentRuntime, fund_agent_runtime
 from app.fund.audit_log import AuditLog, audit_log
+from app.fund.knowledge_graph import knowledge_graph
 from app.fund.runtime_guard import data_integrity_guard
 
 
@@ -119,6 +121,66 @@ def _extract_symbol(text: str) -> str | None:
     for token in tokens:
         if token not in ignored:
             return token
+    return None
+
+
+def _parse_control_command(command: str) -> dict[str, Any] | None:
+    text = str(command or "").strip().lower()
+    normalized = re.sub(r"\s+", " ", text)
+    normalized = normalized.replace(",", " ")
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+
+    if not normalized:
+        return None
+
+    pause_patterns = (
+        "pause runtime",
+        "pause agents",
+        "stop runtime",
+        "stop agents",
+        "/fund runtime pause",
+        "/fund control pause",
+    )
+    resume_patterns = (
+        "resume runtime",
+        "resume agents",
+        "start runtime",
+        "start agents",
+        "/fund runtime resume",
+        "/fund control resume",
+    )
+    clear_patterns = (
+        "clear halt",
+        "clear system halt",
+        "reset halt",
+        "unhalt",
+        "/fund halt clear",
+        "/fund control clear-halt",
+    )
+    autopilot_patterns = (
+        "kick autopilot",
+        "autopilot now",
+        "run autopilot now",
+        "/fund autopilot kick",
+        "/fund control kick-autopilot",
+    )
+    status_patterns = (
+        "runtime status",
+        "control status",
+        "/fund runtime status",
+        "/fund control status",
+    )
+
+    if any(phrase in normalized for phrase in pause_patterns):
+        return {"action": "pause_runtime"}
+    if any(phrase in normalized for phrase in resume_patterns):
+        return {"action": "resume_runtime"}
+    if any(phrase in normalized for phrase in clear_patterns):
+        return {"action": "clear_halt"}
+    if any(phrase in normalized for phrase in autopilot_patterns):
+        return {"action": "kick_autopilot"}
+    if any(phrase in normalized for phrase in status_patterns):
+        return {"action": "runtime_status"}
     return None
 
 
@@ -235,12 +297,6 @@ class OpenClawCommandAdapter:
         now = _to_iso(self._clock())
         if not self._enabled:
             return self._reject(reason="commands_disabled", message=message, occurred_at=now)
-        if data_integrity_guard.halted():
-            return self._reject(
-                reason=data_integrity_guard.halt_reason() or "system_halted",
-                message=message,
-                occurred_at=now,
-            )
         if not self._is_authorized(token):
             return self._reject(reason="unauthorized", message=message, occurred_at=now, auth_failure=True)
         if not isinstance(message, dict):
@@ -251,6 +307,16 @@ class OpenClawCommandAdapter:
             return self._reject(reason="missing_command_text", message=message, occurred_at=now)
         if len(command) > self._max_text_length:
             return self._reject(reason="command_text_too_long", message=message, occurred_at=now)
+        control = _parse_control_command(command)
+
+        if data_integrity_guard.halted():
+            action = str((control or {}).get("action") or "").strip().lower()
+            if action not in {"clear_halt", "runtime_status"}:
+                return self._reject(
+                    reason=data_integrity_guard.halt_reason() or "system_halted",
+                    message=message,
+                    occurred_at=now,
+                )
 
         channel_id = str(message.get("channel_id") or "").strip().lower()
         channel_name = str(message.get("channel_name") or "").strip().lower()
@@ -263,6 +329,79 @@ class OpenClawCommandAdapter:
         if self._sender_allowlist:
             if sender_id not in self._sender_allowlist and sender_name not in self._sender_allowlist:
                 return self._reject(reason="sender_not_allowed", message=message, occurred_at=now)
+
+        if control is not None:
+            channel_roles = self._allowed_roles_for_channel(channel_id, channel_name)
+            if "fund_manager" not in channel_roles:
+                return self._reject(reason="control_not_allowed_for_channel", message=message, occurred_at=now)
+            run_id = str(message.get("run_id") or f"run-openclaw-control-{uuid4().hex[:12]}")
+            agent_id = str(message.get("agent_id") or self._fund_manager_agent_id or self._default_agent_id)
+            control_result = self._execute_control_action(
+                action=str(control.get("action") or "").strip().lower(),
+                run_id=run_id,
+                agent_id=agent_id,
+                reason=f"openclaw:{command[:120]}",
+            )
+            if not control_result.get("accepted", True):
+                return self._reject(
+                    reason=str(control_result.get("reason") or "control_action_rejected"),
+                    message=message,
+                    occurred_at=now,
+                )
+            with self._lock:
+                self._seq += 1
+                adapter_id = f"ocmd-{self._seq:08d}"
+                record = {
+                    "adapter_id": adapter_id,
+                    "received_at": now,
+                    "status": "accepted",
+                    "role": "runtime_control",
+                    "requested_role": "fund_manager",
+                    "run_id": run_id,
+                    "agent_id": agent_id,
+                    "channel_id": channel_id,
+                    "channel_name": channel_name,
+                    "sender_id": sender_id,
+                    "sender_name": sender_name,
+                    "message": message,
+                    "route_result": control_result,
+                    "control_action": control_result.get("action"),
+                }
+                self._accepted.append(record)
+                self._last_accepted_at = now
+
+            self._log.record(
+                "openclaw.command.accepted",
+                {
+                    "adapter_id": adapter_id,
+                    "run_id": run_id,
+                    "agent_id": agent_id,
+                    "role": "runtime_control",
+                    "requested_role": "fund_manager",
+                    "command_id": control_result.get("control_id"),
+                    "control_action": control_result.get("action"),
+                    "channel_id": channel_id or None,
+                    "channel_name": channel_name or None,
+                    "sender_id": sender_id or None,
+                    "sender_name": sender_name or None,
+                },
+            )
+            self._emit_event(
+                {
+                    "event_id": adapter_id,
+                    "event_type": "openclaw.command.accepted",
+                    "received_at": now,
+                    "run_id": run_id,
+                    "agent_id": agent_id,
+                    "payload": record,
+                }
+            )
+            return {
+                "accepted": True,
+                "adapter_id": adapter_id,
+                "role": "runtime_control",
+                "route_result": control_result,
+            }
 
         explicit_role = message.get("target_role")
         requested_role = str(explicit_role).strip().lower() if explicit_role else _infer_role(command)
@@ -434,6 +573,196 @@ class OpenClawCommandAdapter:
             if key and key in self._channel_role_policies:
                 return self._channel_role_policies[key]
         return set(self._role_allowlist)
+
+    def _execute_control_action(
+        self,
+        *,
+        action: str,
+        run_id: str,
+        agent_id: str,
+        reason: str,
+    ) -> dict[str, Any]:
+        control_id = f"ctrl-{uuid4().hex[:16]}"
+        clean_action = str(action or "").strip().lower()
+        clean_reason = str(reason or "openclaw_control").strip() or "openclaw_control"
+
+        if clean_action == "runtime_status":
+            runtime = self._runtime.status()
+            result = {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "runtime_status",
+                "status": "reported",
+                "runtime_started": bool(runtime.get("started")),
+                "halted": bool(data_integrity_guard.halted()),
+                "halt_reason": data_integrity_guard.halt_reason(),
+                "autopilot": runtime.get("autopilot", {}),
+            }
+            self._record_control_event(
+                action="runtime_status",
+                status="reported",
+                reason=clean_reason,
+                run_id=run_id,
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"runtime_started": result["runtime_started"]},
+            )
+            return result
+
+        if clean_action == "pause_runtime":
+            was_started = bool(self._runtime.is_started())
+            if was_started:
+                self._schedule_runtime_coroutine(self._runtime.stop())
+            status = "pausing" if was_started else "already_paused"
+            self._record_control_event(
+                action="pause_runtime",
+                status=status,
+                reason=clean_reason,
+                run_id=run_id,
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"runtime_started_before": was_started},
+            )
+            return {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "pause_runtime",
+                "status": status,
+                "runtime_started_before": was_started,
+            }
+
+        if clean_action == "resume_runtime":
+            if data_integrity_guard.halted():
+                halt_reason = data_integrity_guard.halt_reason() or "system_halted"
+                self._record_control_event(
+                    action="resume_runtime",
+                    status="rejected",
+                    reason=halt_reason,
+                    run_id=run_id,
+                    agent_id=agent_id,
+                    control_id=control_id,
+                    payload={"blocked": True},
+                )
+                return {"accepted": False, "reason": halt_reason, "control_id": control_id}
+            was_started = bool(self._runtime.is_started())
+            if not was_started:
+                self._schedule_runtime_coroutine(self._runtime.start())
+            status = "resuming" if not was_started else "already_running"
+            self._record_control_event(
+                action="resume_runtime",
+                status=status,
+                reason=clean_reason,
+                run_id=run_id,
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"runtime_started_before": was_started},
+            )
+            return {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "resume_runtime",
+                "status": status,
+                "runtime_started_before": was_started,
+            }
+
+        if clean_action == "clear_halt":
+            cleared = data_integrity_guard.clear_halt(reason=clean_reason)
+            self._record_control_event(
+                action="clear_halt",
+                status="halt_cleared",
+                reason=clean_reason,
+                run_id=run_id,
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"previous_halt_reason": cleared.get("previous_halt_reason")},
+            )
+            return {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "clear_halt",
+                "status": "halt_cleared",
+                "clear_result": cleared,
+            }
+
+        if clean_action == "kick_autopilot":
+            kicked = self._runtime.kick_autopilot(run_id=run_id)
+            if not kicked.get("accepted"):
+                reject_reason = str(kicked.get("reason") or "autopilot_rejected")
+                self._record_control_event(
+                    action="kick_autopilot",
+                    status="rejected",
+                    reason=reject_reason,
+                    run_id=run_id,
+                    agent_id=agent_id,
+                    control_id=control_id,
+                    payload={"accepted": False},
+                )
+                return {"accepted": False, "reason": reject_reason, "control_id": control_id}
+            self._record_control_event(
+                action="kick_autopilot",
+                status="accepted",
+                reason=clean_reason,
+                run_id=run_id,
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"accepted": True},
+            )
+            return {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "kick_autopilot",
+                "status": "accepted",
+                "result": kicked,
+            }
+
+        return {"accepted": False, "reason": "unknown_control_action", "control_id": control_id}
+
+    def _schedule_runtime_coroutine(self, coro: Any) -> None:
+        if not asyncio.iscoroutine(coro):
+            return
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(coro)
+            return
+        except RuntimeError:
+            pass
+        asyncio.run(coro)
+
+    def _record_control_event(
+        self,
+        *,
+        action: str,
+        status: str,
+        reason: str | None,
+        run_id: str,
+        agent_id: str,
+        control_id: str,
+        payload: dict[str, Any] | None = None,
+    ) -> None:
+        event_payload = {
+            "control_id": control_id,
+            "action": str(action or "").strip().lower(),
+            "status": str(status or "unknown").strip().lower(),
+            "reason": str(reason or "").strip() or None,
+            "actor": "openclaw.command_adapter",
+            **dict(payload or {}),
+        }
+        self._log.record(
+            "runtime.control",
+            {
+                "run_id": run_id,
+                "agent_id": agent_id,
+                **event_payload,
+            },
+        )
+        knowledge_graph.ingest(
+            source="runtime",
+            event_type=f"runtime.control.{event_payload['action']}",
+            run_id=run_id,
+            agent_id=agent_id,
+            payload=event_payload,
+            source_event_id=control_id,
+        )
 
     def _resolve_assigned_roles(self, *, payload: dict[str, Any]) -> set[str]:
         raw = payload.get("assigned_roles")
