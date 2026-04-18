@@ -2708,3 +2708,20 @@ files:
 - backend/tests/test_openclaw_command_adapter.py
 validation: py -3 -m pytest backend/tests/test_openclaw_command_adapter.py backend/tests/test_admin_runtime_controls.py backend/tests/test_admin_status_badges.py -q (pass); npm --prefix frontend run build (pass)
 notes: Runtime control commands are fund_manager-gated by channel role policy; resume remains blocked when strict halt is active.
+
+
+[2026-04-18T01:47:25Z] [UPDATE]
+entry_id: devlog-20260418-codex-openclaw-test-isolation-001
+actor_name: codex_cto
+actor_platform: codex
+actor_model: gpt-5.4
+actor_provider: openai
+run_id: run-viktor-hardening-006
+git_branch: codex/hardening-sprint
+git_commit_start: e889dbb2f7f627d06d07593a5a885147f5b9a605
+git_commit_end:
+scope: Hardened OpenClaw adapter tests to stub knowledge graph ingestion so pytest no longer pollutes repo KB artifacts.
+files:
+- backend/tests/test_openclaw_command_adapter.py
+validation: py -3 -m pytest backend/tests/test_openclaw_command_adapter.py backend/tests/test_admin_runtime_controls.py backend/tests/test_admin_status_badges.py -q (pass)
+notes: Eliminates test-generated runtime.control.* KB rows during local/CI test runs.

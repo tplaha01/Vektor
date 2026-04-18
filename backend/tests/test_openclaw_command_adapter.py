@@ -3,6 +3,17 @@ import app.fund.openclaw_command_adapter as openclaw_adapter_module
 from app.fund.openclaw_command_adapter import OpenClawCommandAdapter
 
 
+def _stub_knowledge_graph(monkeypatch):
+    captured: list[dict] = []
+
+    def _ingest(**kwargs):
+        captured.append(dict(kwargs))
+        return {"event_id": "kge-test"}
+
+    monkeypatch.setattr(openclaw_adapter_module.knowledge_graph, "ingest", _ingest)
+    return captured
+
+
 class _StubRuntime:
     def __init__(self) -> None:
         self.calls = []
@@ -270,6 +281,7 @@ def test_openclaw_command_adapter_fund_manager_mode_routes_analyst_to_swarm():
 
 def test_openclaw_command_adapter_routes_runtime_pause_control(monkeypatch):
     runtime = _StubRuntime()
+    knowledge_events = _stub_knowledge_graph(monkeypatch)
     adapter = OpenClawCommandAdapter(
         runtime=runtime,
         token="adapter-secret",
@@ -300,10 +312,13 @@ def test_openclaw_command_adapter_routes_runtime_pause_control(monkeypatch):
     assert accepted["route_result"]["action"] == "pause_runtime"
     assert accepted["route_result"]["status"] in {"pausing", "already_paused"}
     assert runtime.stop_calls == 1
+    assert knowledge_events
+    assert knowledge_events[-1]["event_type"] == "runtime.control.pause_runtime"
 
 
 def test_openclaw_command_adapter_rejects_resume_when_halted(monkeypatch):
     runtime = _StubRuntime()
+    knowledge_events = _stub_knowledge_graph(monkeypatch)
     adapter = OpenClawCommandAdapter(
         runtime=runtime,
         token="adapter-secret",
@@ -334,3 +349,5 @@ def test_openclaw_command_adapter_rejects_resume_when_halted(monkeypatch):
     )
     assert rejected["accepted"] is False
     assert rejected["reason"] == "real_data_required:test_provider:fallback"
+    if knowledge_events:
+        assert knowledge_events[-1]["event_type"] == "runtime.control.resume_runtime"
