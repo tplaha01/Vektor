@@ -1,8 +1,8 @@
 export const siteConfig = {
   name: "Viktor Trading Blog",
-  url: "https://blog-magicui.vercel.app",
+  url: "https://viktor-trading-blog.vercel.app",
   description:
-    "Modern React and web development tutorials, insights, and best practices.",
+    "AI-native trading insights, multi-agent systems, autonomous finance, and algorithmic strategies.",
 };
 
 export type SiteConfig = typeof siteConfig;

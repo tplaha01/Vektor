@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import threading
 import time
+import os
 from datetime import datetime, timedelta
 from typing import Callable, Dict, List
 
@@ -12,6 +13,10 @@ from app.fund.runtime_guard import DataMode, data_integrity_guard
 
 settings = get_settings()
 
+
+def _is_test_mode() -> bool:
+    return bool(os.getenv("PYTEST_CURRENT_TEST")) or os.getenv("VEKTOR_TEST_MODE") == "1"
+
 # Price cache: symbol -> (price, timestamp, source)
 _price_cache: Dict[str, tuple[float, float, str]] = {}
 _CACHE_TTL = 30.0  # seconds
@@ -19,6 +24,32 @@ _CACHE_TTL = 30.0  # seconds
 
 def _empty_history() -> pd.DataFrame:
     return pd.DataFrame(columns=["ts", "open", "high", "low", "close", "volume"])
+
+
+def _synthetic_price(symbol: str) -> float:
+    base = 100.0 + (sum(ord(ch) for ch in symbol) % 25)
+    return round(base, 2)
+
+
+def _synthetic_history(symbol: str, bars: int) -> pd.DataFrame:
+    total = max(2, int(bars))
+    end = datetime.utcnow()
+    step = 0.1 + ((sum(ord(ch) for ch in symbol) % 7) * 0.01)
+    start_price = _synthetic_price(symbol) - (total * step * 0.5)
+    rows: list[dict[str, float | datetime]] = []
+    for idx in range(total):
+        close = max(1.0, start_price + (idx * step))
+        rows.append(
+            {
+                "ts": end - timedelta(days=(total - idx)),
+                "open": round(close - 0.15, 4),
+                "high": round(close + 0.2, 4),
+                "low": round(close - 0.25, 4),
+                "close": round(close, 4),
+                "volume": float(1_000_000 + (idx * 1_000)),
+            }
+        )
+    return pd.DataFrame(rows)
 
 
 class AlpacaRealtimeFeed:
@@ -30,6 +61,18 @@ class AlpacaRealtimeFeed:
     def price(self, symbol: str) -> float:
         strict_mode = data_integrity_guard.strict_mode_enabled()
         normalized_symbol = str(symbol).upper().strip()
+
+        if _is_test_mode():
+            px = self._prices.get(normalized_symbol, _synthetic_price(normalized_symbol))
+            self._prices[normalized_symbol] = px
+            _price_cache[normalized_symbol] = (px, time.time(), "test_stub")
+            data_integrity_guard.record_provider_event(
+                provider="test_market_data",
+                mode="fallback",
+                symbol=normalized_symbol,
+                detail="test_stub_price",
+            )
+            return px
 
         # 1. Use streaming price if available and fresh.
         if normalized_symbol in self._prices and self._prices[normalized_symbol] > 0:
@@ -108,6 +151,16 @@ class AlpacaRealtimeFeed:
     def history(self, symbol: str, bars: int = 200) -> pd.DataFrame:
         strict_mode = data_integrity_guard.strict_mode_enabled()
         normalized_symbol = str(symbol).upper().strip()
+
+        if _is_test_mode():
+            data_integrity_guard.record_provider_event(
+                provider="test_market_data",
+                mode="fallback",
+                symbol=normalized_symbol,
+                detail=f"test_stub_bars:{bars}",
+            )
+            return _synthetic_history(normalized_symbol, bars)
+
         if settings.ALPACA_API_KEY:
             try:
                 frame = self._alpaca_bars(normalized_symbol, bars)
@@ -151,6 +204,13 @@ class AlpacaRealtimeFeed:
         self._subscribers.append(callback)
 
     def start_stream(self, symbols: List[str]):
+        if _is_test_mode():
+            data_integrity_guard.record_provider_event(
+                provider="test_market_data",
+                mode="fallback",
+                detail="test_stub_stream",
+            )
+            return
         if self._started or not settings.ALPACA_API_KEY:
             if not settings.ALPACA_API_KEY:
                 print("No ALPACA_API_KEY - using Alpaca REST polling")

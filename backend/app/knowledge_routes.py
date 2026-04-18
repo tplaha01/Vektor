@@ -1,109 +1,110 @@
 """
-Development Knowledge Graph Routes
-Handles devlog ingestion and querying per DevViktor specification
+Knowledge graph query and ingestion routes for developer/operator access.
 """
-from typing import Any, Dict, List
-from fastapi import APIRouter, Query
-from pydantic import BaseModel
 
-from app.fund.knowledge_graph import knowledge_graph
+from __future__ import annotations
 
-router = APIRouter(prefix="/fund/knowledge", tags=["knowledge"])
+from typing import Any, Literal
 
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 
-class DevLogPayload(BaseModel):
-    """Payload for dev session logging"""
-    entry_id: str
-    stage: str  # start, update, end
-    actor_name: str
-    actor_platform: str
-    actor_model: str
-    actor_provider: str
-    run_id: str
-    branch: str
-    commit_start: str = ""
-    commit_end: str = ""
-    scope: str
-    files: List[str] = []
-    validation: str
-    notes: str
+from app.fund.orchestrator import FirmOrchestrator, firm_orchestrator
 
 
-@router.post("/development/log")
-async def ingest_dev_log(payload: DevLogPayload) -> Dict[str, Any]:
-    """
-    Ingest development session log entry into knowledge graph
-    
-    Per DevViktor.md: Every START and END entry must be written here.
-    Creates a namespaced development.devlog.* event in the KB.
-    """
-    try:
-        event_data = payload.dict()
-        event_id = knowledge_graph.capture(
-            namespace="development",
-            entity_type=f"devlog_{payload.stage}",
-            data=event_data,
-        )
-        
-        return {
-            "status": "ingested",
-            "entry_id": payload.entry_id,
-            "event_id": event_id,
-            "stage": payload.stage,
-            "run_id": payload.run_id,
-        }
-    except Exception as e:
-        return {
-            "status": "error",
-            "entry_id": payload.entry_id,
-            "error": str(e),
-        }
+router = APIRouter(prefix="/api/knowledge", tags=["knowledge"])
+
+
+def get_orchestrator() -> FirmOrchestrator:
+    return firm_orchestrator
+
+
+class DevelopmentLogIn(BaseModel):
+    entry_id: str = Field(..., min_length=3, max_length=128)
+    stage: Literal["start", "update", "end"]
+    actor_name: str = Field(..., min_length=2, max_length=128)
+    actor_platform: Literal["codex", "claude_code", "github_copilot", "ollama", "other"]
+    actor_model: str = Field(..., min_length=2, max_length=128)
+    actor_provider: str | None = Field(default=None, max_length=128)
+    run_id: str | None = Field(default=None, min_length=3, max_length=128)
+    branch: str | None = Field(default=None, max_length=128)
+    commit_start: str | None = Field(default=None, max_length=128)
+    commit_end: str | None = Field(default=None, max_length=128)
+    scope: str = Field(default="", max_length=4000)
+    files: list[str] = Field(default_factory=list)
+    validation: str = Field(default="", max_length=4000)
+    notes: str = Field(default="", max_length=4000)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 @router.get("/stats")
-async def get_knowledge_stats() -> Dict[str, Any]:
-    """Get overall knowledge graph statistics"""
-    from app.fund.orchestrator import firm_orchestrator
-    
-    stats = firm_orchestrator.knowledge_stats()
-    return {
-        "event_count": stats.get("event_count", 0),
-        "entity_count": stats.get("entity_count", 0),
-        "namespaces": stats.get("namespaces", []),
-    }
+async def get_knowledge_stats(orchestrator: FirmOrchestrator = Depends(get_orchestrator)):
+    return orchestrator.knowledge_stats()
 
 
 @router.get("/events")
 async def get_knowledge_events(
-    namespace: str = Query("development", description="Event namespace"),
-    limit: int = Query(50, ge=1, le=1000),
-) -> Dict[str, Any]:
-    """Query knowledge graph events by namespace"""
-    try:
-        # This would query from the actual KG storage
-        # For now, return metadata about available queries
-        return {
-            "namespace": namespace,
-            "limit": limit,
-            "status": "query_capability_available",
-            "note": "Implement event querying from knowledge_graph storage",
-        }
-    except Exception as e:
-        return {
-            "status": "error",
-            "error": str(e),
-        }
+    limit: int = Query(default=200, ge=1, le=2000),
+    namespace: str | None = None,
+    source: str | None = None,
+    event_type: str | None = None,
+    run_id: str | None = None,
+    agent_id: str | None = None,
+    decision_id: str | None = None,
+    order_id: str | None = None,
+    orchestrator: FirmOrchestrator = Depends(get_orchestrator),
+):
+    return orchestrator.list_knowledge_events(
+        limit=limit,
+        namespace=namespace,
+        source=source,
+        event_type=event_type,
+        run_id=run_id,
+        agent_id=agent_id,
+        decision_id=decision_id,
+        order_id=order_id,
+    )
 
 
-@router.get("/development/logs")
-async def get_dev_logs(
-    run_id: str = Query(None, description="Filter by run_id"),
-    limit: int = Query(20, ge=1, le=100),
-) -> Dict[str, Any]:
-    """Query development session logs"""
-    return {
-        "run_id": run_id,
-        "limit": limit,
-        "logs": [],
-        "status": "querying from knowledge graph",
-    }
+@router.get("/lineage")
+async def get_knowledge_lineage(
+    limit: int = Query(default=500, ge=1, le=5000),
+    run_id: str | None = None,
+    decision_id: str | None = None,
+    order_id: str | None = None,
+    report_id: str | None = None,
+    orchestrator: FirmOrchestrator = Depends(get_orchestrator),
+):
+    if not any([run_id, decision_id, order_id, report_id]):
+        raise HTTPException(status_code=400, detail="provide_at_least_one_filter")
+    return orchestrator.knowledge_lineage(
+        run_id=run_id,
+        decision_id=decision_id,
+        order_id=order_id,
+        report_id=report_id,
+        limit=limit,
+    )
+
+
+@router.post("/development/log")
+async def ingest_development_log(
+    body: DevelopmentLogIn,
+    orchestrator: FirmOrchestrator = Depends(get_orchestrator),
+):
+    return orchestrator.ingest_development_log(
+        entry_id=body.entry_id,
+        stage=body.stage,
+        actor_name=body.actor_name,
+        actor_platform=body.actor_platform,
+        actor_model=body.actor_model,
+        actor_provider=body.actor_provider,
+        run_id=body.run_id,
+        branch=body.branch,
+        commit_start=body.commit_start,
+        commit_end=body.commit_end,
+        scope=body.scope,
+        files=body.files,
+        validation=body.validation,
+        notes=body.notes,
+        metadata=body.metadata,
+    )

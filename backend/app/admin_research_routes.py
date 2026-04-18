@@ -4,11 +4,14 @@ Admin Console, Research, and Blog API Routes (live-backed).
 
 from __future__ import annotations
 
+import asyncio
+import math
 import statistics
 import uuid
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from typing import Any, List, Optional
+from time import monotonic
+from typing import Any, List, Literal, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -39,6 +42,9 @@ from app.storage import db as storage_db
 class MetricsSummary(BaseModel):
     total_equity: float
     equity_change: float
+    account_equity: float = 0.0
+    external_capital_flow_usd: float = 0.0
+    baseline_equity: float = 0.0
     realized_pnl: float
     pnl_change: float
     unrealized_pnl: float
@@ -151,6 +157,10 @@ class LineageRow(BaseModel):
     order_id: Optional[str] = None
     blocked_reasons: List[str] = Field(default_factory=list)
     blog_post_ids: List[str] = Field(default_factory=list)
+    report_ids: List[str] = Field(default_factory=list)
+    lineage_detail_path: Optional[str] = None
+    decision_detail_path: Optional[str] = None
+    audit_timeline_path: Optional[str] = None
 
 
 class LineageDecisionDetail(BaseModel):
@@ -179,8 +189,38 @@ class RuntimeControlIn(BaseModel):
     reason: str = Field(default="manual_admin_action", min_length=1, max_length=256)
 
 
+class PaperBrokerCapitalIn(BaseModel):
+    action: Literal["top_up", "set_cash", "reset"]
+    amount_usd: Optional[float] = Field(default=None, gt=0)
+    target_cash_usd: Optional[float] = Field(default=None, ge=0)
+    clear_positions: bool = False
+    clear_orders: bool = False
+    reason: str = Field(default="manual_paper_capital_update", min_length=1, max_length=256)
+
+
 class AutopilotKickIn(BaseModel):
     run_id: Optional[str] = Field(default=None, min_length=3, max_length=128)
+
+
+class StrictModeIn(BaseModel):
+    enabled: bool
+    reason: str = Field(default="manual_strict_mode_update", min_length=1, max_length=256)
+
+
+class DataIntegrityDrillIn(BaseModel):
+    provider: str = Field(..., min_length=2, max_length=128)
+    mode: Literal["provider", "fallback", "failed"]
+    symbol: Optional[str] = Field(default=None, min_length=1, max_length=32)
+    detail: Optional[str] = Field(default=None, max_length=512)
+    reason: str = Field(default="manual_data_integrity_drill", min_length=1, max_length=256)
+
+
+class FunctionalVerifyIn(BaseModel):
+    run_id: Optional[str] = Field(default=None, min_length=3, max_length=128)
+    symbol: str = Field(default="SPY", min_length=1, max_length=16)
+    side: Literal["buy", "sell"] = "buy"
+    quantity: float = Field(default=1.0, gt=0)
+    timeout_seconds: int = Field(default=45, ge=5, le=180)
 
 
 # ====================================================================
@@ -259,14 +299,43 @@ def _infer_agent_role(agent_id: str, fallback: str = "researcher") -> str:
 
 def _estimate_sharpe_from_recent_trades(analytics: dict[str, Any]) -> float:
     trades = analytics.get("recent_trades") or []
-    pnls = [_safe_float(item.get("pnl")) for item in trades if item.get("pnl") is not None]
-    if len(pnls) < 2:
+    returns: list[float] = []
+    for item in trades:
+        pnl = _safe_float(item.get("pnl"), 0.0)
+        qty = abs(_safe_float(item.get("qty"), 0.0))
+        buy_px = abs(_safe_float(item.get("buy"), 0.0))
+        notional = qty * buy_px
+        if notional <= 0:
+            continue
+        returns.append(pnl / notional)
+
+    # Avoid unstable Sharpe estimates on tiny trade samples.
+    if len(returns) < 20:
         return 0.0
-    mean = statistics.mean(pnls)
-    stdev = statistics.pstdev(pnls)
-    if stdev <= 1e-9:
+    mean = statistics.mean(returns)
+    stdev = statistics.pstdev(returns)
+    if stdev <= 1e-6:
         return 0.0
-    return round((mean / stdev) * (252.0 ** 0.5), 2)
+    sharpe = (mean / stdev) * (252.0 ** 0.5)
+    # Keep dashboard values readable and robust to noisy micro samples.
+    return round(float(max(min(sharpe, 10.0), -10.0)), 2)
+
+
+def _infer_baseline_equity(
+    *,
+    total_equity: float,
+    realized_pnl: float,
+    unrealized_pnl: float,
+    fallback: float,
+) -> float:
+    """
+    Infer baseline capital from current equity and PnL.
+    This keeps performance % realistic after paper-capital top-ups/resets.
+    """
+    inferred = total_equity - (realized_pnl + unrealized_pnl)
+    if not math.isfinite(inferred) or inferred <= 0:
+        return fallback
+    return inferred
 
 
 def _normalize_provenance(raw_provenance: Any) -> dict:
@@ -393,6 +462,99 @@ def _record_runtime_control_event(
     )
 
 
+def _collect_functional_snapshot(history: list[dict[str, Any]], *, default_symbol: str) -> dict[str, Any]:
+    expected_roles: set[str] = set(ANALYST_ROLE_SET)
+    completed_roles: set[str] = set()
+    fund_manager_status = "unknown"
+    trader_status = "unknown"
+    trader_terminal = False
+    decision_id: str | None = None
+    order_id: str | None = None
+    blocked_reasons: list[str] = []
+    analyst_failed_roles: dict[str, str] = {}
+    report_ids: set[str] = set()
+    blog_post_ids: set[str] = set()
+    symbol = str(default_symbol or "").upper().strip() or None
+
+    for row in history:
+        role = str(row.get("role") or "").strip()
+        status = str(row.get("status") or "").strip().lower()
+        event = str(row.get("event") or "").strip().lower()
+        details = row.get("details") if isinstance(row.get("details"), dict) else {}
+        payload = row.get("payload") if isinstance(row.get("payload"), dict) else {}
+
+        for source in (payload, details):
+            pack_roles = source.get("signal_pack_roles")
+            if isinstance(pack_roles, list):
+                expected_roles = {
+                    str(item).strip().lower()
+                    for item in pack_roles
+                    if str(item).strip().lower() in ANALYST_ROLE_SET
+                } or expected_roles
+            report_id = str(source.get("report_id") or "").strip()
+            if report_id:
+                report_ids.add(report_id)
+            for report_id_item in (source.get("report_ids") if isinstance(source.get("report_ids"), list) else []):
+                rid = str(report_id_item).strip()
+                if rid:
+                    report_ids.add(rid)
+            for post_id in (source.get("post_ids") if isinstance(source.get("post_ids"), list) else []):
+                pid = str(post_id).strip()
+                if pid:
+                    blog_post_ids.add(pid)
+            maybe_symbol = str(source.get("symbol") or "").strip().upper()
+            if maybe_symbol and not symbol:
+                symbol = maybe_symbol
+
+        if role in ANALYST_ROLE_SET and event == "status_update" and status == "completed":
+            completed_roles.add(role)
+        if role in ANALYST_ROLE_SET and event == "status_update" and status in {"failed", "blocked"}:
+            reason = str(details.get("reason") or details.get("error") or "").strip()
+            if not reason:
+                reasons = details.get("reasons") if isinstance(details.get("reasons"), list) else []
+                if reasons:
+                    reason = str(reasons[0]).strip()
+            analyst_failed_roles[role] = reason or status
+
+        if role == "fund_manager" and event == "status_update":
+            fund_manager_status = status or fund_manager_status
+
+        if role == "trader" and event == "status_update" and status in {"completed", "blocked", "failed"}:
+            trader_status = status
+            trader_terminal = True
+            maybe_decision = str(details.get("decision_id") or "").strip()
+            if maybe_decision:
+                decision_id = maybe_decision
+            maybe_order = details.get("order_id")
+            if maybe_order is None:
+                execution = details.get("execution") if isinstance(details.get("execution"), dict) else {}
+                order = execution.get("order") if isinstance(execution.get("order"), dict) else {}
+                maybe_order = order.get("id")
+            if maybe_order is not None:
+                order_id = str(maybe_order)
+            reasons = details.get("reasons") if isinstance(details.get("reasons"), list) else []
+            if not reasons and details.get("reason"):
+                reasons = [details.get("reason")]
+            blocked_reasons = [str(item) for item in reasons if str(item).strip()]
+
+    return {
+        "symbol": symbol or str(default_symbol or "").upper().strip() or None,
+        "analyst_expected": len(expected_roles),
+        "analyst_completed": len(completed_roles),
+        "analyst_missing_roles": sorted(role for role in expected_roles if role not in completed_roles),
+        "analyst_failed_roles": dict(sorted(analyst_failed_roles.items(), key=lambda item: item[0])),
+        "fund_manager_status": fund_manager_status,
+        "trader_status": trader_status,
+        "trader_terminal": trader_terminal,
+        "terminal_failure": bool(analyst_failed_roles),
+        "decision_id": decision_id,
+        "order_id": order_id,
+        "blocked_reasons": blocked_reasons,
+        "report_ids": sorted(report_ids),
+        "blog_post_ids": sorted(blog_post_ids),
+    }
+
+
 # ====================================================================
 # Admin Endpoints (live-backed)
 # ====================================================================
@@ -406,10 +568,16 @@ async def get_metrics_summary():
     risk_state = risk.status()
     dd = risk_state.get("drawdown_breaker") or {}
 
-    baseline_equity = _safe_float(getattr(risk, "INITIAL_EQUITY", 100000.0), 100000.0)
-    total_equity = _safe_float(equity, baseline_equity)
+    baseline_default = _safe_float(getattr(risk, "INITIAL_EQUITY", 100000.0), 100000.0)
+    account_equity = _safe_float(equity, baseline_default)
     unrealized = sum(_safe_float(p.get("unrealized_pnl")) for p in positions)
     realized = _safe_float(analytics.get("realized_pnl"), 0.0)
+    strategy_equity = baseline_default + realized + unrealized
+    external_capital_flow = account_equity - strategy_equity
+    flow_ratio = abs(external_capital_flow) / max(baseline_default, 1.0)
+    # If significant external capital movement happened, show strategy-adjusted equity.
+    total_equity = strategy_equity if flow_ratio >= 0.05 else account_equity
+    baseline_equity = baseline_default
 
     max_drawdown_abs = abs(_safe_float(analytics.get("max_drawdown"), 0.0))
     max_drawdown_pct = (max_drawdown_abs / baseline_equity) * 100.0 if baseline_equity > 0 else 0.0
@@ -417,6 +585,9 @@ async def get_metrics_summary():
     return MetricsSummary(
         total_equity=round(total_equity, 2),
         equity_change=round(((total_equity - baseline_equity) / baseline_equity) * 100.0, 2),
+        account_equity=round(account_equity, 2),
+        external_capital_flow_usd=round(external_capital_flow, 2),
+        baseline_equity=round(baseline_equity, 2),
         realized_pnl=round(realized, 2),
         pnl_change=0.0,
         unrealized_pnl=round(unrealized, 2),
@@ -583,6 +754,82 @@ async def get_runtime_control_status():
     }
 
 
+@router.get("/system/ops/panel", response_model=dict)
+async def get_ops_panel(limit: int = Query(20, ge=1, le=200)):
+    status_badges = await get_system_status_badges()
+    runtime_control = await get_runtime_control_status()
+    lineage = await get_recent_lineage(limit=limit)
+    return {
+        "status_badges": status_badges,
+        "runtime_control": runtime_control,
+        "recent_lineage": lineage,
+    }
+
+
+@router.post("/system/data-integrity/strict-mode", response_model=dict)
+async def set_strict_mode(body: StrictModeIn):
+    result = data_integrity_guard.set_strict_mode(body.enabled, reason=body.reason)
+    runtime = fund_agent_runtime.status()
+    response = {
+        "ok": True,
+        "action": "strict_mode_updated",
+        "strict_real_data_only": bool(result.get("strict_real_data_only")),
+        "strict_real_data_only_previous": bool(result.get("strict_real_data_only_previous")),
+        "halt_auto_cleared": bool(result.get("halt_auto_cleared")),
+        "runtime_started": bool(runtime.get("started")),
+        "status": result.get("status"),
+    }
+    _record_runtime_control_event(
+        action="set_strict_mode",
+        status="updated",
+        reason=body.reason,
+        payload={
+            "strict_real_data_only": response["strict_real_data_only"],
+            "strict_real_data_only_previous": response["strict_real_data_only_previous"],
+            "halt_auto_cleared": response["halt_auto_cleared"],
+        },
+    )
+    return response
+
+
+@router.post("/system/data-integrity/drill", response_model=dict)
+async def run_data_integrity_drill(body: DataIntegrityDrillIn):
+    normalized_symbol = str(body.symbol or "").strip().upper() or None
+    normalized_detail = str(body.detail or body.reason).strip()[:512] or None
+    data_integrity_guard.record_provider_event(
+        provider=body.provider,
+        mode=body.mode,
+        symbol=normalized_symbol,
+        detail=normalized_detail,
+    )
+    status = data_integrity_guard.status()
+    response = {
+        "ok": True,
+        "action": "data_integrity_drill_recorded",
+        "provider": body.provider,
+        "mode": body.mode,
+        "symbol": normalized_symbol,
+        "detail": normalized_detail,
+        "halted": bool(status.get("halted")),
+        "halt_reason": status.get("halt_reason"),
+        "status": status,
+    }
+    _record_runtime_control_event(
+        action="data_integrity_drill",
+        status="recorded",
+        reason=body.reason,
+        payload={
+            "provider": body.provider,
+            "mode": body.mode,
+            "symbol": normalized_symbol,
+            "detail": normalized_detail,
+            "halted": response["halted"],
+            "halt_reason": response["halt_reason"],
+        },
+    )
+    return response
+
+
 @router.get("/system/control-history", response_model=dict)
 async def get_runtime_control_history(limit: int = Query(30, ge=1, le=200)):
     events = knowledge_graph.list_events(limit=max(limit * 8, 200), namespace="runtime", source="runtime")
@@ -688,6 +935,80 @@ async def clear_system_halt(body: RuntimeControlIn):
     return response
 
 
+@router.post("/system/paper-broker/capital", response_model=dict)
+async def update_paper_broker_capital(body: PaperBrokerCapitalIn):
+    settings = get_settings()
+    broker_mode = str(settings.BROKER or "").strip().lower()
+    if broker_mode != "paper":
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "paper_only_endpoint",
+                "message": "Paper broker capital controls are available only in paper mode.",
+            },
+        )
+
+    before_cash = float(getattr(broker, "cash", 0.0))
+    before_positions = len(getattr(broker, "positions", {}) or {})
+    before_orders = len(getattr(broker, "order_history", []) or [])
+
+    action = body.action
+    if action == "top_up":
+        if body.amount_usd is None:
+            raise HTTPException(status_code=400, detail="amount_usd_required_for_top_up")
+        broker.cash = float(broker.cash) + float(body.amount_usd)
+    elif action == "set_cash":
+        if body.target_cash_usd is None:
+            raise HTTPException(status_code=400, detail="target_cash_usd_required_for_set_cash")
+        broker.cash = float(body.target_cash_usd)
+    elif action == "reset":
+        target = float(body.target_cash_usd) if body.target_cash_usd is not None else 100000.0
+        broker.cash = max(0.0, target)
+        if body.clear_positions:
+            broker.positions = {}
+        if body.clear_orders:
+            broker.order_history = []
+            broker._order_counter = 0  # noqa: SLF001
+
+    persist_fn = getattr(broker, "persist_state", None)
+    if callable(persist_fn):
+        persist_fn()
+
+    after_cash = float(getattr(broker, "cash", 0.0))
+    after_positions = len(getattr(broker, "positions", {}) or {})
+    after_orders = len(getattr(broker, "order_history", []) or [])
+
+    response = {
+        "ok": True,
+        "action": f"paper_broker_{action}",
+        "mode": "paper",
+        "reason": body.reason,
+        "before": {
+            "cash_usd": round(before_cash, 2),
+            "positions_count": before_positions,
+            "orders_count": before_orders,
+        },
+        "after": {
+            "cash_usd": round(after_cash, 2),
+            "positions_count": after_positions,
+            "orders_count": after_orders,
+        },
+    }
+    _record_runtime_control_event(
+        action="paper_broker_capital",
+        status="updated",
+        reason=body.reason,
+        payload={
+            "request_action": action,
+            "before_cash_usd": round(before_cash, 2),
+            "after_cash_usd": round(after_cash, 2),
+            "clear_positions": bool(body.clear_positions),
+            "clear_orders": bool(body.clear_orders),
+        },
+    )
+    return response
+
+
 @router.post("/system/autopilot/kick", response_model=dict)
 async def kick_autopilot(body: AutopilotKickIn):
     result = fund_agent_runtime.kick_autopilot(run_id=body.run_id)
@@ -709,6 +1030,115 @@ async def kick_autopilot(body: AutopilotKickIn):
         run_id=str(result.get("run_id") or body.run_id or ""),
     )
     return response
+
+
+@router.post("/system/functional/verify", response_model=dict)
+async def verify_functional_pipeline(body: FunctionalVerifyIn):
+    if data_integrity_guard.halted():
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "system_halted",
+                "reason": data_integrity_guard.halt_reason() or "strict_real_data_halt",
+                "message": "Clear system halt before running functional verification.",
+            },
+        )
+
+    if not fund_agent_runtime.is_started():
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "runtime_not_started",
+                "message": "Agent runtime must be started before functional verification.",
+            },
+        )
+
+    symbol = str(body.symbol or "SPY").strip().upper()
+    run_id = str(body.run_id or f"run-functional-verify-{uuid.uuid4().hex[:12]}")
+    started = monotonic()
+
+    queued = fund_agent_runtime.enqueue_signal_swarm(
+        run_id=run_id,
+        symbol=symbol,
+        agent_id="api.admin",
+        command=f"functional verification for {symbol}",
+        payload={
+            "symbol": symbol,
+            "side": body.side,
+            "quantity": float(body.quantity),
+            "sleeve": "tactical",
+            "verification": True,
+            "metadata": {"verification_source": "api.admin.system.functional.verify"},
+        },
+        priority=9,
+    )
+    if str(queued.get("status") or "").lower() == "blocked":
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "verification_enqueue_blocked",
+                "reason": queued.get("reason"),
+                "run_id": run_id,
+            },
+        )
+
+    deadline = monotonic() + float(body.timeout_seconds)
+    history: list[dict[str, Any]] = []
+    snapshot = _collect_functional_snapshot(history, default_symbol=symbol)
+    while monotonic() < deadline:
+        history = firm_orchestrator.list_task_history(limit=5000, run_id=run_id)
+        snapshot = _collect_functional_snapshot(history, default_symbol=symbol)
+        if snapshot.get("trader_terminal") or snapshot.get("terminal_failure"):
+            break
+        await asyncio.sleep(0.5)
+
+    timed_out = not bool(snapshot.get("trader_terminal") or snapshot.get("terminal_failure"))
+    verification_status = "timeout"
+    if not timed_out:
+        if snapshot.get("terminal_failure"):
+            verification_status = "failed"
+        else:
+            trader_status = str(snapshot.get("trader_status") or "").lower()
+            if trader_status == "completed":
+                verification_status = "passed"
+            elif trader_status == "blocked":
+                verification_status = "passed_with_risk_block"
+            else:
+                verification_status = "failed"
+
+    order_id = str(snapshot.get("order_id") or "").strip() or None
+    decision_id = str(snapshot.get("decision_id") or "").strip() or None
+    audit_timeline: list[dict[str, Any]] = []
+    if order_id:
+        audit_timeline = firm_orchestrator.audit_timeline_for_order(order_id)[-100:]
+    elif decision_id:
+        for row in decision_ledger.list_events(limit=-1):
+            if str(row.get("decision_id") or "") != decision_id:
+                continue
+            audit_timeline.append(
+                {
+                    "source": "decision_ledger",
+                    "event_id": row.get("event_id"),
+                    "event_type": row.get("event_type"),
+                    "timestamp": row.get("ts"),
+                    "payload": row.get("payload") if isinstance(row.get("payload"), dict) else {},
+                }
+            )
+        audit_timeline.sort(key=lambda item: item.get("timestamp") or "")
+
+    elapsed_ms = int((monotonic() - started) * 1000)
+    return {
+        "ok": verification_status in {"passed", "passed_with_risk_block"},
+        "status": verification_status,
+        "run_id": run_id,
+        "elapsed_ms": elapsed_ms,
+        "queued": queued,
+        "pipeline": snapshot,
+        "task_event_count": len(history),
+        "audit_timeline": audit_timeline,
+        "lineage_detail_path": f"/api/admin/lineage/run/{run_id}",
+        "data_integrity": data_integrity_guard.status(),
+    }
 
 
 @router.get("/agents/workers/status", response_model=dict)
@@ -787,6 +1217,52 @@ async def get_pending_decisions():
         )
 
     return {"decisions": decisions}
+
+
+@router.get("/decisions/{decision_id}", response_model=dict)
+async def get_decision_detail(decision_id: str):
+    key = str(decision_id or "").strip()
+    if not key:
+        raise HTTPException(status_code=400, detail="invalid_decision_id")
+
+    decision = next((item for item in decision_ledger.list_decisions() if item.decision_id == key), None)
+    if decision is None:
+        raise HTTPException(status_code=404, detail="decision_not_found")
+
+    context = _decision_context(key)
+    timeline = [row for row in decision_ledger.list_events(limit=-1) if str(row.get("decision_id") or "") == key]
+    timeline.sort(key=lambda row: str(row.get("ts") or ""))
+
+    order_id = None
+    blocked_reasons: list[str] = []
+    for row in reversed(timeline):
+        payload = row.get("payload") if isinstance(row.get("payload"), dict) else {}
+        if order_id is None and payload.get("order_id") is not None:
+            order_id = str(payload.get("order_id"))
+        reasons = payload.get("reasons") if isinstance(payload.get("reasons"), list) else []
+        if not reasons and payload.get("reason"):
+            reasons = [payload.get("reason")]
+        if reasons:
+            blocked_reasons = [str(item) for item in reasons if str(item).strip()]
+            break
+
+    audit_timeline_path = f"/api/admin/audit/orders/{order_id}/timeline" if order_id else None
+    return {
+        "decision_id": decision.decision_id,
+        "run_id": decision.run_id,
+        "agent_id": decision.agent_id,
+        "status": decision.status,
+        "sleeve": decision.sleeve.value,
+        "thesis_id": decision.thesis_id,
+        "risk_id": decision.risk_id,
+        "intent_id": decision.intent_id,
+        "context": context,
+        "blocked_reasons": blocked_reasons,
+        "order_id": order_id,
+        "audit_timeline_path": audit_timeline_path,
+        "lineage_detail_path": f"/api/admin/lineage/run/{decision.run_id}",
+        "events": timeline,
+    }
 
 
 @router.post("/decisions/{decision_id}/approve")
@@ -936,6 +1412,7 @@ async def get_recent_lineage(limit: int = Query(20, ge=1, le=200)):
                 "order_id": None,
                 "blocked_reasons": [],
                 "blog_post_ids": [],
+                "report_ids": set(),
             },
         )
 
@@ -961,6 +1438,17 @@ async def get_recent_lineage(limit: int = Query(20, ge=1, le=200)):
             nested_symbol = str(intent.get("symbol") or "").strip().upper()
             if nested_symbol and not state["symbol"]:
                 state["symbol"] = nested_symbol
+            report_id = str(source.get("report_id") or "").strip()
+            if report_id:
+                state["report_ids"].add(report_id)
+            report_ids = source.get("report_ids") if isinstance(source.get("report_ids"), list) else []
+            for report_id_item in report_ids:
+                rid = str(report_id_item).strip()
+                if rid:
+                    state["report_ids"].add(rid)
+            composite_report_id = str(source.get("composite_report_id") or "").strip()
+            if composite_report_id:
+                state["report_ids"].add(composite_report_id)
 
         if role == "fund_manager" and event == "status_update":
             state["fund_manager_status"] = status or state["fund_manager_status"]
@@ -1017,6 +1505,18 @@ async def get_recent_lineage(limit: int = Query(20, ge=1, le=200)):
                 order_id=state["order_id"],
                 blocked_reasons=list(state["blocked_reasons"]),
                 blog_post_ids=list(state["blog_post_ids"]),
+                report_ids=sorted(state["report_ids"]),
+                lineage_detail_path=f"/api/admin/lineage/run/{state['run_id']}",
+                decision_detail_path=(
+                    f"/api/admin/decisions/{state['decision_id']}"
+                    if state["decision_id"]
+                    else None
+                ),
+                audit_timeline_path=(
+                    f"/api/admin/audit/orders/{state['order_id']}/timeline"
+                    if state["order_id"]
+                    else None
+                ),
             ).model_dump(mode="json")
         )
 
@@ -1173,6 +1673,18 @@ async def get_lineage_run_detail(run_id: str, limit: int = Query(300, ge=20, le=
         order_id=summary_state["order_id"],
         blocked_reasons=list(summary_state["blocked_reasons"]),
         blog_post_ids=list(summary_state["blog_post_ids"]),
+        report_ids=sorted(related_report_ids),
+        lineage_detail_path=f"/api/admin/lineage/run/{run_key}",
+        decision_detail_path=(
+            f"/api/admin/decisions/{summary_state['decision_id']}"
+            if summary_state["decision_id"]
+            else None
+        ),
+        audit_timeline_path=(
+            f"/api/admin/audit/orders/{summary_state['order_id']}/timeline"
+            if summary_state["order_id"]
+            else None
+        ),
     )
 
     decision_id = str(summary.decision_id or fallback_decision_id or "").strip() or None

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import json
 import re
 from dataclasses import dataclass
@@ -38,6 +39,10 @@ def _extract_json_object(text: str) -> dict[str, Any] | None:
     raw = str(text or "").strip()
     if not raw:
         return None
+    if raw.startswith("```"):
+        raw = re.sub(r"^```[a-zA-Z0-9_-]*\s*", "", raw, flags=re.IGNORECASE)
+        raw = re.sub(r"\s*```$", "", raw)
+        raw = raw.strip()
     try:
         loaded = json.loads(raw)
         if isinstance(loaded, dict):
@@ -47,12 +52,20 @@ def _extract_json_object(text: str) -> dict[str, Any] | None:
 
     match = re.search(r"\{[\s\S]*\}", raw)
     if not match:
-        return None
+        try:
+            repaired = ast.literal_eval(raw)
+            return repaired if isinstance(repaired, dict) else None
+        except Exception:
+            return None
     try:
         loaded = json.loads(match.group(0))
         return loaded if isinstance(loaded, dict) else None
     except Exception:
-        return None
+        try:
+            repaired = ast.literal_eval(match.group(0))
+            return repaired if isinstance(repaired, dict) else None
+        except Exception:
+            return None
 
 
 def _normalize_findings(value: Any, fallback: tuple[str, ...]) -> tuple[str, ...]:
@@ -192,11 +205,46 @@ class AIRoleAdapter:
             )
             duration_ms = int((monotonic() - started) * 1000)
             parsed = _extract_json_object(raw_text)
+            parse_retry_used = False
             if not parsed:
-                self._last_error = "invalid_json_response"
-                if self._require_success:
-                    raise RuntimeError("ai_role_adapter_invalid_json_response")
-                return None
+                parse_retry_used = True
+                retry_prompt = (
+                    f"{user_prompt}\n"
+                    "Previous response was invalid JSON. Return exactly one strict JSON object with double-quoted keys."
+                )
+                retry_text, retry_usage = self._invoke_model(
+                    model=model,
+                    system_prompt=system_prompt,
+                    user_prompt=retry_prompt,
+                )
+                parsed = _extract_json_object(retry_text)
+                if parsed:
+                    raw_text = retry_text
+                    usage = {"initial": usage, "retry": retry_usage}
+                else:
+                    self._last_error = "invalid_json_response"
+                    # Parse-format failures should degrade to deterministic fallback output
+                    # so analyst workflows can continue with real-data-backed reports.
+                    return AIRoleAnalysis(
+                        summary=fallback_summary,
+                        findings=fallback_findings,
+                        confidence=fallback_confidence.quantize(Decimal("0.01")),
+                        citations=tuple(dict.fromkeys(source_ids))[:12],
+                        metadata={
+                            "used": False,
+                            "provider": self._provider,
+                            "model": model,
+                            "duration_ms": duration_ms,
+                            "usage": usage,
+                            "parse_retry_used": parse_retry_used,
+                            "degraded_reason": "invalid_json_response",
+                            "trade_setup": {},
+                            "risk_flags": ["invalid_json_response"],
+                        },
+                        provider=self._provider,
+                        model=model,
+                        raw_text=raw_text,
+                    )
 
             summary = str(parsed.get("summary") or "").strip() or fallback_summary
             findings = _normalize_findings(parsed.get("findings"), fallback_findings)
@@ -218,6 +266,7 @@ class AIRoleAdapter:
                     "model": model,
                     "duration_ms": duration_ms,
                     "usage": usage,
+                    "parse_retry_used": parse_retry_used,
                     "trade_setup": trade_setup,
                     "risk_flags": [str(item) for item in risk_flags][:12],
                 },

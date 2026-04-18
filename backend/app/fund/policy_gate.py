@@ -95,7 +95,9 @@ class PolicyGate:
             if concentration > self._limits.max_symbol_exposure_pct:
                 blocked.append("symbol_exposure_limit_exceeded")
 
-            if notional / equity > self._limits.max_position_notional_pct:
+            # This limit is intended to cap sizing on new/additive risk.
+            # Sells reduce exposure and should not be blocked by this check.
+            if intent.side == "buy" and (notional / equity > self._limits.max_position_notional_pct):
                 blocked.append("single_position_notional_limit_exceeded")
 
         if isinstance(intent.metadata, dict):

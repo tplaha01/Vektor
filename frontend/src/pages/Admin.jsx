@@ -14,6 +14,7 @@ import RiskGauges from '../components/admin/RiskGauges';
 import AuditTimeline from '../components/admin/AuditTimeline';
 import PositionsPanel from '../components/admin/PositionsPanel';
 import LineagePanel from '../components/admin/LineagePanel';
+import SystemOverview from '../components/admin/SystemOverview';
 
 const Admin = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -387,6 +388,13 @@ const Admin = () => {
                         </span>
                       </div>
                       <KPIGrid metrics={metrics} />
+                    </section>
+
+                    <section className="content-section">
+                      <div className="section-header">
+                        <h2 className="section-title">Agent Orchestration Hierarchy</h2>
+                      </div>
+                      <SystemOverview />
                     </section>
 
                     <div className="content-grid">

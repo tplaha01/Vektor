@@ -25,6 +25,27 @@ Research + Sentiment Agents
 
 Run each service in its own terminal.
 
+### One-command local shell screen (Windows PowerShell)
+
+Use the service controller script:
+
+```powershell
+# Start required app services (backend + frontend)
+.\scripts\vektor-shell.ps1 up
+
+# Start with optional SSR landing/blog services too
+.\scripts\vektor-shell.ps1 up -IncludeLanding -IncludeBlog
+
+# Show current service state
+.\scripts\vektor-shell.ps1 status
+
+# Tail logs for one service
+.\scripts\vektor-shell.ps1 logs -Service backend -Follow
+
+# Stop all Vektor local services
+.\scripts\vektor-shell.ps1 down
+```
+
 ### 1) Backend API
 
 ```bash

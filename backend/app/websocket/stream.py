@@ -1,14 +1,18 @@
 from __future__ import annotations
+
 import asyncio
-from datetime import datetime
+import logging
+from datetime import datetime, timezone
 from typing import Dict
 
 from fastapi import WebSocket
+
 from app.config import get_settings
 from app.data.market_data import FEED
 
 
 WATCHLIST = ["AAPL", "MSFT", "NVDA", "SPY", "TSLA", "AMZN", "GOOGL", "META"]
+logger = logging.getLogger("alfred.websocket.stream")
 
 
 class StreamManager:
@@ -46,12 +50,12 @@ class StreamManager:
         change = price - ref
         change_pct = (change / ref * 100) if ref else 0.0
         self._tick_cache[symbol] = {
-            "symbol":     symbol,
-            "price":      price,
+            "symbol": symbol,
+            "price": price,
             "prev_close": ref,
-            "change":     round(change, 4),
+            "change": round(change, 4),
             "change_pct": round(change_pct, 4),
-            "ts":         datetime.utcnow().isoformat(),
+            "ts": _utc_iso(),
         }
 
 
@@ -59,6 +63,10 @@ manager = StreamManager()
 
 # Previous-close cache populated at startup
 _prev_close: Dict[str, float] = {}
+
+
+def _utc_iso() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def _alpaca_tick_callback(symbol: str, price: float):
@@ -74,19 +82,19 @@ def _fetch_prev_closes() -> None:
                 _prev_close[sym] = float(hist["close"].iloc[-2])
         except Exception:
             pass
-    print(f"📊 Previous closes loaded: {_prev_close}")
+    logger.info("Previous closes loaded for %s symbols", len(_prev_close))
 
 
 async def stream_loop():
     settings = get_settings()
 
-    # Fetch prev closes first so change is meaningful from the first tick
+    # Fetch prev closes first so change is meaningful from the first tick.
     _fetch_prev_closes()
 
     FEED.subscribe(_alpaca_tick_callback)
     FEED.start_stream(WATCHLIST)
 
-    print(f"📡 Stream loop started — broadcasting every {settings.WEBSOCKET_BROADCAST_INTERVAL}s")
+    logger.info("Stream loop started; broadcast_interval=%ss", settings.WEBSOCKET_BROADCAST_INTERVAL)
 
     while True:
         await asyncio.sleep(settings.WEBSOCKET_BROADCAST_INTERVAL)
@@ -103,20 +111,25 @@ async def stream_loop():
                     tick_data.append(manager._tick_cache[sym])
 
             if tick_data:
-                await manager.broadcast({
-                    "type": "tick_batch",
-                    "data": tick_data,
-                    "ts":   datetime.utcnow().isoformat(),
-                })
+                await manager.broadcast(
+                    {
+                        "type": "tick_batch",
+                        "data": tick_data,
+                        "ts": _utc_iso(),
+                    }
+                )
 
             from app.core.context import broker
+
             positions = broker.list_positions(lambda s: FEED.price(s))
             if positions:
-                await manager.broadcast({
-                    "type": "positions_update",
-                    "data": positions,
-                    "ts":   datetime.utcnow().isoformat(),
-                })
+                await manager.broadcast(
+                    {
+                        "type": "positions_update",
+                        "data": positions,
+                        "ts": _utc_iso(),
+                    }
+                )
 
-        except Exception as e:
-            print(f"⚠️ Stream loop error: {e}")
+        except Exception as exc:
+            logger.warning("Stream loop error: %s", exc)

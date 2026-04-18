@@ -2,7 +2,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
@@ -15,6 +15,7 @@ from app.strategies.hybrid import hybrid_signal
 from app.data.news import latest_news
 from app.analytics import build_metrics_from_broker
 from app.websocket.stream import manager, stream_loop, WATCHLIST
+from app.websocket.agent_events import agent_event_stream, publish_agent_event
 from app.data.market_data import FEED
 from app.risk.engine import risk
 from app.backtest.router import router as backtest_router
@@ -79,7 +80,7 @@ app.include_router(blog_router)
 app.include_router(monitoring_router)
 app.include_router(knowledge_router)
 
-_PUBLIC_PATHS = {"/health", "/ws", "/docs", "/openapi.json", "/redoc"}
+_PUBLIC_PATHS = {"/health", "/ws", "/ws/agents", "/docs", "/openapi.json", "/redoc"}
 
 @app.middleware("http")
 async def api_key_middleware(request: Request, call_next):
@@ -97,10 +98,19 @@ async def startup_event():
     from app.storage.db import init_db
     from app.monitoring import monitor
     from app.fund.task_bus import task_bus
+    from app.websocket.agent_events import agent_event_stream
     from pathlib import Path
     import os
     
     global _current_dev_session
+    
+    # Set up event loop for WebSocket event broadcasting
+    try:
+        loop = asyncio.get_running_loop()
+        agent_event_stream.set_event_loop(loop)
+        logger.info("Agent event stream event loop configured")
+    except Exception as e:
+        logger.warning(f"Failed to set event loop for agent events: {e}")
     
     # Start devlog session (per DevViktor.md requirement)
     try:
@@ -190,24 +200,44 @@ async def startup_event():
     
     # ML Models
     try:
-        from app.ml.alpha_model import ensure_model
+        from app.ml.alpha_model import ensure_model, model_status
         ensure_model()
-        monitor.log_component_status("Alpha Model", "OK", "LightGBM model loaded")
+        alpha_status = model_status()
+        if alpha_status.get("ready"):
+            monitor.log_component_status(
+                "Alpha Model",
+                "OK",
+                f"ready features={alpha_status.get('features', 0)}",
+            )
+        elif alpha_status.get("training"):
+            monitor.log_component_status("Alpha Model", "WARN", "training_in_progress")
+        else:
+            monitor.log_component_status(
+                "Alpha Model",
+                "WARN",
+                "not_ready (optional deps/model may be unavailable)",
+            )
     except Exception as e:
         monitor.log_component_status("Alpha Model", "WARN", str(e))
     
     # Sentiment Model
     try:
-        from app.utils.sentiment import _ensure_finbert
+        from app.utils.sentiment import _ensure_finbert, sentiment_model_status
         _ensure_finbert()
-        monitor.log_component_status("Sentiment Model", "OK", "FinBERT loaded")
+        sent_status = sentiment_model_status()
+        if sent_status.get("finbert_available"):
+            monitor.log_component_status("Sentiment Model", "OK", "finbert_ready")
+        elif sent_status.get("finbert_loading"):
+            monitor.log_component_status("Sentiment Model", "WARN", "finbert_loading_using_vader")
+        else:
+            monitor.log_component_status("Sentiment Model", "WARN", "using_vader_fallback")
     except Exception as e:
         monitor.log_component_status("Sentiment Model", "WARN", str(e))
     
     # Print fund statistics
     await asyncio.sleep(1)  # Give components time to initialize
     monitor.log_fund_stats()
-    logger.info("✅ ALFRED READY - All systems operational")
+    logger.info("ALFRED READY - All systems operational")
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -223,7 +253,7 @@ async def shutdown_event():
                 validation="completed",
                 notes="Server shutdown - session ended normally",
             )
-            logger.info(f"✅ Dev session logged: {_current_dev_session.entry_id}")
+            logger.info(f"Dev session logged: {_current_dev_session.entry_id}")
         except Exception as e:
             logger.warning(f"Could not end devlog session: {e}")
     
@@ -234,14 +264,15 @@ async def shutdown_event():
 @app.get("/health")
 async def health():
     from app.ml.alpha_model import model_status
-    from app.utils.sentiment import sentiment_model_name
+    from app.utils.sentiment import sentiment_model_name, sentiment_model_status
     return {
         "status": "ok", "version": "5.1.0",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "watchlist": WATCHLIST,
         "connected_clients": len(manager.active),
         "ml_model": model_status(),
         "sentiment_model": sentiment_model_name(),
+        "sentiment_model_status": sentiment_model_status(),
         "risk": risk.status(),
         "fund": {
             "active_tasks": len(firm_orchestrator.list_active_tasks()),
@@ -250,6 +281,23 @@ async def health():
             "agent_runtime_started": fund_agent_runtime.is_started(),
         },
     }
+
+
+@app.get("/debug/websocket-stream")
+async def debug_websocket_stream():
+    """Debug endpoint to check WebSocket event stream status."""
+    from app.websocket.agent_events import agent_event_stream
+    
+    return {
+        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "active_connections": len(agent_event_stream.active),
+        "event_buffer_size": len(agent_event_stream._event_buffer),
+        "recent_events": agent_event_stream.get_recent_events(limit=5),
+        "agent_status_cache_count": len(agent_event_stream._agent_status_cache),
+        "event_loop_configured": agent_event_stream._event_loop is not None,
+        "agent_status_sample": list(agent_event_stream._agent_status_cache.items())[:3],
+    }
+
 
 @app.post("/signals/generate")
 async def generate_signal(req: SignalRequest) -> Dict[str, Any]:
@@ -471,4 +519,24 @@ async def websocket_endpoint(ws: WebSocket):
             await ws.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(ws)
+
+
+@app.websocket("/ws/agents")
+async def websocket_agent_events(ws: WebSocket):
+    """WebSocket endpoint for real-time agent orchestration events.
+    
+    Clients connecting to this endpoint receive:
+    - Initial agent status snapshot
+    - Real-time updates for agent state changes
+    - Task events (started, completed, failed)
+    - Orchestration decisions
+    - Trade executions
+    """
+    await agent_event_stream.connect(ws)
+    try:
+        while True:
+            # Just keep connection open; events are broadcast from task bus
+            await ws.receive_text()
+    except WebSocketDisconnect:
+        await agent_event_stream.disconnect(ws)
         

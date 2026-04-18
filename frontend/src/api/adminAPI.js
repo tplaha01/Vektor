@@ -167,6 +167,13 @@ export const adminAPI = {
     ),
   getFundOrderAuditTimeline: async (orderId) =>
     fetchJson(`${FUND_BASE}/audit/orders/${encodeURIComponent(orderId)}/timeline`),
+  
+  // Agent Hierarchy & Orchestration
+  getAgentHierarchy: async () =>
+    fetchJson(`${API_BASE}/monitor/agents/hierarchy`),
+  getAgentHierarchyStats: async () =>
+    fetchJson(`${API_BASE}/monitor/agents/hierarchy/stats`),
+  
   getPaperPositions: async () => fetchJson(`${PAPER_BASE}/positions`),
   getMarketPrices: async () => fetchJson(`${MARKET_BASE}/prices`),
   placePaperOrder: async (payload) =>
