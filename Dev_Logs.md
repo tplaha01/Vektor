@@ -2590,3 +2590,46 @@ files:
 - backend/app/admin_research_routes.py
 validation: completed
 notes: Server shutdown - session ended normally
+
+[2026-04-18T01:09:54.184458Z] [START]
+entry_id: devlog-20260418-bfc080be
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-35d60ac266ea
+git_branch: codex/hardening-sprint
+git_commit_start: cf8d3d602307c134eaa33ce4b560e7e52de861df
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-18T01:32:00Z] [UPDATE]
+entry_id: devlog-20260418-codex-hardening-001
+actor_name: codex_cto
+actor_platform: codex
+actor_model: gpt-5.4
+actor_provider: openai
+run_id: run-viktor-hardening-002
+git_branch: codex/hardening-sprint
+git_commit_start: cf8d3d602307c134eaa33ce4b560e7e52de861df
+git_commit_end:
+scope: Hardening sprint to enforce fail-closed runtime behavior, remove Admin synthetic fallback metrics, and surface binary operational badges.
+files:
+- backend/app/fund/task_bus.py
+- backend/app/fund/agent_runtime.py
+- backend/app/admin_research_routes.py
+- backend/app/fund/__init__.py
+- backend/tests/test_task_bus_persistence.py
+- backend/tests/test_admin_status_badges.py
+- frontend/src/pages/Admin.jsx
+validation: py -3 -m pytest backend/tests/test_admin_status_badges.py backend/tests/test_task_bus_persistence.py backend/tests/test_runtime_guard.py -q (pass); py -3 -m pytest backend/tests/test_fund_agent_runtime.py backend/tests/test_fund_pipeline.py -q (pass); npm run build in frontend (pass)
+notes: Included pre-existing user blog-next modifications in branch per user direction.

@@ -106,3 +106,31 @@ def test_status_badges_endpoint_reports_degraded_when_halted(monkeypatch):
     assert body["llm_agent_health"]["status"] == "Degraded"
     assert body["halt"]["halted"] is True
     assert "real-data mode" in body["halt"]["message"]
+
+
+def test_status_badges_endpoint_reports_degraded_on_provider_fallback(monkeypatch):
+    payload = _build_runtime_payload(halted=False)
+    payload["data_integrity"]["data_source_status"] = "Fallback"
+    payload["data_integrity"]["providers"] = [
+        {
+            "provider": "finnhub_news",
+            "mode": "fallback",
+            "last_at": "2026-04-17T00:00:00Z",
+            "symbol": "AAPL",
+            "detail": "provider_timeout",
+        }
+    ]
+    runtime = _StubRuntime(payload)
+    monkeypatch.setattr(admin_routes, "fund_agent_runtime", runtime)
+    monkeypatch.setattr(admin_routes, "get_settings", lambda: _Settings())
+
+    app = FastAPI()
+    app.include_router(admin_routes.router)
+    client = TestClient(app)
+
+    response = client.get("/api/admin/system/status-badges")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["data_source"]["status"] == "Fallback"
+    assert body["orchestration"]["status"] == "Degraded"
+    assert body["orchestration"]["reason"] == "data_source_fallback_detected"

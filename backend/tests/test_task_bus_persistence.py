@@ -86,3 +86,39 @@ def test_task_bus_restore_rebuilds_latest_task_state(monkeypatch):
     assert task.status == "completed"
     assert task.payload["symbol"] == "MSFT"
     assert bus.active_tasks() == []
+
+
+def test_task_bus_block_queued_preserves_symbol_and_reason(monkeypatch):
+    persisted_rows: list[dict] = []
+
+    def _save(row):  # noqa: ANN001
+        persisted_rows.append(dict(row))
+
+    monkeypatch.setattr(storage_db, "save_task_history_event", _save)
+
+    bus = TaskBus()
+    queued = bus.create_task(
+        run_id="run-halt-1",
+        agent_id="autopilot_coordinator",
+        role="technical_analyst",
+        payload={"symbol": "NVDA", "signal_pack_id": "sigpack-halt-1"},
+        priority=7,
+    )
+    bus.block_queued(reason="real_data_required:finnhub_news:fallback")
+
+    task = bus.get_task(queued.task_id)
+    assert task is not None
+    assert task.status == "blocked"
+
+    blocked_rows = [
+        row
+        for row in bus.history(limit=-1)
+        if row.get("event") == "status_update" and row.get("status") == "blocked"
+    ]
+    assert len(blocked_rows) == 1
+    blocked = blocked_rows[0]
+    assert blocked["details"]["symbol"] == "NVDA"
+    assert blocked["details"]["reason"] == "real_data_required:finnhub_news:fallback"
+    assert blocked["details"]["reasons"] == ["real_data_required:finnhub_news:fallback"]
+
+    assert any(row.get("status") == "blocked" for row in persisted_rows)

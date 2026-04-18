@@ -226,6 +226,7 @@ class FundAgentRuntime:
         self._autopilot_last_run_id: str | None = None
         self._autopilot_last_run_at: str | None = None
         self._autopilot_last_error: str | None = None
+        self._last_halt_drain_reason: str | None = None
 
     async def start(self) -> None:
         if not self._enabled or self._started:
@@ -272,6 +273,11 @@ class FundAgentRuntime:
                 "last_run_at": self._autopilot_last_run_at,
                 "last_error": self._autopilot_last_error,
             }
+            halt_guard = {
+                "halted": data_integrity_guard.halted(),
+                "reason": data_integrity_guard.halt_reason(),
+                "last_queue_drain_reason": self._last_halt_drain_reason,
+            }
         with self._signal_pack_lock:
             packs = [
                 {
@@ -295,6 +301,7 @@ class FundAgentRuntime:
             "signal_packs": packs,
             "ai_role_adapter": ai_role_adapter.health(),
             "data_integrity": data_integrity_guard.status(),
+            "halt_guard": halt_guard,
         }
 
     def enqueue_ceo_command(
@@ -420,13 +427,24 @@ class FundAgentRuntime:
                 state.running = True
                 state.last_heartbeat_at = _utc_iso()
             if data_integrity_guard.halted():
+                halt_reason = data_integrity_guard.halt_reason() or "system_halted"
+                with self._state_lock:
+                    if self._last_halt_drain_reason != halt_reason:
+                        self._task_bus.block_queued(
+                            reason=halt_reason,
+                            roles=[str(item) for item in self._roles],
+                            extra_details={"halted": True, "blocked_by": "runtime_guard"},
+                        )
+                        self._last_halt_drain_reason = halt_reason
                 with self._state_lock:
                     state = self._states[role]
                     state.running = False
-                    state.last_error = data_integrity_guard.halt_reason() or "system_halted"
+                    state.last_error = halt_reason
                     state.last_task_status = "blocked"
                 await asyncio.sleep(max(self._poll_interval_seconds, 2.0))
                 continue
+            with self._state_lock:
+                self._last_halt_drain_reason = None
             task = self._task_bus.claim_next_queued(role)
             if task is None:
                 await asyncio.sleep(self._poll_interval_seconds)

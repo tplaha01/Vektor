@@ -25,8 +25,6 @@ from app.fund.contracts import (
     TradeThesis,
     make_immutable_id,
 )
-from app.fund.orchestrator import FirmOrchestrator, firm_orchestrator
-
 __all__ = [
     "AgentTask",
     "DecisionContract",
@@ -50,7 +48,5 @@ __all__ = [
     "ThesisContract",
     "TradeThesis",
     "allocate_sleeves",
-    "FirmOrchestrator",
-    "firm_orchestrator",
     "make_immutable_id",
 ]

@@ -429,10 +429,13 @@ async def get_system_status_badges():
         data_source_status = "Fallback"
     else:
         data_source_status = "Provider" if raw_data_source_status == "Provider" else "Fallback"
+    if orchestration_status == "Healthy" and data_source_status != "Provider":
+        orchestration_status = "Degraded"
+        orchestration_reason = "data_source_fallback_detected"
 
-    execution_mode_status = "Paper Only"
-    if str(settings.BROKER or "").strip().lower() != "paper":
-        execution_mode_status = str(settings.BROKER or "unknown").strip() or "unknown"
+    broker_mode = str(settings.BROKER or "").strip().lower()
+    execution_mode_status = "Paper Only" if broker_mode == "paper" else "Degraded"
+    execution_mode_reason = "paper_mode_confirmed" if broker_mode == "paper" else "live_mode_forbidden"
 
     worker_by_role = {
         str(worker.get("role") or "").strip(): worker
@@ -506,7 +509,8 @@ async def get_system_status_badges():
         "execution_mode": {
             "label": "Execution Mode",
             "status": execution_mode_status,
-            "broker": str(settings.BROKER),
+            "broker": broker_mode or "unknown",
+            "reason": execution_mode_reason,
         },
         "llm_agent_health": {
             "label": "LLM Agent Health",

@@ -12,7 +12,7 @@ export default function NotFound() {
           gridGap={6}
           color="#6B7280"
           maxOpacity={0.5}
-          flickerChance={0.1}
+          flickerChance={0.25}
         />
       </div>
       <div className="text-center flex flex-col gap-4 max-w-xs mx-auto relative">

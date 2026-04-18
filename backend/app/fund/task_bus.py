@@ -170,6 +170,63 @@ class TaskBus:
             )
             return updated
 
+    def block_queued(
+        self,
+        *,
+        reason: str,
+        roles: list[str] | None = None,
+        extra_details: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Bulk-block queued tasks. Used by runtime safety guardrails when the system is halted.
+        """
+        normalized_reason = str(reason or "system_halted").strip() or "system_halted"
+        role_filter = {str(item).strip() for item in (roles or []) if str(item).strip()}
+        blocked_ids: list[str] = []
+
+        with self._lock:
+            for task_id, task in list(self._tasks.items()):
+                if task.status != "queued":
+                    continue
+                if role_filter and task.role not in role_filter:
+                    continue
+
+                updated = task.model_copy(update={"status": "blocked"})
+                self._tasks[task_id] = updated
+                details = {"reason": normalized_reason, "reasons": [normalized_reason], **dict(extra_details or {})}
+                normalized_details = self._normalize_details(updated, status="blocked", details=details)
+                row = {
+                    "task_id": task_id,
+                    "run_id": updated.run_id,
+                    "agent_id": updated.agent_id,
+                    "role": updated.role,
+                    "status": "blocked",
+                    "ts": _utc_iso(),
+                    "event": "status_update",
+                    "details": normalized_details,
+                }
+                self._history.append(row)
+                self._persist_history_row(row)
+                self._emit_event(
+                    {
+                        "event_id": f"{task_id}:blocked:{len(self._history)}",
+                        "event_type": "task.status_updated",
+                        "ts": row["ts"],
+                        "run_id": updated.run_id,
+                        "agent_id": updated.agent_id,
+                        "decision_id": normalized_details.get("decision_id"),
+                        "payload": {
+                            "task_id": task_id,
+                            "status": "blocked",
+                            "details": normalized_details,
+                            "role": updated.role,
+                        },
+                    }
+                )
+                blocked_ids.append(task_id)
+
+        return {"blocked_count": len(blocked_ids), "task_ids": blocked_ids, "reason": normalized_reason}
+
     def active_tasks(self) -> list[AgentTask]:
         with self._lock:
             items = list(self._tasks.values())

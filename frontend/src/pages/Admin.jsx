@@ -28,107 +28,80 @@ const Admin = () => {
   const fetchInProgress = useRef(false);
   const isMounted = useRef(true);
 
+  const fetchMetrics = useCallback(async ({ manual = false } = {}) => {
+    if (fetchInProgress.current) return;
+    fetchInProgress.current = true;
+
+    try {
+      setConnectionStatus(prev => (prev === 'connected' ? 'connected' : 'connecting'));
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Request timeout')), 15000)
+      );
+
+      const [metricsPayload, systemPayload] = await Promise.race([
+        Promise.all([
+          adminAPI.getMetricsSummary(),
+          adminAPI.getSystemStatusBadges(),
+        ]),
+        timeoutPromise,
+      ]);
+
+      if (!isMounted.current) return;
+
+      setMetrics(metricsPayload);
+      setSystemStatus(systemPayload);
+      setConnectionStatus('connected');
+      setLastUpdate(new Date());
+      setRetryCount(0);
+      setLoading(false);
+      if (manual) {
+        success('Metrics refreshed');
+      }
+    } catch (err) {
+      if (!isMounted.current) return;
+
+      console.error('Failed to fetch metrics:', err);
+      setConnectionStatus('error');
+      setLoading(false);
+      setRetryCount(prev => prev + 1);
+      showError(`Connection error: ${err.message}`);
+
+      // Fail closed: do not inject synthetic KPI values.
+      setSystemStatus({
+        orchestration: { label: 'Orchestration', status: 'Degraded', reason: err.message },
+        data_source: { label: 'Data Source', status: 'Fallback' },
+        execution_mode: { label: 'Execution Mode', status: 'Paper Only', reason: 'backend_unreachable' },
+        llm_agent_health: { label: 'LLM Agent Health', status: 'Degraded', by_role: [] },
+        halt: {
+          halted: true,
+          reason: err.message,
+          message: 'Unable to verify runtime health. Activities are treated as halted until recovery.',
+        },
+      });
+    } finally {
+      fetchInProgress.current = false;
+    }
+  }, [showError, success]);
+
   // Fetch admin metrics - simple, prevents rapid toggling
   useEffect(() => {
     isMounted.current = true;
-    
-    const fetchMetrics = async () => {
-      // Don't fetch if already fetching
-      if (fetchInProgress.current) return;
-      fetchInProgress.current = true;
-      
-      try {
-        // Only show "connecting" on initial load
-        if (!metrics) {
-          setConnectionStatus('connecting');
-        }
-        
-        // Add timeout protection (15 seconds)
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Request timeout')), 15000)
-        );
-        
-        const [metricsPayload, systemPayload] = await Promise.race([
-          Promise.all([
-            adminAPI.getMetricsSummary(),
-            adminAPI.getSystemStatusBadges(),
-          ]),
-          timeoutPromise
-        ]);
-        
-        if (!isMounted.current) return;
-        
-        // Success - update state
-        setMetrics(metricsPayload);
-        setSystemStatus(systemPayload);
-        setConnectionStatus('connected');
-        setLastUpdate(new Date());
-        setRetryCount(0);
-        setLoading(false);
-      } catch (err) {
-        if (!isMounted.current) return;
-        
-        console.error('Failed to fetch metrics:', err);
-        
-        // Keep status if already connected (don't toggle)
-        if (connectionStatus === 'connecting') {
-          setConnectionStatus('error');
-        }
-        setLoading(false);
-        setRetryCount(prev => prev + 1);
-        
-        // Show error toast
-        showError(`Connection error: ${err.message}`);
-        
-        // Display fallback data so dashboard works
-        setMetrics({
-          total_equity: 2500000,
-          equity_change: 2.5,
-          realized_pnl: 125000,
-          pnl_change: 1.8,
-          current_drawdown: 2.3,
-          win_rate: 65.3,
-          win_rate_change: 0.5,
-          active_positions: 5,
-          sharpe_ratio: 1.8,
-          sharpe_change: 0.2
-        });
-        setSystemStatus({
-          orchestration: { label: 'Orchestration', status: 'Degraded', reason: err.message },
-          data_source: { label: 'Data Source', status: 'Fallback' },
-          execution_mode: { label: 'Execution Mode', status: 'Paper Only' },
-          llm_agent_health: { label: 'LLM Agent Health', status: 'Degraded', by_role: [] },
-          halt: {
-            halted: true,
-            reason: err.message,
-            message: 'Unable to verify runtime health. Treating system as degraded until recovery.',
-          },
-        });
-      } finally {
-        fetchInProgress.current = false;
-      }
-    };
-    
-    // Initial fetch
     fetchMetrics();
-    
-    // Poll every 30 seconds
-    const interval = setInterval(fetchMetrics, 30000);
-    
+
+    const interval = setInterval(() => {
+      fetchMetrics();
+    }, 30000);
+
     return () => {
       isMounted.current = false;
       clearInterval(interval);
     };
-  }, []);
+  }, [fetchMetrics]);
 
   const handleRefresh = () => {
-    setConnectionStatus('connecting');
     setLoading(true);
-    setTimeout(() => {
-      setConnectionStatus('connected');
-      setLoading(false);
-      success('Metrics refreshed ✓');
-    }, 800);
+    fetchMetrics({ manual: true });
   };
 
   const navigationItems = [
@@ -270,7 +243,7 @@ const Admin = () => {
                 <div className="load-spinner" />
                 <p>Loading admin dashboard...</p>
               </div>
-            ) : connectionStatus === 'error' && !metrics ? (
+            ) : connectionStatus === 'error' && !metrics && !systemStatus ? (
               <div className="error-state">
                 <AlertCircle size={48} />
                 <h3>Connection Failed</h3>
@@ -282,7 +255,7 @@ const Admin = () => {
                   Retry Connection
                 </button>
               </div>
-            ) : !metrics ? (
+            ) : !metrics && !systemStatus ? (
               <div className="empty-state">
                 <AlertCircle size={48} />
                 <h3>No Data Available</h3>
@@ -356,8 +329,10 @@ const Admin = () => {
                     <section className="content-section">
                       <div className="section-header">
                         <h2 className="section-title">System Overview</h2>
-                        <span className="status-badge" style={{ color: connectionStatus === 'connected' ? '#3ecf8e' : '#f5a623' }}>
-                          {connectionStatus === 'connected' ? '● Live' : '● Connecting'}
+                        <span className="status-badge" style={{ color: connectionStatus === 'connected' ? '#3ecf8e' : (connectionStatus === 'error' ? '#e05252' : '#f5a623') }}>
+                          {connectionStatus === 'connected'
+                            ? '• Live'
+                            : (connectionStatus === 'error' ? '• Offline' : '• Connecting')}
                         </span>
                       </div>
                       <KPIGrid metrics={metrics} />

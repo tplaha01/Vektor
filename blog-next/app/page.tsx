@@ -97,7 +97,7 @@ export default async function HomePage({
           gridGap={6}
           color="#6B7280"
           maxOpacity={0.2}
-          flickerChance={0.05}
+          flickerChance={0.15}
         />
       </div>
       <div className="p-6 border-b border-border flex flex-col gap-6 min-h-[250px] justify-center relative z-10">
