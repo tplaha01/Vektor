@@ -20,6 +20,7 @@ Product vision, business goals, and role architecture live in `Viktor.md`.
 - Every non-trivial behavior change requires test updates.
 - Keep decisions traceable (`run_id`, `agent_id`, `decision_id`, `order_id` where applicable).
 - Do not bypass policy gates, sleeve budgets, or audit logging paths.
+- Tests must not mutate repo runtime state: when exercising singleton services (for example `knowledge_graph`), monkeypatch ingest/persistence or use isolated storage.
 
 ## 3) Branch and Commit Discipline
 - Work on an explicit branch.

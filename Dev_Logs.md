@@ -2725,3 +2725,21 @@ files:
 - backend/tests/test_openclaw_command_adapter.py
 validation: py -3 -m pytest backend/tests/test_openclaw_command_adapter.py backend/tests/test_admin_runtime_controls.py backend/tests/test_admin_status_badges.py -q (pass)
 notes: Eliminates test-generated runtime.control.* KB rows during local/CI test runs.
+
+
+[2026-04-18T01:51:15Z] [UPDATE]
+entry_id: devlog-20260418-codex-kb-sideeffect-guard-001
+actor_name: codex_cto
+actor_platform: codex
+actor_model: gpt-5.4
+actor_provider: openai
+run_id: run-viktor-hardening-007
+git_branch: codex/hardening-sprint
+git_commit_start: 4daccf6ce2befff425eef2025dd51ee159b44eb6
+git_commit_end:
+scope: Added CI guard against repo knowledge-graph mutations in OpenClaw adapter tests and enforced side-effect isolation rule in DevViktor.
+files:
+- backend/tests/test_openclaw_command_adapter.py
+- DevViktor.md
+validation: py -3 -m pytest backend/tests/test_openclaw_command_adapter.py backend/tests/test_admin_runtime_controls.py backend/tests/test_admin_status_badges.py -q (pass)
+notes: Guard fixture snapshots `knowledge_graph/` before/after each adapter test to fail fast on hidden persistence side effects.

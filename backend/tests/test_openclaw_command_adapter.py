@@ -1,6 +1,48 @@
+from hashlib import sha256
+from pathlib import Path
+
+import pytest
+
 from app.fund.audit_log import AuditLog
 import app.fund.openclaw_command_adapter as openclaw_adapter_module
 from app.fund.openclaw_command_adapter import OpenClawCommandAdapter
+
+
+def _snapshot_repo_knowledge_graph() -> dict:
+    repo_root = Path(__file__).resolve().parents[2]
+    kg_root = repo_root / "knowledge_graph"
+    events_file = kg_root / "events.jsonl"
+    events_dir = kg_root / "events"
+    entities_dir = kg_root / "entities"
+
+    events_hash = None
+    if events_file.exists():
+        events_hash = sha256(events_file.read_bytes()).hexdigest()
+
+    event_md_paths = sorted(
+        str(path.relative_to(kg_root))
+        for path in events_dir.glob("*.md")
+        if path.is_file()
+    )
+    entity_md_paths = sorted(
+        str(path.relative_to(kg_root))
+        for path in entities_dir.rglob("*.md")
+        if path.is_file()
+    )
+
+    return {
+        "events_hash": events_hash,
+        "event_md_paths": event_md_paths,
+        "entity_md_paths": entity_md_paths,
+    }
+
+
+@pytest.fixture(autouse=True)
+def _ensure_repo_knowledge_graph_is_unchanged():
+    before = _snapshot_repo_knowledge_graph()
+    yield
+    after = _snapshot_repo_knowledge_graph()
+    assert after == before
 
 
 def _stub_knowledge_graph(monkeypatch):
