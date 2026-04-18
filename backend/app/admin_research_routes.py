@@ -174,6 +174,14 @@ class LineageRunDetail(BaseModel):
     task_events: List[dict] = Field(default_factory=list)
 
 
+class RuntimeControlIn(BaseModel):
+    reason: str = Field(default="manual_admin_action", min_length=1, max_length=256)
+
+
+class AutopilotKickIn(BaseModel):
+    run_id: Optional[str] = Field(default=None, min_length=3, max_length=128)
+
+
 # ====================================================================
 # Router Setup
 # ====================================================================
@@ -524,6 +532,80 @@ async def get_system_status_badges():
             "message": halt_message,
         },
     }
+
+
+@router.get("/system/runtime/control", response_model=dict)
+async def get_runtime_control_status():
+    runtime = fund_agent_runtime.status()
+    halt = runtime.get("data_integrity") if isinstance(runtime.get("data_integrity"), dict) else data_integrity_guard.status()
+    return {
+        "runtime_started": bool(runtime.get("started")),
+        "active_task_count": len(firm_orchestrator.list_active_tasks()),
+        "autopilot": runtime.get("autopilot", {}),
+        "halted": bool(halt.get("halted")),
+        "halt_reason": str(halt.get("halt_reason") or "").strip() or None,
+        "halted_at": halt.get("halted_at"),
+        "strict_real_data_only": bool(halt.get("strict_real_data_only")),
+    }
+
+
+@router.post("/system/runtime/pause", response_model=dict)
+async def pause_runtime(body: RuntimeControlIn):
+    was_started = fund_agent_runtime.is_started()
+    if was_started:
+        await fund_agent_runtime.stop()
+    runtime = fund_agent_runtime.status()
+    return {
+        "ok": True,
+        "action": "paused" if was_started else "already_paused",
+        "reason": body.reason,
+        "runtime_started": bool(runtime.get("started")),
+        "active_task_count": len(firm_orchestrator.list_active_tasks()),
+    }
+
+
+@router.post("/system/runtime/resume", response_model=dict)
+async def resume_runtime(body: RuntimeControlIn):
+    if data_integrity_guard.halted():
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "system_halted",
+                "reason": data_integrity_guard.halt_reason() or "strict_real_data_halt",
+                "message": "Clear halt first, then resume runtime.",
+            },
+        )
+    already_started = fund_agent_runtime.is_started()
+    if not already_started:
+        await fund_agent_runtime.start()
+    runtime = fund_agent_runtime.status()
+    return {
+        "ok": True,
+        "action": "resumed" if not already_started else "already_running",
+        "reason": body.reason,
+        "runtime_started": bool(runtime.get("started")),
+        "active_task_count": len(firm_orchestrator.list_active_tasks()),
+    }
+
+
+@router.post("/system/halt/clear", response_model=dict)
+async def clear_system_halt(body: RuntimeControlIn):
+    result = data_integrity_guard.clear_halt(reason=body.reason)
+    runtime = fund_agent_runtime.status()
+    return {
+        "ok": True,
+        "action": "halt_cleared",
+        "runtime_started": bool(runtime.get("started")),
+        **result,
+    }
+
+
+@router.post("/system/autopilot/kick", response_model=dict)
+async def kick_autopilot(body: AutopilotKickIn):
+    result = fund_agent_runtime.kick_autopilot(run_id=body.run_id)
+    if not result.get("accepted"):
+        raise HTTPException(status_code=400, detail=result.get("reason", "autopilot_rejected"))
+    return {"ok": True, **result}
 
 
 @router.get("/agents/workers/status", response_model=dict)

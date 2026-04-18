@@ -523,6 +523,55 @@
   line-height: 1.4;
 }
 
+.setting-runtime-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.setting-runtime-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--bg3);
+  font-size: 12px;
+  color: var(--txt2);
+}
+
+.setting-runtime-row strong {
+  color: var(--txt);
+  font-family: var(--f-data);
+  font-size: 11px;
+}
+
+.setting-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.setting-action-row .btn-secondary {
+  min-width: 140px;
+}
+
+.setting-action-row .btn-secondary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.setting-runtime-hint {
+  margin: 10px 0 0 0;
+  color: var(--amber2);
+  font-size: 11px;
+  font-family: var(--f-data);
+  line-height: 1.4;
+}
+
 /* ====================================================================
    Status Badge
    ==================================================================== */

@@ -2651,3 +2651,23 @@ files:
 - blog-next/app/opengraph-image.tsx
 validation: npm run build in blog-next (pass); npm run build in frontend (pass)
 notes: Added explicit frontmatter coercion helpers and removed unused source interface.
+
+[2026-04-18T01:25:00Z] [UPDATE]
+entry_id: devlog-20260418-codex-admin-controls-001
+actor_name: codex_cto
+actor_platform: codex
+actor_model: gpt-5.4
+actor_provider: openai
+run_id: run-viktor-hardening-003
+git_branch: codex/hardening-sprint
+git_commit_start: f892ca9e467111da786568a4eb36b410fb5ce55f
+git_commit_end:
+scope: Added CEO runtime control endpoints (pause/resume/clear-halt/autopilot-kick + control status), wired Admin Settings actions, and added backend tests for control-plane safety.
+files:
+- backend/app/admin_research_routes.py
+- backend/tests/test_admin_runtime_controls.py
+- frontend/src/api/adminAPI.js
+- frontend/src/pages/Admin.jsx
+- frontend/src/styles/admin.css
+validation: py -3 -m pytest backend/tests/test_admin_runtime_controls.py backend/tests/test_admin_status_badges.py backend/tests/test_runtime_guard.py -q (pass); npm --prefix frontend run build (pass)
+notes: Runtime resume is fail-closed while strict real-data halt is active; operator must clear halt first.
