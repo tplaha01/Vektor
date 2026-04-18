@@ -1,0 +1,32 @@
+/* Spark Charts */
+.spark-chart {
+  display: inline-block;
+  width: 100%;
+  height: 30px;
+  margin: 4px 0;
+}
+
+.spark-chart-empty {
+  color: var(--txt2);
+  font-size: 12px;
+  text-align: center;
+  padding: 4px 0;
+}
+
+.spark-line {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+}
+
+.spark-up {
+  stroke: #3ecf8e;
+}
+
+.spark-down {
+  stroke: #e05252;
+}
+
+.spark-flat {
+  stroke: #8b919e;
+}

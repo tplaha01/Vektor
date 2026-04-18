@@ -5,7 +5,7 @@ import os
 from datetime import datetime
 from typing import Any, Dict
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -19,8 +19,19 @@ from app.data.market_data import FEED
 from app.risk.engine import risk
 from app.backtest.router import router as backtest_router
 from app.config import get_settings
+from app.fund.agent_runtime import fund_agent_runtime
+from app.fund.knowledge_graph import knowledge_graph
+from app.fund.openclaw_command_adapter import openclaw_command_adapter
 from app.fund.router import router as fund_router
 from app.fund.orchestrator import firm_orchestrator
+from app.fund.runtime_guard import data_integrity_guard
+from app.fund.realtime_stream import realtime_stream
+from app.admin_research_routes import router as admin_router
+from app.admin_research_routes import research_router
+from app.admin_research_routes import blog_router
+from app.monitoring_routes import router as monitoring_router
+from app.knowledge_routes import router as knowledge_router
+from app.devlog import get_dev_logger
 
 logging.basicConfig(
     level=logging.INFO,
@@ -36,10 +47,17 @@ settings = get_settings()
 
 app = FastAPI(title="Hybrid Trading Bot", version="5.1.0")
 
+# Development session tracking
+_current_dev_session = None
+
 _ALLOWED_ORIGINS = [
+    "http://localhost:9000",
     "http://localhost:5173",
+    "http://localhost:5174",
     "http://localhost:3000",
+    "http://127.0.0.1:9000",
     "http://127.0.0.1:5173",
+    "http://127.0.0.1:5174",
 ]
 _frontend_url = os.getenv("FRONTEND_URL")
 if _frontend_url:
@@ -55,6 +73,11 @@ app.add_middleware(
 
 app.include_router(backtest_router)
 app.include_router(fund_router)
+app.include_router(admin_router)
+app.include_router(research_router)
+app.include_router(blog_router)
+app.include_router(monitoring_router)
+app.include_router(knowledge_router)
 
 _PUBLIC_PATHS = {"/health", "/ws", "/docs", "/openapi.json", "/redoc"}
 
@@ -72,16 +95,141 @@ async def api_key_middleware(request: Request, call_next):
 @app.on_event("startup")
 async def startup_event():
     from app.storage.db import init_db
-    init_db()
-    broker.restore_from_db()
-    asyncio.create_task(stream_loop())
-    from app.strategies.auto_trader import auto_trading_loop
-    asyncio.create_task(auto_trading_loop())
-    from app.ml.alpha_model import ensure_model
-    ensure_model()
-    from app.utils.sentiment import _ensure_finbert
-    _ensure_finbert()
-    logger.info("ALFRED started — version 5.1.0")
+    from app.monitoring import monitor
+    from app.fund.task_bus import task_bus
+    from pathlib import Path
+    import os
+    
+    global _current_dev_session
+    
+    # Start devlog session (per DevViktor.md requirement)
+    try:
+        dev_logger = get_dev_logger(repo_root=str(Path(__file__).parent.parent.parent))
+        _current_dev_session = dev_logger.start_session(
+            scope="Backend server runtime - monitoring, API integration, and fund system operations",
+            files=[
+                "backend/app/main.py",
+                "backend/app/monitoring.py",
+                "backend/app/monitoring_routes.py",
+                "backend/app/devlog.py",
+                "backend/app/knowledge_routes.py",
+                "backend/app/admin_research_routes.py",
+            ],
+            notes="Automated session start on server boot",
+        )
+    except Exception as e:
+        logger.warning(f"Could not start devlog session: {e}")
+    
+    # Log startup sequence
+    monitor.log_startup_sequence()
+    
+    # Initialize database
+    try:
+        init_db()
+        monitor.log_component_status("Database", "OK", "trading_bot.db initialized")
+    except Exception as e:
+        monitor.log_component_status("Database", "ERROR", str(e))
+        raise
+
+    # Restore persisted task history so lineage survives backend restarts.
+    try:
+        restored = task_bus.restore_from_storage()
+        monitor.log_component_status(
+            "Task Bus",
+            "OK",
+            f"restored={restored.get('restored')} events={restored.get('event_count')} tasks={restored.get('task_count')}",
+        )
+    except Exception as e:
+        monitor.log_component_status("Task Bus", "WARN", str(e))
+    
+    # Setup event capture
+    try:
+        def _capture_openclaw_command_event(event: dict[str, Any]) -> None:
+            captured = knowledge_graph.capture("openclaw_command", event)
+            realtime_stream.publish(source="openclaw_command", event=captured)
+
+        openclaw_command_adapter.set_event_sink(_capture_openclaw_command_event)
+        monitor.log_component_status("OpenClaw Adapter", "OK", "Event sink configured")
+    except Exception as e:
+        monitor.log_component_status("OpenClaw Adapter", "WARN", str(e))
+    
+    # Restore broker state
+    try:
+        broker.restore_from_db()
+        monitor.log_component_status("Broker State", "OK", f"Restored: cash=${float(broker.get_cash()):,.2f}")
+    except Exception as e:
+        monitor.log_component_status("Broker State", "WARN", str(e))
+    
+    # Start market data stream
+    try:
+        asyncio.create_task(stream_loop())
+        monitor.log_component_status("Market Data Stream", "OK", "WebSocket loop started")
+    except Exception as e:
+        monitor.log_component_status("Market Data Stream", "WARN", str(e))
+    
+    # Auto trading
+    if settings.AUTO_TRADING_ENABLED:
+        try:
+            from app.strategies.auto_trader import auto_trading_loop
+            asyncio.create_task(auto_trading_loop())
+            monitor.log_component_status("Auto Trader", "OK", "Legacy auto-trader loop enabled")
+        except Exception as e:
+            monitor.log_component_status("Auto Trader", "ERROR", str(e))
+    else:
+        monitor.log_component_status("Auto Trader", "OK", "Disabled (manual trading mode)")
+    
+    # Agent runtime
+    if settings.AGENT_RUNTIME_ENABLED:
+        try:
+            await fund_agent_runtime.start()
+            monitor.log_component_status("Agent Runtime", "OK", "Fund agent runtime started")
+        except Exception as e:
+            monitor.log_component_status("Agent Runtime", "ERROR", str(e))
+    else:
+        monitor.log_component_status("Agent Runtime", "OK", "Disabled")
+    
+    # ML Models
+    try:
+        from app.ml.alpha_model import ensure_model
+        ensure_model()
+        monitor.log_component_status("Alpha Model", "OK", "LightGBM model loaded")
+    except Exception as e:
+        monitor.log_component_status("Alpha Model", "WARN", str(e))
+    
+    # Sentiment Model
+    try:
+        from app.utils.sentiment import _ensure_finbert
+        _ensure_finbert()
+        monitor.log_component_status("Sentiment Model", "OK", "FinBERT loaded")
+    except Exception as e:
+        monitor.log_component_status("Sentiment Model", "WARN", str(e))
+    
+    # Print fund statistics
+    await asyncio.sleep(1)  # Give components time to initialize
+    monitor.log_fund_stats()
+    logger.info("✅ ALFRED READY - All systems operational")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    global _current_dev_session
+    
+    # Log session end (per DevViktor.md requirement)
+    if _current_dev_session:
+        try:
+            from app.devlog import get_dev_logger
+            dev_logger = get_dev_logger()
+            dev_logger.end_session(
+                entry=_current_dev_session,
+                validation="completed",
+                notes="Server shutdown - session ended normally",
+            )
+            logger.info(f"✅ Dev session logged: {_current_dev_session.entry_id}")
+        except Exception as e:
+            logger.warning(f"Could not end devlog session: {e}")
+    
+    if fund_agent_runtime.is_started():
+        await fund_agent_runtime.stop()
+
 
 @app.get("/health")
 async def health():
@@ -98,12 +246,39 @@ async def health():
         "fund": {
             "active_tasks": len(firm_orchestrator.list_active_tasks()),
             "pending_decisions": len(firm_orchestrator.list_pending_decisions()),
+            "knowledge_events": firm_orchestrator.knowledge_stats().get("event_count", 0),
+            "agent_runtime_started": fund_agent_runtime.is_started(),
         },
     }
 
 @app.post("/signals/generate")
 async def generate_signal(req: SignalRequest) -> Dict[str, Any]:
-    return hybrid_signal(req.symbol)
+    if data_integrity_guard.halted():
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error": "system_halted",
+                "reason": data_integrity_guard.halt_reason() or "strict_real_data_halt",
+                "message": (
+                    "Strict real-data mode halted the runtime after provider fallback/failure. "
+                    "Signal generation is blocked."
+                ),
+            },
+        )
+    result = hybrid_signal(req.symbol)
+    if data_integrity_guard.halted():
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error": "system_halted",
+                "reason": data_integrity_guard.halt_reason() or "strict_real_data_halt",
+                "message": (
+                    "Strict real-data mode halted the runtime after provider fallback/failure. "
+                    "Signal generation result discarded."
+                ),
+            },
+        )
+    return result
 
 @app.get("/paper/positions")
 async def get_positions():
@@ -119,7 +294,32 @@ async def place_order(order: OrderIn, request: Request):
     from app.fund.contracts import DecisionRecord, Sleeve, make_immutable_id
     from app.fund.decision_ledger import decision_ledger
 
+    if data_integrity_guard.halted():
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error": "system_halted",
+                "reason": data_integrity_guard.halt_reason() or "strict_real_data_halt",
+                "message": (
+                    "Strict real-data mode halted the runtime after provider fallback/failure. "
+                    "Order placement is blocked."
+                ),
+            },
+        )
+
     price = FEED.price(order.symbol)
+    if data_integrity_guard.halted():
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error": "system_halted",
+                "reason": data_integrity_guard.halt_reason() or "strict_real_data_halt",
+                "message": (
+                    "Strict real-data mode halted the runtime after provider fallback/failure. "
+                    "Order placement aborted."
+                ),
+            },
+        )
     run_id = request.headers.get("X-Run-Id") or make_immutable_id(
         "run", "manual", order.symbol, order.side, order.quantity, datetime.utcnow().isoformat()
     )

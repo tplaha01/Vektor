@@ -31,5 +31,11 @@ Thumbs.db
 
 backend/trading_bot.log
 backend/trading_bot.db
+backend/knowledge_graph/
+landing-next/node_modules/
+landing-next/.next/
+landing-next/.env
 *.log
 *.db
+*.db-wal
+*.db-shm

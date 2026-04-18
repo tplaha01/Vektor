@@ -1,0 +1,84 @@
+/* Skeleton Loaders */
+.skeleton-card,
+.skeleton-kpi,
+.skeleton-row {
+  animation: shimmer 2s infinite;
+}
+
+.skeleton-line {
+  background: linear-gradient(
+    90deg,
+    var(--bg2) 0%,
+    var(--bg3) 50%,
+    var(--bg2) 100%
+  );
+  background-size: 200% 100%;
+  height: 12px;
+  border-radius: var(--r-sm);
+  margin-bottom: 8px;
+  animation: shimmer 2s infinite;
+}
+
+.skeleton-card {
+  background: var(--bg1);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 16px;
+  gap: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.skeleton-line-title {
+  height: 16px;
+  width: 60%;
+}
+
+.skeleton-line-text {
+  height: 12px;
+  width: 90%;
+}
+
+.skeleton-line-text.short {
+  width: 40%;
+}
+
+.skeleton-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skeleton-line-label {
+  height: 12px;
+  width: 50%;
+}
+
+.skeleton-line-value {
+  height: 24px;
+  width: 70%;
+}
+
+.skeleton-line-meta {
+  height: 10px;
+  width: 30%;
+}
+
+.skeleton-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 0.5fr;
+  gap: 12px;
+}
+
+.skeleton-line-row {
+  height: 14px;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: calc(200% + 200px) 0;
+  }
+}

@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from threading import RLock
-from typing import Dict, Iterable, List, Optional
+from typing import Any, Callable, Dict, Iterable, List, Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
@@ -104,12 +104,17 @@ class ResearchMemoryStore:
     - helper retrieval by recent window
     """
 
-    def __init__(self, max_reports: int = 5000) -> None:
+    def __init__(
+        self,
+        max_reports: int = 5000,
+        event_sink: Callable[[dict[str, Any]], Any] | None = None,
+    ) -> None:
         self.max_reports = max_reports
         self._lock = RLock()
         self._reports: Dict[str, ResearchReport] = {}
         self._ordered_ids: List[str] = []
         self._asset_index: Dict[str, List[str]] = defaultdict(list)
+        self._event_sink = event_sink
 
     def add_report(self, report: ResearchReport) -> ResearchReport:
         model = report if isinstance(report, ResearchReport) else ResearchReport.model_validate(report)
@@ -128,6 +133,7 @@ class ResearchMemoryStore:
                 self._asset_index[symbol].append(model.report_id)
 
             self._prune_if_needed()
+            self._emit_event(model)
         return model
 
     def add_many(self, reports: Iterable[ResearchReport | dict]) -> List[ResearchReport]:
@@ -204,6 +210,26 @@ class ResearchMemoryStore:
                 self._asset_index[symbol] = [rid for rid in ids if rid != old.report_id]
                 if not self._asset_index[symbol]:
                     self._asset_index.pop(symbol, None)
+
+    def set_event_sink(self, sink: Callable[[dict[str, Any]], Any] | None) -> None:
+        self._event_sink = sink
+
+    def _emit_event(self, report: ResearchReport) -> None:
+        if self._event_sink is None:
+            return
+        try:
+            self._event_sink(
+                {
+                    "event_id": report.report_id,
+                    "event_type": "research.report.stored",
+                    "created_at": report.created_at.isoformat(),
+                    "run_id": report.metadata.get("run_id"),
+                    "agent_id": report.agent_id,
+                    "payload": report.model_dump(mode="json"),
+                }
+            )
+        except Exception:
+            pass
 
 
 # Shared in-process singleton for lightweight orchestration during Phase-1.

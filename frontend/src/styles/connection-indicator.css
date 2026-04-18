@@ -1,0 +1,75 @@
+/* Connection Indicator */
+.connection-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg0);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  border-radius: var(--r);
+  font-size: 12px;
+}
+
+.connection-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.connection-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.pulse {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+  opacity: 0.6;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(1.2);
+    opacity: 0;
+  }
+}
+
+.connection-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 80px;
+}
+
+.connection-status {
+  font-weight: 600;
+  color: var(--txt);
+}
+
+/* Status-specific styling */
+.status-connected {
+  background: var(--bg0);
+  border-color: rgba(62, 207, 142, 0.2);
+}
+
+.status-connecting {
+  background: var(--bg0);
+  border-color: rgba(245, 166, 35, 0.2);
+}
+
+.status-error {
+  background: var(--bg0);
+  border-color: rgba(224, 82, 82, 0.2);
+}

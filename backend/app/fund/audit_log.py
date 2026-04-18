@@ -47,12 +47,14 @@ class AuditLog:
         *,
         clock: Optional[Callable[[], datetime]] = None,
         id_factory: Optional[Callable[[str, int], str]] = None,
+        event_sink: Optional[Callable[[dict[str, Any]], Any]] = None,
     ) -> None:
         self._clock = clock or _utc_now
         self._id_factory = id_factory or self._default_event_id
         self._events: List[AuditEvent] = []
         self._seq = 0
         self._lock = RLock()
+        self._event_sink = event_sink
 
     @staticmethod
     def _default_event_id(event_type: str, sequence: int) -> str:
@@ -93,6 +95,7 @@ class AuditLog:
                 },
             )
             self._events.append(event)
+            self._emit_event(event)
             return event
 
     def record(self, event_type: str, payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -186,6 +189,17 @@ class AuditLog:
         with self._lock:
             self._events.clear()
             self._seq = 0
+
+    def set_event_sink(self, sink: Optional[Callable[[dict[str, Any]], Any]]) -> None:
+        self._event_sink = sink
+
+    def _emit_event(self, event: AuditEvent) -> None:
+        if self._event_sink is None:
+            return
+        try:
+            self._event_sink(event.to_dict())
+        except Exception:
+            pass
 
 
 InMemoryAuditLog = AuditLog

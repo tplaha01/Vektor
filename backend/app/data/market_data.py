@@ -1,17 +1,24 @@
 from __future__ import annotations
+
 import threading
 import time
 from datetime import datetime, timedelta
-from typing import Dict, Callable, List
+from typing import Callable, Dict, List
+
 import pandas as pd
 
 from app.config import get_settings
+from app.fund.runtime_guard import DataMode, data_integrity_guard
 
 settings = get_settings()
 
-# Price cache: symbol -> (price, timestamp)
-_price_cache: Dict[str, tuple[float, float]] = {}
+# Price cache: symbol -> (price, timestamp, source)
+_price_cache: Dict[str, tuple[float, float, str]] = {}
 _CACHE_TTL = 30.0  # seconds
+
+
+def _empty_history() -> pd.DataFrame:
+    return pd.DataFrame(columns=["ts", "open", "high", "low", "close", "volume"])
 
 
 class AlpacaRealtimeFeed:
@@ -21,42 +28,124 @@ class AlpacaRealtimeFeed:
         self._started = False
 
     def price(self, symbol: str) -> float:
-        # 1. Use streaming price if available and fresh
-        if symbol in self._prices and self._prices[symbol] > 0:
-            return self._prices[symbol]
+        strict_mode = data_integrity_guard.strict_mode_enabled()
+        normalized_symbol = str(symbol).upper().strip()
 
-        # 2. Check cache
+        # 1. Use streaming price if available and fresh.
+        if normalized_symbol in self._prices and self._prices[normalized_symbol] > 0:
+            data_integrity_guard.record_provider_event(
+                provider="alpaca_stream",
+                mode="provider",
+                symbol=normalized_symbol,
+                detail="stream_tick",
+            )
+            return self._prices[normalized_symbol]
+
+        # 2. Check cache.
         now = time.time()
-        if symbol in _price_cache:
-            px, ts = _price_cache[symbol]
+        if normalized_symbol in _price_cache:
+            px, ts, source = _price_cache[normalized_symbol]
             if now - ts < _CACHE_TTL and px > 0:
+                cache_mode: DataMode = "provider" if source.startswith("alpaca") else "fallback"
+                data_integrity_guard.record_provider_event(
+                    provider="market_cache",
+                    mode=cache_mode,
+                    symbol=normalized_symbol,
+                    detail=f"cache_source:{source}",
+                )
+                if strict_mode and cache_mode != "provider":
+                    return 0.0
                 return px
 
-        # 3. Try Alpaca latest quote/bar
+        # 3. Try Alpaca latest quote/bar.
         if settings.ALPACA_API_KEY:
             try:
-                px = self._alpaca_latest_price(symbol)
+                px = self._alpaca_latest_price(normalized_symbol)
                 if px > 0:
-                    self._prices[symbol] = px
-                    _price_cache[symbol] = (px, now)
+                    self._prices[normalized_symbol] = px
+                    _price_cache[normalized_symbol] = (px, now, "alpaca_rest")
+                    data_integrity_guard.record_provider_event(
+                        provider="alpaca_market_data",
+                        mode="provider",
+                        symbol=normalized_symbol,
+                        detail="latest_trade",
+                    )
                     return px
-            except Exception as e:
-                print(f"⚠️ Alpaca price failed for {symbol}: {e}")
+            except Exception as exc:
+                print(f"Alpaca price failed for {normalized_symbol}: {exc}")
+                data_integrity_guard.record_provider_event(
+                    provider="alpaca_market_data",
+                    mode="failed",
+                    symbol=normalized_symbol,
+                    detail=f"price_error:{exc}",
+                )
+        else:
+            data_integrity_guard.record_provider_event(
+                provider="alpaca_market_data",
+                mode="fallback",
+                symbol=normalized_symbol,
+                detail="missing_alpaca_api_key",
+            )
+            if strict_mode:
+                return 0.0
 
-        # 4. Last known price from cache (stale but better than 0)
-        if symbol in _price_cache and _price_cache[symbol][0] > 0:
-            return _price_cache[symbol][0]
+        # 4. Last known price from cache (stale but better than 0).
+        if normalized_symbol in _price_cache and _price_cache[normalized_symbol][0] > 0:
+            data_integrity_guard.record_provider_event(
+                provider="market_cache",
+                mode="fallback",
+                symbol=normalized_symbol,
+                detail="stale_cache_price",
+            )
+            if strict_mode:
+                return 0.0
+            return _price_cache[normalized_symbol][0]
 
-        return self._prices.get(symbol, 0.0)
+        if strict_mode:
+            return 0.0
+        return self._prices.get(normalized_symbol, 0.0)
 
     def history(self, symbol: str, bars: int = 200) -> pd.DataFrame:
+        strict_mode = data_integrity_guard.strict_mode_enabled()
+        normalized_symbol = str(symbol).upper().strip()
         if settings.ALPACA_API_KEY:
             try:
-                return self._alpaca_bars(symbol, bars)
-            except Exception as e:
-                print(f"⚠️ Alpaca bars failed for {symbol}: {e}")
-        # yfinance only as last resort for history
-        return self._yf_bars(symbol, bars)
+                frame = self._alpaca_bars(normalized_symbol, bars)
+                data_integrity_guard.record_provider_event(
+                    provider="alpaca_market_data",
+                    mode="provider",
+                    symbol=normalized_symbol,
+                    detail=f"bars:{len(frame)}",
+                )
+                return frame
+            except Exception as exc:
+                print(f"Alpaca bars failed for {normalized_symbol}: {exc}")
+                data_integrity_guard.record_provider_event(
+                    provider="alpaca_market_data",
+                    mode="failed",
+                    symbol=normalized_symbol,
+                    detail=f"bars_error:{exc}",
+                )
+        else:
+            data_integrity_guard.record_provider_event(
+                provider="alpaca_market_data",
+                mode="fallback",
+                symbol=normalized_symbol,
+                detail="missing_alpaca_api_key",
+            )
+            if strict_mode:
+                return _empty_history()
+
+        if strict_mode:
+            return _empty_history()
+
+        data_integrity_guard.record_provider_event(
+            provider="yfinance_history",
+            mode="fallback",
+            symbol=normalized_symbol,
+            detail="history_fallback_yfinance",
+        )
+        return self._yf_bars(normalized_symbol, bars)
 
     def subscribe(self, callback: Callable):
         self._subscribers.append(callback)
@@ -64,7 +153,12 @@ class AlpacaRealtimeFeed:
     def start_stream(self, symbols: List[str]):
         if self._started or not settings.ALPACA_API_KEY:
             if not settings.ALPACA_API_KEY:
-                print("ℹ️  No ALPACA_API_KEY — using Alpaca REST polling")
+                print("No ALPACA_API_KEY - using Alpaca REST polling")
+                data_integrity_guard.record_provider_event(
+                    provider="alpaca_stream",
+                    mode="fallback",
+                    detail="missing_alpaca_api_key",
+                )
             return
         self._started = True
         t = threading.Thread(
@@ -74,7 +168,7 @@ class AlpacaRealtimeFeed:
             name="alpaca-ws-feed",
         )
         t.start()
-        print(f"🚀 Alpaca real-time stream started for {symbols}")
+        print(f"Alpaca real-time stream started for {symbols}")
 
     def _run_stream(self, symbols: List[str]):
         try:
@@ -94,7 +188,13 @@ class AlpacaRealtimeFeed:
                 sym = trade.symbol
                 px = float(trade.price)
                 self._prices[sym] = px
-                _price_cache[sym] = (px, time.time())
+                _price_cache[sym] = (px, time.time(), "alpaca_stream")
+                data_integrity_guard.record_provider_event(
+                    provider="alpaca_stream",
+                    mode="provider",
+                    symbol=sym,
+                    detail="stream_tick",
+                )
                 for cb in self._subscribers:
                     try:
                         cb(sym, px)
@@ -104,8 +204,13 @@ class AlpacaRealtimeFeed:
             stream.subscribe_trades(_on_trade, *symbols)
             stream.run()
 
-        except Exception as e:
-            print(f"⚠️ Alpaca stream error: {e} — falling back to REST polling")
+        except Exception as exc:
+            print(f"Alpaca stream error: {exc} - falling back to REST polling")
+            data_integrity_guard.record_provider_event(
+                provider="alpaca_stream",
+                mode="failed",
+                detail=f"stream_error:{exc}",
+            )
             self._started = False
 
     def _alpaca_latest_price(self, symbol: str) -> float:
@@ -141,29 +246,42 @@ class AlpacaRealtimeFeed:
             df = df.xs(symbol, level="symbol")
         df = df.reset_index()
         df.columns = [c[0] if isinstance(c, tuple) else c for c in df.columns]
-        df = df.rename(columns={
-            "timestamp": "ts", "open": "open", "high": "high",
-            "low": "low", "close": "close", "volume": "volume",
-        })
+        df = df.rename(
+            columns={
+                "timestamp": "ts",
+                "open": "open",
+                "high": "high",
+                "low": "low",
+                "close": "close",
+                "volume": "volume",
+            }
+        )
         return df.tail(bars).reset_index(drop=True)
 
     def _yf_bars(self, symbol: str, bars: int) -> pd.DataFrame:
         try:
             import yfinance as yf
+
             ticker = yf.Ticker(symbol)
             df = ticker.history(period="1y", interval="1d")
             if df.empty:
                 df = ticker.history(period="6mo", interval="1d")
             df = df.tail(bars).reset_index()
             df.columns = [c[0] if isinstance(c, tuple) else c for c in df.columns]
-            df = df.rename(columns={
-                "Date": "ts", "Open": "open", "High": "high",
-                "Low": "low", "Close": "close", "Volume": "volume",
-            })
+            df = df.rename(
+                columns={
+                    "Date": "ts",
+                    "Open": "open",
+                    "High": "high",
+                    "Low": "low",
+                    "Close": "close",
+                    "Volume": "volume",
+                }
+            )
             return df
-        except Exception as e:
-            print(f"⚠️ yfinance bars failed for {symbol}: {e}")
-            return pd.DataFrame(columns=["ts", "open", "high", "low", "close", "volume"])
+        except Exception as exc:
+            print(f"yfinance bars failed for {symbol}: {exc}")
+            return _empty_history()
 
 
 FEED = AlpacaRealtimeFeed()

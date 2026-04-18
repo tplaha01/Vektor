@@ -65,4 +65,6 @@ Output format requirements:
   - migration notes
   - unresolved risks
   - next 3 execution tasks
+  - create a master branch and push to branch on the github repo
+
 ```

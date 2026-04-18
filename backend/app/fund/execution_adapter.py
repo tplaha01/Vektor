@@ -8,6 +8,8 @@ from uuid import uuid4
 from app.core.context import broker as shared_broker
 
 
+__all__ = ["ExecutionIntent", "PaperExecutionAdapter", "execute_approved_intent"]
+
 _ALLOWED_SIDES = {"buy", "sell"}
 
 
@@ -70,9 +72,8 @@ class PaperExecutionAdapter:
         self._broker = broker
         self._price_lookup = price_lookup
 
-    def execute(self, raw_intent: ExecutionIntent | Mapping[str, Any]) -> Dict[str, Any]:
+    def execute_intent(self, intent: ExecutionIntent) -> Dict[str, Any]:
         started_at = _utc_now_iso()
-        intent = self._coerce_intent(raw_intent)
         trace = TraceIds(
             data_id=intent.data_id,
             research_id=intent.research_id,
@@ -163,8 +164,13 @@ class PaperExecutionAdapter:
                 reason=reason,
                 broker_order=order_payload,
                 started_at=started_at,
-            ),
+            ), 
         }
+
+    def execute(self, raw_intent: ExecutionIntent | Mapping[str, Any]) -> Dict[str, Any]:
+        """Backward-compatible entrypoint that accepts dict payloads."""
+
+        return self.execute_intent(self._coerce_intent(raw_intent))
 
     def _coerce_intent(self, raw_intent: ExecutionIntent | Mapping[str, Any]) -> ExecutionIntent:
         if isinstance(raw_intent, ExecutionIntent):

@@ -1,0 +1,31 @@
+﻿[
+  {
+    "path": "channels.discord.allowFrom",
+    "value": [
+      "user:1384517066454990849",
+      "channel:1494603096410689701"
+    ]
+  },
+  {
+    "path": "channels.discord.groupPolicy",
+    "value": "allowlist"
+  },
+  {
+    "path": "channels.discord.guilds.1494603095836196885.users",
+    "value": [
+      "1384517066454990849"
+    ]
+  },
+  {
+    "path": "channels.discord.guilds.1494603095836196885.channels",
+    "value": {}
+  },
+  {
+    "path": "channels.discord.guilds.1494603095836196885.channels.1494603096410689701.enabled",
+    "value": true
+  },
+  {
+    "path": "channels.discord.guilds.1494603095836196885.channels.1494603096410689701.requireMention",
+    "value": true
+  }
+]

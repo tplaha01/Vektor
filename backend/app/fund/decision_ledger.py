@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from threading import RLock
-from typing import Any, Dict, List
+from typing import Any, Callable, Dict, List
 from uuid import uuid4
 
 from app.fund.contracts import DecisionRecord
@@ -21,6 +21,7 @@ class DecisionLedger:
         self._lock = RLock()
         self._decisions: Dict[str, DecisionRecord] = {}
         self._events: List[dict[str, Any]] = []
+        self._event_sink: Callable[[dict[str, Any]], Any] | None = None
 
     def add_decision(self, record: DecisionRecord) -> DecisionRecord:
         with self._lock:
@@ -35,6 +36,7 @@ class DecisionLedger:
                     "payload": record.model_dump(mode="json"),
                 }
             )
+            self._emit_event(self._events[-1])
         return record
 
     def update_status(self, decision_id: str, status: str, payload: dict[str, Any] | None = None) -> DecisionRecord | None:
@@ -54,6 +56,7 @@ class DecisionLedger:
                     "payload": payload or {"status": status},
                 }
             )
+            self._emit_event(self._events[-1])
             return updated
 
     def add_event(
@@ -74,6 +77,7 @@ class DecisionLedger:
         }
         with self._lock:
             self._events.append(event)
+            self._emit_event(event)
         return event
 
     def pending_decisions(self) -> list[DecisionRecord]:
@@ -91,6 +95,27 @@ class DecisionLedger:
             rows = [row for row in self._events if row.get("order_id") == order_id]
         return rows
 
+    def list_events(self, limit: int | None = None) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = list(self._events)
+        if limit is not None and limit >= 0:
+            return rows[-limit:]
+        return rows
+
+    def list_decisions(self) -> list[DecisionRecord]:
+        with self._lock:
+            return list(self._decisions.values())
+
+    def set_event_sink(self, sink: Callable[[dict[str, Any]], Any] | None) -> None:
+        self._event_sink = sink
+
+    def _emit_event(self, event: dict[str, Any]) -> None:
+        if self._event_sink is None:
+            return
+        try:
+            self._event_sink(dict(event))
+        except Exception:
+            pass
+
 
 decision_ledger = DecisionLedger()
-

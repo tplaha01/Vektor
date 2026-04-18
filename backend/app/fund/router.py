@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 from decimal import Decimal
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
 from app.fund.contracts import (
@@ -12,13 +13,24 @@ from app.fund.contracts import (
     SentimentSnapshot as ContractSentimentSnapshot,
     Sleeve,
 )
+from app.fund.agent_runtime import FundAgentRuntime, fund_agent_runtime
+from app.fund.openclaw_command_adapter import OpenClawCommandAdapter, openclaw_command_adapter
 from app.fund.orchestrator import FirmOrchestrator, firm_orchestrator
+from app.fund.realtime_stream import realtime_stream
 
 router = APIRouter(prefix="/fund", tags=["fund"])
 
 
 def get_orchestrator() -> FirmOrchestrator:
     return firm_orchestrator
+
+
+def get_agent_runtime() -> FundAgentRuntime:
+    return fund_agent_runtime
+
+
+def get_openclaw_command_adapter() -> OpenClawCommandAdapter:
+    return openclaw_command_adapter
 
 
 class SleeveAllocationIn(BaseModel):
@@ -77,6 +89,83 @@ class SentimentIn(BaseModel):
 class OpenClawIngestIn(BaseModel):
     kind: str = Field(..., min_length=1, max_length=128)
     payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class CeoCommandIn(BaseModel):
+    run_id: str = Field(..., min_length=3, max_length=128)
+    command: str = Field(..., min_length=1, max_length=4000)
+    agent_id: str = Field(default="ceo", min_length=2, max_length=128)
+    target_role: Literal[
+        "technical_analyst",
+        "fundamental_analyst",
+        "sentiment_analyst",
+        "ml_timeseries_analyst",
+        "insight_researcher",
+        "hedge_fund_researcher",
+        "fund_manager",
+        "trader",
+        "risk_auditor",
+        "blog_writer",
+    ] | None = None
+    orchestrate_swarm: bool = False
+    symbol: str | None = Field(default=None, min_length=1, max_length=32)
+    payload: dict[str, Any] = Field(default_factory=dict)
+    priority: int = Field(default=8, ge=0, le=10)
+
+
+class OpenClawCommandIn(BaseModel):
+    platform: str = Field(default="discord", min_length=2, max_length=64)
+    channel_id: str | None = Field(default=None, max_length=256)
+    channel_name: str | None = Field(default=None, max_length=256)
+    sender_id: str | None = Field(default=None, max_length=256)
+    sender_name: str | None = Field(default=None, max_length=256)
+    message_id: str | None = Field(default=None, max_length=256)
+    text: str = Field(..., min_length=1, max_length=4000)
+    run_id: str | None = Field(default=None, min_length=3, max_length=128)
+    agent_id: str | None = Field(default=None, min_length=2, max_length=128)
+    target_role: Literal[
+        "technical_analyst",
+        "fundamental_analyst",
+        "sentiment_analyst",
+        "ml_timeseries_analyst",
+        "insight_researcher",
+        "hedge_fund_researcher",
+        "fund_manager",
+        "trader",
+        "risk_auditor",
+        "signal_swarm",
+        "blog_writer",
+    ] | None = None
+    priority: int = Field(default=8, ge=0, le=10)
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class AutopilotKickIn(BaseModel):
+    run_id: str | None = Field(default=None, min_length=3, max_length=128)
+
+
+class KnowledgeResetIn(BaseModel):
+    run_id: str | None = Field(default=None, min_length=3, max_length=128)
+    agent_id: str = Field(default="ceo", min_length=2, max_length=128)
+    seed_event: bool = True
+
+
+class DevelopmentLogIn(BaseModel):
+    entry_id: str = Field(..., min_length=3, max_length=128)
+    stage: Literal["start", "update", "end"]
+    actor_name: str = Field(..., min_length=2, max_length=128)
+    actor_platform: Literal["codex", "claude_code", "github_copilot", "ollama", "other"]
+    actor_model: str = Field(..., min_length=2, max_length=128)
+    actor_provider: str | None = Field(default=None, max_length=128)
+    run_id: str | None = Field(default=None, min_length=3, max_length=128)
+    branch: str | None = Field(default=None, max_length=128)
+    commit_start: str | None = Field(default=None, max_length=128)
+    commit_end: str | None = Field(default=None, max_length=128)
+    scope: str = Field(default="", max_length=4000)
+    files: list[str] = Field(default_factory=list)
+    validation: str = Field(default="", max_length=4000)
+    notes: str = Field(default="", max_length=4000)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 @router.post("/allocator/allocate")
@@ -173,9 +262,84 @@ async def active_tasks(orchestrator: FirmOrchestrator = Depends(get_orchestrator
     return orchestrator.list_active_tasks()
 
 
+@router.get("/agents/tasks/history")
+async def task_history(
+    limit: int = Query(default=200, ge=1, le=5000),
+    run_id: str | None = Query(default=None, min_length=3, max_length=128),
+    agent_id: str | None = Query(default=None, min_length=2, max_length=128),
+    role: str | None = Query(default=None, min_length=2, max_length=128),
+    status: Literal["queued", "running", "completed", "failed", "blocked"] | None = None,
+    orchestrator: FirmOrchestrator = Depends(get_orchestrator),
+):
+    return orchestrator.list_task_history(
+        limit=limit,
+        run_id=run_id,
+        agent_id=agent_id,
+        role=role,
+        status=status,
+    )
+
+
+@router.get("/agents/workers/status")
+async def worker_status(runtime: FundAgentRuntime = Depends(get_agent_runtime)):
+    return runtime.status()
+
+
+@router.get("/agents/autopilot/status")
+async def autopilot_status(runtime: FundAgentRuntime = Depends(get_agent_runtime)):
+    status = runtime.status()
+    return {
+        "runtime_started": status.get("started", False),
+        "autopilot": status.get("autopilot", {}),
+    }
+
+
+@router.post("/agents/autopilot/kick")
+async def autopilot_kick(
+    body: AutopilotKickIn,
+    runtime: FundAgentRuntime = Depends(get_agent_runtime),
+):
+    result = runtime.kick_autopilot(run_id=body.run_id)
+    if not result.get("accepted"):
+        raise HTTPException(status_code=400, detail=result.get("reason", "autopilot_rejected"))
+    return result
+
+
+@router.post("/ceo/commands")
+async def ceo_commands(
+    body: CeoCommandIn,
+    runtime: FundAgentRuntime = Depends(get_agent_runtime),
+):
+    if body.orchestrate_swarm:
+        return runtime.enqueue_signal_swarm(
+            run_id=body.run_id,
+            symbol=str(body.symbol or body.payload.get("symbol") or "SPY").upper().strip(),
+            agent_id=body.agent_id,
+            command=body.command,
+            payload=body.payload,
+            priority=body.priority,
+        )
+    return runtime.enqueue_ceo_command(
+        run_id=body.run_id,
+        command=body.command,
+        agent_id=body.agent_id,
+        target_role=body.target_role,
+        payload=body.payload,
+        priority=body.priority,
+    )
+
+
 @router.get("/decisions/pending")
 async def pending_decisions(orchestrator: FirmOrchestrator = Depends(get_orchestrator)):
     return orchestrator.list_pending_decisions()
+
+
+@router.get("/sleeves/budgets")
+async def sleeve_budgets(
+    run_id: str | None = Query(default=None, min_length=3, max_length=128),
+    orchestrator: FirmOrchestrator = Depends(get_orchestrator),
+):
+    return orchestrator.sleeve_budget_status(run_id=run_id)
 
 
 @router.get("/trades/blocked")
@@ -210,9 +374,172 @@ async def openclaw_health(orchestrator: FirmOrchestrator = Depends(get_orchestra
     return orchestrator.openclaw_health()
 
 
+@router.post("/openclaw/commands")
+async def openclaw_commands(
+    body: OpenClawCommandIn,
+    x_openclaw_token: str | None = Header(default=None, alias="X-OpenClaw-Token"),
+    adapter: OpenClawCommandAdapter = Depends(get_openclaw_command_adapter),
+):
+    if not x_openclaw_token:
+        raise HTTPException(status_code=401, detail="missing_openclaw_token")
+    result = adapter.route_message(body.model_dump(mode="json"), token=x_openclaw_token)
+    if result.get("accepted"):
+        return result
+    reason = result.get("reason")
+    if reason == "unauthorized":
+        raise HTTPException(status_code=401, detail="invalid_openclaw_token")
+    raise HTTPException(status_code=400, detail=reason or "openclaw_command_rejected")
+
+
+@router.get("/openclaw/commands/health")
+async def openclaw_commands_health(adapter: OpenClawCommandAdapter = Depends(get_openclaw_command_adapter)):
+    return adapter.health()
+
+
+@router.get("/openclaw/commands/rejections")
+async def openclaw_commands_rejections(
+    limit: int = Query(default=100, ge=1, le=1000),
+    adapter: OpenClawCommandAdapter = Depends(get_openclaw_command_adapter),
+):
+    return adapter.list_rejected(limit=limit)
+
+
 @router.get("/openclaw/rejections")
 async def openclaw_rejections(
     limit: int = Query(default=100, ge=1, le=1000),
     orchestrator: FirmOrchestrator = Depends(get_orchestrator),
 ):
     return orchestrator.openclaw_rejections(limit=limit)
+
+
+@router.get("/knowledge/events")
+async def knowledge_events(
+    limit: int = Query(default=200, ge=1, le=2000),
+    namespace: str | None = None,
+    source: str | None = None,
+    event_type: str | None = None,
+    run_id: str | None = None,
+    agent_id: str | None = None,
+    decision_id: str | None = None,
+    order_id: str | None = None,
+    orchestrator: FirmOrchestrator = Depends(get_orchestrator),
+):
+    return orchestrator.list_knowledge_events(
+        limit=limit,
+        namespace=namespace,
+        source=source,
+        event_type=event_type,
+        run_id=run_id,
+        agent_id=agent_id,
+        decision_id=decision_id,
+        order_id=order_id,
+    )
+
+
+@router.get("/knowledge/lineage")
+async def knowledge_lineage(
+    limit: int = Query(default=500, ge=1, le=5000),
+    run_id: str | None = None,
+    decision_id: str | None = None,
+    order_id: str | None = None,
+    report_id: str | None = None,
+    orchestrator: FirmOrchestrator = Depends(get_orchestrator),
+):
+    if not any([run_id, decision_id, order_id, report_id]):
+        raise HTTPException(status_code=400, detail="provide_at_least_one_filter")
+    return orchestrator.knowledge_lineage(
+        run_id=run_id,
+        decision_id=decision_id,
+        order_id=order_id,
+        report_id=report_id,
+        limit=limit,
+    )
+
+
+@router.get("/knowledge/stats")
+async def knowledge_stats(orchestrator: FirmOrchestrator = Depends(get_orchestrator)):
+    return orchestrator.knowledge_stats()
+
+
+@router.post("/knowledge/development/log")
+async def knowledge_development_log(
+    body: DevelopmentLogIn,
+    orchestrator: FirmOrchestrator = Depends(get_orchestrator),
+):
+    return orchestrator.ingest_development_log(
+        entry_id=body.entry_id,
+        stage=body.stage,
+        actor_name=body.actor_name,
+        actor_platform=body.actor_platform,
+        actor_model=body.actor_model,
+        actor_provider=body.actor_provider,
+        run_id=body.run_id,
+        branch=body.branch,
+        commit_start=body.commit_start,
+        commit_end=body.commit_end,
+        scope=body.scope,
+        files=body.files,
+        validation=body.validation,
+        notes=body.notes,
+        metadata=body.metadata,
+    )
+
+
+@router.post("/knowledge/reset")
+async def knowledge_reset(
+    body: KnowledgeResetIn,
+    orchestrator: FirmOrchestrator = Depends(get_orchestrator),
+):
+    return orchestrator.reset_knowledge_graph(
+        run_id=body.run_id,
+        agent_id=body.agent_id,
+        seed_event=body.seed_event,
+    )
+
+
+@router.get("/stream/status")
+async def stream_status():
+    return realtime_stream.stats()
+
+
+@router.websocket("/stream")
+async def stream_events(
+    websocket: WebSocket,
+    cursor: str | None = None,
+):
+    await websocket.accept()
+    current_cursor = cursor
+    await websocket.send_json(
+        {
+            "type": "fund.stream.ready",
+            "cursor": realtime_stream.latest_cursor(),
+            "stream": realtime_stream.stats(),
+        }
+    )
+
+    idle_ticks = 0
+    poll_interval = 0.5
+    heartbeat_ticks = 30  # 15 seconds
+
+    try:
+        while True:
+            events = realtime_stream.after(cursor=current_cursor, limit=250)
+            if events:
+                for event in events:
+                    await websocket.send_json({"type": "fund.event", "data": event})
+                current_cursor = str(events[-1].get("stream_id"))
+                idle_ticks = 0
+            else:
+                idle_ticks += 1
+                if idle_ticks >= heartbeat_ticks:
+                    await websocket.send_json(
+                        {
+                            "type": "fund.stream.heartbeat",
+                            "cursor": current_cursor,
+                            "event_count": realtime_stream.stats().get("event_count", 0),
+                        }
+                    )
+                    idle_ticks = 0
+            await asyncio.sleep(poll_interval)
+    except WebSocketDisconnect:
+        return

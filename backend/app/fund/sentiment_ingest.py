@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from threading import RLock
-from typing import Dict, Iterable, List, Optional
+from typing import Any, Callable, Dict, Iterable, List, Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
@@ -78,12 +78,17 @@ class SentimentIngestService:
     In-memory sentiment artifact ingestion store with provenance and lookup helpers.
     """
 
-    def __init__(self, max_artifacts: int = 20000) -> None:
+    def __init__(
+        self,
+        max_artifacts: int = 20000,
+        event_sink: Callable[[dict[str, Any]], Any] | None = None,
+    ) -> None:
         self.max_artifacts = max_artifacts
         self._lock = RLock()
         self._artifacts: Dict[str, SentimentSnapshot] = {}
         self._ordered_ids: List[str] = []
         self._asset_index: Dict[str, List[str]] = defaultdict(list)
+        self._event_sink = event_sink
 
     def ingest(self, snapshot: SentimentSnapshot) -> SentimentSnapshot:
         model = snapshot if isinstance(snapshot, SentimentSnapshot) else SentimentSnapshot.model_validate(snapshot)
@@ -100,6 +105,7 @@ class SentimentIngestService:
             self._artifacts[model.snapshot_id] = model
             self._asset_index[model.asset].append(model.snapshot_id)
             self._prune_if_needed()
+            self._emit_event(model)
 
         return model
 
@@ -184,6 +190,26 @@ class SentimentIngestService:
             self._asset_index[old.asset] = [aid for aid in ids if aid != old.snapshot_id]
             if not self._asset_index[old.asset]:
                 self._asset_index.pop(old.asset, None)
+
+    def set_event_sink(self, sink: Callable[[dict[str, Any]], Any] | None) -> None:
+        self._event_sink = sink
+
+    def _emit_event(self, snapshot: SentimentSnapshot) -> None:
+        if self._event_sink is None:
+            return
+        try:
+            self._event_sink(
+                {
+                    "event_id": snapshot.snapshot_id,
+                    "event_type": "sentiment.snapshot.stored",
+                    "created_at": snapshot.created_at.isoformat(),
+                    "run_id": snapshot.metadata.get("run_id"),
+                    "agent_id": snapshot.metadata.get("agent_id"),
+                    "payload": snapshot.model_dump(mode="json"),
+                }
+            )
+        except Exception:
+            pass
 
 
 # Backward-compatible aliases for earlier integration drafts.

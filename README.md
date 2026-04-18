@@ -1,114 +1,148 @@
-# Hybrid Trading Bot
+﻿# Vektor (Paper-First AI-Native Hedge Fund OS)
 
-A full-stack algorithmic trading system combining technical analysis, fundamental scoring, NLP sentiment, and ML alpha signals — with real-time WebSocket streaming, paper/live broker switching, and a vectorised backtesting engine.
+Vektor is evolving from a single-loop trading bot into a multi-agent hedge fund operating system.
 
-**Stack:** FastAPI · React/Vite · Alpaca API · yfinance · FinBERT · LightGBM · Neon Postgres · Docker
+Current architecture keeps migration-safe compatibility:
 
----
+- `backend` (FastAPI): orchestration, risk gates, audit logs, and paper execution.
+- `frontend` (React/Vite): operator product UI (dashboard, monitoring, controls).
+- `landing-next` (Next.js App Router): SSR public landing site for SEO/indexing.
 
-## Architecture
+Live trading remains disabled.
 
+## System Architecture
+
+```text
+Research + Sentiment Agents
+  -> Research Reports (source-backed)
+  -> Thesis / Decision Contracts (immutable IDs)
+  -> Risk Policy Gate
+  -> Execution Intent (paper broker)
+  -> Audit Timeline + Observability
 ```
-Market Data (Alpaca WS · yfinance · Finnhub · FMP)
-        ↓
-Signal Engine (Technical · Fundamental · Sentiment NLP · ML Alpha)
-        ↓
-Hybrid Aggregator → weighted BUY / SELL / HOLD
-        ↓
-Risk Engine (Kelly sizing · VaR cap · ATR stops · drawdown breaker)
-        ↓
-Execution (Paper broker · Alpaca live · order router toggle)
-        ↓
-Frontend (live dashboard · backtest UI · strategy analytics)
-```
 
----
+## Run Locally
 
-## Quickstart
+Run each service in its own terminal.
 
-### Backend
+### 1) Backend API
+
 ```bash
 cd backend
-python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+python -m venv .venv
+# Windows:
+.venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env          # fill in your API keys
+copy .env.example .env
 uvicorn app.main:app --reload --port 8000
 ```
 
-### Frontend
+Backend URL: `http://localhost:8000`
+
+### 2) Product App (React)
+
 ```bash
 cd frontend
 npm install
-cp .env.example .env          # set VITE_BACKEND_URL=http://localhost:8000
+copy .env.example .env
 npm run dev
 ```
 
-### Docker (both services)
+Frontend URL: `http://localhost:5173`
+
+### 3) Landing Site (Next SSR)
+
 ```bash
-docker-compose up --build
+cd landing-next
+npm install
+copy .env.example .env
+npm run dev
 ```
 
----
+Landing URL: `http://localhost:3000`
 
-## Environment variables
+## SEO Split (what you requested)
 
-Copy `backend/.env.example` → `backend/.env` and fill in:
+- Public/marketing traffic should go to `landing-next` (SSR, robots, sitemap).
+- Logged-in/product workflows stay in `frontend` until full Next migration is planned.
+- Landing links users into the product app URL configured via `NEXT_PUBLIC_PRODUCT_APP_URL`.
 
-| Key | Description |
-|-----|-------------|
-| `FINNHUB_KEY` | News feed — [finnhub.io](https://finnhub.io) free tier |
-| `FMP_KEY` | Fundamentals — [financialmodelingprep.com](https://financialmodelingprep.com) |
-| `ALPACA_API_KEY` | Trading — [alpaca.markets](https://alpaca.markets) paper account |
-| `ALPACA_SECRET_KEY` | Trading secret |
-| `ALPACA_BASE_URL` | `https://paper-api.alpaca.markets` for paper, `https://api.alpaca.markets` for live |
+## Key Backend Endpoints (phase-1 fund OS)
 
----
+- `GET /fund/agents/tasks/active`
+- `GET /fund/decisions/pending`
+- `GET /fund/trades/blocked`
+- `GET /fund/audit/orders/{order_id}/timeline`
+- `GET /fund/agents/autopilot/status`
+- `POST /fund/agents/autopilot/kick`
+- `GET /fund/sleeves/budgets`
+- `GET /fund/openclaw/health`
+- `POST /fund/openclaw/ingest` (token required)
+- `POST /fund/openclaw/commands` (token required)
+- `GET /fund/openclaw/commands/health`
+- `GET /fund/openclaw/commands/rejections`
+- `GET /fund/knowledge/events`
+- `GET /fund/knowledge/lineage`
+- `GET /fund/knowledge/stats`
+- `POST /fund/ceo/commands`
+- `GET /fund/agents/workers/status`
 
-## Project structure
+## Environment Notes
 
-```
+`backend/.env` must include valid API keys and fund settings. You already replaced placeholders; keep these values private.
+
+For `landing-next/.env`:
+
+- `NEXT_PUBLIC_SITE_URL` (for metadata/sitemap canonical URL)
+- `NEXT_PUBLIC_PRODUCT_APP_URL` (where "Open Product App" points)
+
+For `backend/.env` knowledge graph:
+
+- `KNOWLEDGE_GRAPH_ENABLED=true`
+- `KNOWLEDGE_GRAPH_DIR=knowledge_graph`
+- `KNOWLEDGE_GRAPH_PERSIST=true`
+- `GRAPHIFY_SYNC_ENABLED=false` (turn on only after validating Graphify command)
+- `GRAPHIFY_UPDATE_COMMAND=py -3 -m graphify update .`
+
+For autonomous worker runtime:
+
+- `AUTO_TRADING_ENABLED=false` (disable legacy single-loop trader)
+- `AGENT_RUNTIME_ENABLED=true` (enable role-based worker runtime)
+- `AGENT_RUNTIME_POLL_INTERVAL_SECONDS=1.5`
+- `AGENT_RUNTIME_AUTOPILOT_ENABLED=true` (continuous task seeding loop)
+- `AGENT_RUNTIME_AUTOPILOT_INTERVAL_SECONDS=120`
+- `AGENT_RUNTIME_AUTOPILOT_SYMBOLS=AAPL,MSFT,NVDA,SPY`
+- `AGENT_RUNTIME_AUTOPILOT_DEFAULT_SIDE=buy`
+- `AGENT_RUNTIME_AUTOPILOT_DEFAULT_QUANTITY=1`
+- `AGENT_RUNTIME_AUTOPILOT_SLEEVE=tactical`
+
+For OpenClaw command adapter (Discord -> CEO command routing):
+
+- `OPENCLAW_COMMANDS_ENABLED=true`
+- `OPENCLAW_COMMAND_TOKEN=<optional; defaults to OPENCLAW_INGEST_TOKEN>`
+- `OPENCLAW_COMMAND_CHANNEL_ALLOWLIST=vektor-ceo` (channel IDs or names)
+- `OPENCLAW_COMMAND_SENDER_ALLOWLIST=<optional sender IDs/names>`
+- `OPENCLAW_COMMAND_ROLE_ALLOWLIST=researcher,sentiment_researcher,fund_manager,trader,risk_auditor`
+- `OPENCLAW_COMMAND_CHANNEL_ROLE_POLICIES=vektor-ceo=researcher,sentiment_researcher,fund_manager,trader,risk_auditor`
+
+## Repo Structure
+
+```text
 backend/
-  app/
-    main.py              # FastAPI app, routes, startup
-    models.py            # Pydantic schemas
-    config.py            # Settings (pydantic-settings)
-    core/context.py      # Shared broker singleton
-    strategies/
-      hybrid.py          # Weighted signal aggregator
-      auto_trader.py     # Background trading loop
-    indicators/
-      technical.py       # RSI, MACD, BB, VWAP, ATR
-    data/
-      market_data.py     # yfinance + Alpaca feed
-      news.py            # Finnhub news
-      fundamentals.py    # FMP fundamentals
-    broker/
-      paper.py           # Simulated fills, FIFO PnL
-    analytics.py         # Round-trip PnL, Sharpe, drawdown
-    websocket/stream.py  # StreamManager + broadcast loop
-
 frontend/
-  src/
-    App.jsx              # Root component, WS lifecycle
-    api.js               # All backend calls
-    components/
-      Dashboard.jsx      # Signal + price cards
-      SignalCard.jsx      # Hybrid signal display
-      Positions.jsx       # Open positions table
-      OrderPanel.jsx      # Manual order ticket
-      StrategyDashboard.jsx # Analytics metrics
-      NewsFeed.jsx        # Live news sidebar
-      TradingViewWidget.jsx # Embedded chart
+landing-next/
+agents/
+docs/
+subagents/
 ```
 
----
+## Next Migration Path
 
-## Phases
+1. Keep running this hybrid setup (Next landing + React product app).
+2. Incrementally move product surfaces from `frontend` into Next routes.
+3. Keep backend contracts stable during UI migration.
 
-- [x] **Phase 1** — Bug fixes & stable foundation
-- [ ] **Phase 2** — Alpaca real-time WebSocket feed
-- [ ] **Phase 3** — Signal engine upgrade (FinBERT, LightGBM)
-- [ ] **Phase 4** — Risk engine (Kelly, VaR, ATR stops)
-- [ ] **Phase 5** — Vectorised backtesting engine
-- [ ] **Phase 6** — Alpaca live execution + broker toggle
-- [ ] **Phase 7** — Terminal-grade frontend
+## Startup Canonical Spec
+
+- Repository source-of-truth startup document: `Viktor.md`
+- All agent/model environments should read `Viktor.md` before planning or implementation.

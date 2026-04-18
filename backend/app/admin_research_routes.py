@@ -1,0 +1,1216 @@
+"""
+Admin Console, Research, and Blog API Routes (live-backed).
+"""
+
+from __future__ import annotations
+
+import statistics
+import uuid
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal
+from typing import Any, List, Optional
+
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, Field
+
+from app.analytics import build_metrics_from_broker
+from app.config import get_settings
+from app.core.context import broker
+from app.data.market_data import FEED
+from app.fund.ai_role_adapter import ai_role_adapter
+from app.fund.agent_runtime import fund_agent_runtime
+from app.fund.audit_log import audit_log
+from app.fund.blog_service import blog_service
+from app.fund.contracts import ProvenanceRef, ResearchReport as ContractResearchReport
+from app.fund.decision_ledger import decision_ledger
+from app.fund.orchestrator import firm_orchestrator
+from app.fund.runtime_guard import data_integrity_guard
+from app.fund.sentiment_ingest import sentiment_ingest
+from app.risk.engine import risk
+from app.storage import db as storage_db
+
+
+# ====================================================================
+# Data Models
+# ====================================================================
+
+
+class MetricsSummary(BaseModel):
+    total_equity: float
+    equity_change: float
+    realized_pnl: float
+    pnl_change: float
+    unrealized_pnl: float
+    current_drawdown: float
+    drawdown_change: float
+    max_drawdown_ytd: float
+    max_drawdown_threshold: float
+    active_positions: int
+    win_rate: float
+    win_rate_change: float
+    sharpe_ratio: float
+    sharpe_change: float
+
+
+class AgentWorkerStatus(BaseModel):
+    agent_id: str
+    role: str
+    status: str
+    task_count: int
+    success_rate: float
+    last_heartbeat: datetime
+
+
+class ActiveTask(BaseModel):
+    task_id: str
+    agent_id: str
+    task_type: str
+    status: str
+    priority: int
+    created_at: datetime
+
+
+class PendingDecision(BaseModel):
+    decision_id: str
+    agent_id: str
+    symbol: str
+    side: str
+    quantity: float
+    confidence: float
+    thesis: str
+    sleeve: str
+    created_at: datetime
+    expires_at: datetime
+
+
+class SleeveAllocation(BaseModel):
+    sleeve_id: str
+    total_capital: float
+    allocated: float
+    available: float
+    active_positions: int
+    pnl: float
+
+
+class ResearchReport(BaseModel):
+    report_id: str
+    agent_id: str
+    agent_role: str
+    title: str
+    summary: str
+    findings: List[str]
+    asset_universe: List[str]
+    confidence: float
+    created_at: datetime
+    published_at: datetime
+    status: str
+    views: Optional[int] = 0
+    provenance: dict
+
+
+class ResearchReportCreateIn(BaseModel):
+    run_id: Optional[str] = Field(default=None, min_length=3, max_length=128)
+    agent_id: str = Field(..., min_length=2, max_length=128)
+    agent_role: Optional[str] = None
+    title: str = Field(..., min_length=1, max_length=300)
+    summary: str = Field(..., min_length=1, max_length=6000)
+    findings: List[str] = Field(default_factory=list)
+    asset_universe: List[str] = Field(default_factory=list)
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+    status: str = Field(default="published")
+    provenance: dict = Field(default_factory=dict)
+
+
+class AuditEvent(BaseModel):
+    event_id: str
+    timestamp: datetime
+    event_type: str
+    details: dict
+
+
+class BlogGenerateIn(BaseModel):
+    run_id: Optional[str] = None
+    report_ids: List[str] = []
+    symbol: Optional[str] = None
+    command: str = "Write an expert blog post from latest Vektor research."
+    priority: int = 7
+
+
+class LineageRow(BaseModel):
+    run_id: str
+    started_at: datetime
+    updated_at: datetime
+    signal_pack_id: Optional[str] = None
+    symbol: Optional[str] = None
+    analyst_completed: int
+    analyst_expected: int
+    fund_manager_status: str
+    trader_status: str
+    decision_id: Optional[str] = None
+    order_id: Optional[str] = None
+    blocked_reasons: List[str] = Field(default_factory=list)
+    blog_post_ids: List[str] = Field(default_factory=list)
+
+
+class LineageDecisionDetail(BaseModel):
+    decision_id: Optional[str] = None
+    status: Optional[str] = None
+    run_id: Optional[str] = None
+    agent_id: Optional[str] = None
+    sleeve: Optional[str] = None
+    thesis_id: Optional[str] = None
+    risk_id: Optional[str] = None
+    intent_id: Optional[str] = None
+
+
+class LineageRunDetail(BaseModel):
+    run_id: str
+    summary: LineageRow
+    decision: LineageDecisionDetail
+    related_research_report_ids: List[str] = Field(default_factory=list)
+    related_blog_post_ids: List[str] = Field(default_factory=list)
+    related_blog_posts: List[dict] = Field(default_factory=list)
+    audit_timeline: List[dict] = Field(default_factory=list)
+    task_events: List[dict] = Field(default_factory=list)
+
+
+# ====================================================================
+# Router Setup
+# ====================================================================
+
+
+router = APIRouter(prefix="/api/admin", tags=["admin"])
+research_router = APIRouter(prefix="/api/research", tags=["research"])
+blog_router = APIRouter(prefix="/api/blog", tags=["blog"])
+
+
+# ====================================================================
+# Helpers
+# ====================================================================
+
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _to_datetime(value: Any) -> datetime:
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
+    text = str(value or "").strip()
+    if not text:
+        return _utc_now()
+    text = text.replace("Z", "+00:00")
+    try:
+        dt = datetime.fromisoformat(text)
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
+    except Exception:
+        return _utc_now()
+
+
+def _safe_float(value: Any, fallback: float = 0.0) -> float:
+    try:
+        return float(value)
+    except Exception:
+        return fallback
+
+
+def _safe_int(value: Any, fallback: int = 0) -> int:
+    try:
+        return int(value)
+    except Exception:
+        return fallback
+
+
+def _infer_agent_role(agent_id: str, fallback: str = "researcher") -> str:
+    value = str(agent_id or "").lower()
+    if "technical" in value:
+        return "technical_analyst"
+    if "fundamental" in value:
+        return "fundamental_analyst"
+    if "sentiment" in value:
+        return "sentiment_analyst"
+    if "ml" in value or "timeseries" in value:
+        return "ml_timeseries_analyst"
+    if "hedge" in value or "macro" in value:
+        return "hedge_fund_researcher"
+    if "insight" in value:
+        return "insight_researcher"
+    if "fund_manager" in value:
+        return "fund_manager"
+    if "risk" in value:
+        return "risk_auditor"
+    if "trader" in value:
+        return "trader"
+    return fallback
+
+
+def _estimate_sharpe_from_recent_trades(analytics: dict[str, Any]) -> float:
+    trades = analytics.get("recent_trades") or []
+    pnls = [_safe_float(item.get("pnl")) for item in trades if item.get("pnl") is not None]
+    if len(pnls) < 2:
+        return 0.0
+    mean = statistics.mean(pnls)
+    stdev = statistics.pstdev(pnls)
+    if stdev <= 1e-9:
+        return 0.0
+    return round((mean / stdev) * (252.0 ** 0.5), 2)
+
+
+def _normalize_provenance(raw_provenance: Any) -> dict:
+    refs = raw_provenance if isinstance(raw_provenance, list) else []
+    data_sources: list[str] = []
+    decision_ids: list[str] = []
+    thesis_id: str | None = None
+    policy_gates_applied: list[str] = []
+
+    for ref in refs:
+        if not isinstance(ref, dict):
+            continue
+        source_type = str(ref.get("source_type") or "").strip().lower()
+        source_id = str(ref.get("source_id") or "").strip()
+        if not source_id:
+            continue
+        data_sources.append(f"{source_type}:{source_id}" if source_type else source_id)
+        if source_type == "thesis" and thesis_id is None:
+            thesis_id = source_id
+        if source_type in {"execution", "decision"}:
+            decision_ids.append(source_id)
+        if source_type == "risk":
+            policy_gates_applied.append(source_id)
+
+    return {
+        "data_sources": data_sources,
+        "thesis_id": thesis_id,
+        "decision_ids": decision_ids,
+        "policy_gates_applied": policy_gates_applied,
+    }
+
+
+def _map_live_report(row: dict[str, Any]) -> ResearchReport:
+    report_id = str(row.get("report_id") or uuid.uuid4().hex)
+    created_at = _to_datetime(row.get("created_at"))
+    summary = str(row.get("summary") or "")
+    findings = row.get("findings") if isinstance(row.get("findings"), list) else [summary]
+    assets = row.get("asset_universe") if isinstance(row.get("asset_universe"), list) else []
+    agent_id = str(row.get("agent_id") or "research_agent")
+    agent_role = _infer_agent_role(agent_id)
+    title = str(row.get("title") or f"Research Report {report_id[:8]}")
+    provenance = _normalize_provenance(row.get("provenance"))
+
+    return ResearchReport(
+        report_id=report_id,
+        agent_id=agent_id,
+        agent_role=agent_role,
+        title=title,
+        summary=summary,
+        findings=[str(item) for item in findings if str(item).strip()] or [summary],
+        asset_universe=[str(asset).upper() for asset in assets if str(asset).strip()],
+        confidence=_safe_float(row.get("confidence"), 0.0),
+        created_at=created_at,
+        published_at=created_at,
+        status="published",
+        views=_safe_int(row.get("views"), 0),
+        provenance=provenance,
+    )
+
+
+def _decision_context(decision_id: str) -> dict[str, Any]:
+    context: dict[str, Any] = {}
+    for event in reversed(decision_ledger.list_events(limit=-1)):
+        if str(event.get("decision_id")) != decision_id:
+            continue
+        payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
+        for key in ("symbol", "side", "quantity", "conviction", "statement", "sleeve"):
+            if key in payload and key not in context:
+                context[key] = payload[key]
+        if all(key in context for key in ("symbol", "side", "quantity")):
+            break
+    return context
+
+
+ANALYST_ROLE_SET = {
+    "technical_analyst",
+    "fundamental_analyst",
+    "sentiment_analyst",
+    "ml_timeseries_analyst",
+    "insight_researcher",
+    "hedge_fund_researcher",
+}
+
+
+def _normalize_binary_status(value: str, *, default: str) -> str:
+    cleaned = str(value or "").strip().lower()
+    if cleaned in {"healthy", "provider"}:
+        return "Healthy" if cleaned == "healthy" else "Provider"
+    if cleaned in {"degraded", "fallback"}:
+        return "Degraded" if cleaned == "degraded" else "Fallback"
+    return default
+
+
+# ====================================================================
+# Admin Endpoints (live-backed)
+# ====================================================================
+
+
+@router.get("/metrics/summary", response_model=MetricsSummary)
+async def get_metrics_summary():
+    positions = broker.list_positions(lambda s: FEED.price(s))
+    analytics = build_metrics_from_broker(broker)
+    equity = risk.update_equity(positions, analytics.get("realized_pnl", 0.0))
+    risk_state = risk.status()
+    dd = risk_state.get("drawdown_breaker") or {}
+
+    baseline_equity = _safe_float(getattr(risk, "INITIAL_EQUITY", 100000.0), 100000.0)
+    total_equity = _safe_float(equity, baseline_equity)
+    unrealized = sum(_safe_float(p.get("unrealized_pnl")) for p in positions)
+    realized = _safe_float(analytics.get("realized_pnl"), 0.0)
+
+    max_drawdown_abs = abs(_safe_float(analytics.get("max_drawdown"), 0.0))
+    max_drawdown_pct = (max_drawdown_abs / baseline_equity) * 100.0 if baseline_equity > 0 else 0.0
+
+    return MetricsSummary(
+        total_equity=round(total_equity, 2),
+        equity_change=round(((total_equity - baseline_equity) / baseline_equity) * 100.0, 2),
+        realized_pnl=round(realized, 2),
+        pnl_change=0.0,
+        unrealized_pnl=round(unrealized, 2),
+        current_drawdown=round(_safe_float(dd.get("current_drawdown"), 0.0) * 100.0, 2),
+        drawdown_change=0.0,
+        max_drawdown_ytd=round(max_drawdown_pct, 2),
+        max_drawdown_threshold=round(_safe_float(dd.get("max_drawdown_threshold"), 0.10) * 100.0, 2),
+        active_positions=len(positions),
+        win_rate=round(_safe_float(analytics.get("win_rate"), 0.0), 2),
+        win_rate_change=0.0,
+        sharpe_ratio=_estimate_sharpe_from_recent_trades(analytics),
+        sharpe_change=0.0,
+    )
+
+
+@router.get("/system/status-badges", response_model=dict)
+async def get_system_status_badges():
+    settings = get_settings()
+    runtime = fund_agent_runtime.status()
+    workers = runtime.get("workers") if isinstance(runtime.get("workers"), list) else []
+    data_integrity = runtime.get("data_integrity")
+    if not isinstance(data_integrity, dict):
+        data_integrity = data_integrity_guard.status()
+
+    halted = bool(data_integrity.get("halted"))
+    halt_reason = str(data_integrity.get("halt_reason") or "").strip() or None
+    halted_at = data_integrity.get("halted_at")
+
+    runtime_started = bool(runtime.get("started"))
+    worker_errors = [
+        str(worker.get("last_error") or "").strip()
+        for worker in workers
+        if str(worker.get("last_error") or "").strip()
+    ]
+    orchestration_status = "Healthy"
+    orchestration_reason = "all_runtime_workers_operational"
+    if not runtime_started:
+        orchestration_status = "Degraded"
+        orchestration_reason = "agent_runtime_not_started"
+    elif halted:
+        orchestration_status = "Degraded"
+        orchestration_reason = halt_reason or "system_halted"
+    elif worker_errors:
+        orchestration_status = "Degraded"
+        orchestration_reason = worker_errors[0]
+
+    raw_data_source_status = _normalize_binary_status(
+        str(data_integrity.get("data_source_status") or "Provider"),
+        default="Provider",
+    )
+    if halted:
+        data_source_status = "Fallback"
+    else:
+        data_source_status = "Provider" if raw_data_source_status == "Provider" else "Fallback"
+
+    execution_mode_status = "Paper Only"
+    if str(settings.BROKER or "").strip().lower() != "paper":
+        execution_mode_status = str(settings.BROKER or "unknown").strip() or "unknown"
+
+    worker_by_role = {
+        str(worker.get("role") or "").strip(): worker
+        for worker in workers
+        if str(worker.get("role") or "").strip()
+    }
+    ai_health = runtime.get("ai_role_adapter")
+    if not isinstance(ai_health, dict):
+        ai_health = ai_role_adapter.health()
+    ai_enabled = bool(ai_health.get("enabled"))
+    ai_provider = str(ai_health.get("provider") or "unknown")
+    role_models = ai_health.get("role_models") if isinstance(ai_health.get("role_models"), dict) else {}
+    default_model = str(ai_health.get("default_model") or "").strip()
+    adapter_last_error = str(ai_health.get("last_error") or "").strip()
+
+    role_health: list[dict[str, Any]] = []
+    for role in sorted(ANALYST_ROLE_SET):
+        worker = worker_by_role.get(role, {})
+        worker_last_error = str(worker.get("last_error") or "").strip()
+        worker_running = bool(worker.get("running"))
+        model = str(role_models.get(role) or default_model or "").strip()
+
+        degraded_reasons: list[str] = []
+        if halted:
+            degraded_reasons.append(halt_reason or "system_halted")
+        if not ai_enabled:
+            degraded_reasons.append("ai_role_adapter_disabled")
+        if not model:
+            degraded_reasons.append("model_unconfigured")
+        if adapter_last_error:
+            degraded_reasons.append(f"adapter_error:{adapter_last_error}")
+        if worker_last_error:
+            degraded_reasons.append(f"worker_error:{worker_last_error}")
+        if not worker_running and runtime_started and not worker_last_error:
+            degraded_reasons.append("worker_not_running")
+
+        status = "Degraded" if degraded_reasons else "Healthy"
+        role_health.append(
+            {
+                "role": role,
+                "status": status,
+                "provider": ai_provider,
+                "model": model or None,
+                "reason": degraded_reasons[0] if degraded_reasons else "ok",
+            }
+        )
+
+    llm_overall = "Degraded" if any(item["status"] == "Degraded" for item in role_health) else "Healthy"
+
+    halt_message = None
+    if halted:
+        halt_message = (
+            "System halted: strict real-data mode detected provider fallback/failure. "
+            "Signal generation, task orchestration, and trade execution are blocked until resolved."
+        )
+
+    return {
+        "timestamp": _utc_now().isoformat(),
+        "orchestration": {
+            "label": "Orchestration",
+            "status": orchestration_status,
+            "reason": orchestration_reason,
+        },
+        "data_source": {
+            "label": "Data Source",
+            "status": data_source_status,
+            "strict_real_data_only": bool(data_integrity.get("strict_real_data_only")),
+            "providers": data_integrity.get("providers") if isinstance(data_integrity.get("providers"), list) else [],
+            "last_event": data_integrity.get("last_event") if isinstance(data_integrity.get("last_event"), dict) else None,
+        },
+        "execution_mode": {
+            "label": "Execution Mode",
+            "status": execution_mode_status,
+            "broker": str(settings.BROKER),
+        },
+        "llm_agent_health": {
+            "label": "LLM Agent Health",
+            "status": llm_overall,
+            "by_role": role_health,
+        },
+        "halt": {
+            "halted": halted,
+            "reason": halt_reason,
+            "halted_at": halted_at,
+            "message": halt_message,
+        },
+    }
+
+
+@router.get("/agents/workers/status", response_model=dict)
+async def get_agents_status():
+    runtime = fund_agent_runtime.status()
+    workers = runtime.get("workers") or []
+    mapped: list[AgentWorkerStatus] = []
+
+    for worker in workers:
+        role = str(worker.get("role") or "unknown")
+        completed = _safe_int(worker.get("completed_count"))
+        failed = _safe_int(worker.get("failed_count"))
+        blocked = _safe_int(worker.get("blocked_count"))
+        total = completed + failed + blocked
+        success_rate = (completed / total) if total > 0 else 1.0
+        status = "error" if worker.get("last_error") else ("running" if worker.get("running") else "idle")
+
+        mapped.append(
+            AgentWorkerStatus(
+                agent_id=str(worker.get("last_task_id") or f"{role}_agent"),
+                role=role,
+                status=status,
+                task_count=total,
+                success_rate=round(success_rate, 4),
+                last_heartbeat=_to_datetime(worker.get("last_heartbeat_at")),
+            )
+        )
+
+    return {
+        "workers": [item.model_dump(mode="json") for item in mapped],
+        "runtime_started": bool(runtime.get("started")),
+        "autopilot": runtime.get("autopilot", {}),
+    }
+
+
+@router.get("/agents/tasks/active", response_model=dict)
+async def get_active_tasks():
+    rows = firm_orchestrator.list_active_tasks()
+    tasks = [
+        ActiveTask(
+            task_id=str(item.get("task_id") or uuid.uuid4().hex),
+            agent_id=str(item.get("agent_id") or "unknown_agent"),
+            task_type=str(item.get("role") or item.get("task_type") or "task"),
+            status=str(item.get("status") or "queued"),
+            priority=_safe_int(item.get("priority"), 5),
+            created_at=_to_datetime(item.get("created_at")),
+        ).model_dump(mode="json")
+        for item in rows
+    ]
+    return {"tasks": tasks}
+
+
+@router.get("/decisions/pending", response_model=dict)
+async def get_pending_decisions():
+    rows = firm_orchestrator.list_pending_decisions()
+    decisions: list[dict[str, Any]] = []
+
+    for row in rows:
+        decision_id = str(row.get("decision_id") or "")
+        created_at = _to_datetime(row.get("created_at"))
+        ctx = _decision_context(decision_id)
+
+        decisions.append(
+            PendingDecision(
+                decision_id=decision_id,
+                agent_id=str(row.get("agent_id") or "fund_manager_agent"),
+                symbol=str(ctx.get("symbol") or "N/A"),
+                side=str(ctx.get("side") or "buy"),
+                quantity=_safe_float(ctx.get("quantity"), 0.0),
+                confidence=_safe_float(ctx.get("conviction"), 0.5),
+                thesis=str(ctx.get("statement") or f"Decision {decision_id}"),
+                sleeve=str(row.get("sleeve") or ctx.get("sleeve") or "tactical"),
+                created_at=created_at,
+                expires_at=created_at + timedelta(minutes=30),
+            ).model_dump(mode="json")
+        )
+
+    return {"decisions": decisions}
+
+
+@router.post("/decisions/{decision_id}/approve")
+async def approve_decision(decision_id: str):
+    decision = next((item for item in decision_ledger.list_decisions() if item.decision_id == decision_id), None)
+    if decision is None:
+        raise HTTPException(status_code=404, detail="decision_not_found")
+
+    decision_ledger.update_status(
+        decision_id,
+        "approved",
+        {
+            "approved_by": "api.admin",
+            "approved_at": _utc_now().isoformat(),
+            "decision_id": decision_id,
+        },
+    )
+    audit_log.record(
+        "decision.manual_approved",
+        {
+            "decision_id": decision_id,
+            "agent_id": "api.admin",
+            "run_id": decision.run_id,
+        },
+    )
+    return {"status": "approved", "decision_id": decision_id}
+
+
+@router.post("/decisions/{decision_id}/reject")
+async def reject_decision(decision_id: str):
+    decision = next((item for item in decision_ledger.list_decisions() if item.decision_id == decision_id), None)
+    if decision is None:
+        raise HTTPException(status_code=404, detail="decision_not_found")
+
+    decision_ledger.update_status(
+        decision_id,
+        "blocked",
+        {
+            "reason": "manual_reject",
+            "rejected_by": "api.admin",
+            "rejected_at": _utc_now().isoformat(),
+            "decision_id": decision_id,
+        },
+    )
+    audit_log.record(
+        "decision.manual_rejected",
+        {
+            "decision_id": decision_id,
+            "agent_id": "api.admin",
+            "run_id": decision.run_id,
+            "blocked_reasons": ["manual_reject"],
+        },
+    )
+    return {"status": "rejected", "decision_id": decision_id}
+
+
+@router.get("/sleeves/budgets", response_model=dict)
+async def get_sleeve_budgets():
+    payload = firm_orchestrator.sleeve_budget_status()
+    runs = payload.get("runs") or []
+    sleeves: list[dict[str, Any]] = []
+
+    if runs:
+        latest = runs[-1]
+        rows = latest.get("sleeves") or {}
+        for sleeve_id, row in rows.items():
+            allocated = _safe_float((row or {}).get("allocated_usd"), 0.0)
+            used = _safe_float((row or {}).get("used_usd"), 0.0)
+            remaining = _safe_float((row or {}).get("remaining_usd"), max(0.0, allocated - used))
+            sleeves.append(
+                SleeveAllocation(
+                    sleeve_id=str(sleeve_id),
+                    total_capital=round(allocated, 2),
+                    allocated=round(used, 2),
+                    available=round(remaining, 2),
+                    active_positions=0,
+                    pnl=0.0,
+                ).model_dump(mode="json")
+            )
+    else:
+        defaults = payload.get("configured_defaults") or {}
+        total = _safe_float(defaults.get("total_capital_usd"), 0.0)
+        reserve = _safe_float(defaults.get("reserve_cash_usd"), 0.0)
+        deployable = max(0.0, total - reserve)
+        weights = defaults.get("weights") if isinstance(defaults.get("weights"), dict) else {}
+        for sleeve_id in ("long_term", "recurring", "tactical"):
+            cap = deployable * _safe_float(weights.get(sleeve_id), 0.0)
+            sleeves.append(
+                SleeveAllocation(
+                    sleeve_id=sleeve_id,
+                    total_capital=round(cap, 2),
+                    allocated=0.0,
+                    available=round(cap, 2),
+                    active_positions=0,
+                    pnl=0.0,
+                ).model_dump(mode="json")
+            )
+
+    return {"sleeves": sleeves}
+
+
+@router.get("/audit/orders/{order_id}/timeline", response_model=dict)
+async def get_order_audit_timeline(order_id: str):
+    rows = firm_orchestrator.audit_timeline_for_order(order_id)
+    events = [
+        AuditEvent(
+            event_id=str(item.get("event_id") or uuid.uuid4().hex),
+            timestamp=_to_datetime(item.get("timestamp")),
+            event_type=str(item.get("event_type") or "event"),
+            details=item.get("payload") if isinstance(item.get("payload"), dict) else {},
+        ).model_dump(mode="json")
+        for item in rows
+    ]
+    return {"events": events}
+
+
+@router.get("/lineage/recent", response_model=dict)
+async def get_recent_lineage(limit: int = Query(20, ge=1, le=200)):
+    # Pull a large-enough recent window and aggregate signal_pack -> decision -> order chains by run_id.
+    history = firm_orchestrator.list_task_history(limit=max(1200, limit * 120))
+    by_run: dict[str, dict[str, Any]] = {}
+
+    for row in history:
+        run_id = str(row.get("run_id") or "").strip()
+        if not run_id:
+            continue
+        ts = _to_datetime(row.get("ts"))
+        role = str(row.get("role") or "").strip()
+        status = str(row.get("status") or "").strip()
+        event = str(row.get("event") or "").strip()
+        details = row.get("details") if isinstance(row.get("details"), dict) else {}
+        payload = row.get("payload") if isinstance(row.get("payload"), dict) else {}
+
+        state = by_run.setdefault(
+            run_id,
+            {
+                "run_id": run_id,
+                "started_at": ts,
+                "updated_at": ts,
+                "signal_pack_id": None,
+                "symbol": None,
+                "analyst_completed_roles": set(),
+                "analyst_expected_roles": set(),
+                "fund_manager_status": "unknown",
+                "trader_status": "unknown",
+                "decision_id": None,
+                "order_id": None,
+                "blocked_reasons": [],
+                "blog_post_ids": [],
+            },
+        )
+
+        if ts < state["started_at"]:
+            state["started_at"] = ts
+        if ts > state["updated_at"]:
+            state["updated_at"] = ts
+
+        if role in ANALYST_ROLE_SET:
+            state["analyst_expected_roles"].add(role)
+            if event == "status_update" and status == "completed":
+                state["analyst_completed_roles"].add(role)
+
+        for source in (details, payload):
+            signal_pack_id = str(source.get("signal_pack_id") or "").strip()
+            if signal_pack_id and not state["signal_pack_id"]:
+                state["signal_pack_id"] = signal_pack_id
+            symbol = str(source.get("symbol") or "").strip().upper()
+            if symbol and not state["symbol"]:
+                state["symbol"] = symbol
+            execution = source.get("execution") if isinstance(source.get("execution"), dict) else {}
+            intent = execution.get("intent") if isinstance(execution.get("intent"), dict) else {}
+            nested_symbol = str(intent.get("symbol") or "").strip().upper()
+            if nested_symbol and not state["symbol"]:
+                state["symbol"] = nested_symbol
+
+        if role == "fund_manager" and event == "status_update":
+            state["fund_manager_status"] = status or state["fund_manager_status"]
+
+        if role == "trader" and event == "status_update" and status in {"completed", "blocked", "failed"}:
+            trader_status = str(details.get("status") or "").strip().lower() or status
+            state["trader_status"] = trader_status
+            decision_id = str(details.get("decision_id") or "").strip()
+            if decision_id:
+                state["decision_id"] = decision_id
+            order_id = details.get("order_id")
+            if order_id is None:
+                execution = details.get("execution") if isinstance(details.get("execution"), dict) else {}
+                order = execution.get("order") if isinstance(execution.get("order"), dict) else {}
+                order_id = order.get("id")
+            if order_id is not None:
+                state["order_id"] = str(order_id)
+            reasons = details.get("reasons") if isinstance(details.get("reasons"), list) else []
+            if not reasons:
+                detail_reason = details.get("reason")
+                if detail_reason:
+                    reasons = [detail_reason]
+            if not reasons:
+                execution = details.get("execution") if isinstance(details.get("execution"), dict) else {}
+                execution_reason = execution.get("reason")
+                if execution_reason:
+                    reasons = [execution_reason]
+            if reasons:
+                state["blocked_reasons"] = [str(reason) for reason in reasons if str(reason).strip()]
+
+        if role == "blog_writer" and event == "status_update":
+            post_ids = details.get("post_ids") if isinstance(details.get("post_ids"), list) else []
+            for post_id in post_ids:
+                pid = str(post_id).strip()
+                if pid and pid not in state["blog_post_ids"]:
+                    state["blog_post_ids"].append(pid)
+
+    rows: list[dict[str, Any]] = []
+    for _, state in by_run.items():
+        expected_roles = sorted(state["analyst_expected_roles"] or [])
+        completed_roles = sorted(state["analyst_completed_roles"] or [])
+        rows.append(
+            LineageRow(
+                run_id=state["run_id"],
+                started_at=state["started_at"],
+                updated_at=state["updated_at"],
+                signal_pack_id=state["signal_pack_id"],
+                symbol=state["symbol"],
+                analyst_completed=len(completed_roles),
+                analyst_expected=len(expected_roles) if expected_roles else len(ANALYST_ROLE_SET),
+                fund_manager_status=state["fund_manager_status"],
+                trader_status=state["trader_status"],
+                decision_id=state["decision_id"],
+                order_id=state["order_id"],
+                blocked_reasons=list(state["blocked_reasons"]),
+                blog_post_ids=list(state["blog_post_ids"]),
+            ).model_dump(mode="json")
+        )
+
+    rows.sort(key=lambda item: item.get("updated_at", ""), reverse=True)
+    return {"rows": rows[:limit], "total": len(rows), "limit": limit}
+
+
+@router.get("/lineage/run/{run_id}", response_model=LineageRunDetail)
+async def get_lineage_run_detail(run_id: str, limit: int = Query(300, ge=20, le=2000)):
+    run_key = str(run_id or "").strip()
+    if not run_key:
+        raise HTTPException(status_code=400, detail="invalid_run_id")
+
+    history = firm_orchestrator.list_task_history(limit=max(1000, limit), run_id=run_key)
+    if not history:
+        raise HTTPException(status_code=404, detail="run_not_found")
+
+    summary_state: dict[str, Any] = {
+        "run_id": run_key,
+        "started_at": _to_datetime(history[0].get("ts")),
+        "updated_at": _to_datetime(history[-1].get("ts")),
+        "signal_pack_id": None,
+        "symbol": None,
+        "analyst_completed_roles": set(),
+        "analyst_expected_roles": set(),
+        "fund_manager_status": "unknown",
+        "trader_status": "unknown",
+        "decision_id": None,
+        "order_id": None,
+        "blocked_reasons": [],
+        "blog_post_ids": [],
+    }
+
+    related_report_ids: set[str] = set()
+    related_blog_ids: set[str] = set()
+    fallback_decision_id: str | None = summary_state.get("decision_id")
+
+    normalized_events: list[dict[str, Any]] = []
+    for row in history:
+        ts = _to_datetime(row.get("ts"))
+        if ts < summary_state["started_at"]:
+            summary_state["started_at"] = ts
+        if ts > summary_state["updated_at"]:
+            summary_state["updated_at"] = ts
+
+        role = str(row.get("role") or "").strip()
+        status = str(row.get("status") or "").strip()
+        event = str(row.get("event") or "").strip()
+        details = row.get("details") if isinstance(row.get("details"), dict) else {}
+        payload = row.get("payload") if isinstance(row.get("payload"), dict) else {}
+
+        if role in ANALYST_ROLE_SET:
+            summary_state["analyst_expected_roles"].add(role)
+            if event == "status_update" and status == "completed":
+                summary_state["analyst_completed_roles"].add(role)
+
+        for source in (details, payload):
+            signal_pack_id = str(source.get("signal_pack_id") or "").strip()
+            if signal_pack_id and not summary_state["signal_pack_id"]:
+                summary_state["signal_pack_id"] = signal_pack_id
+            symbol = str(source.get("symbol") or "").strip().upper()
+            if symbol and not summary_state["symbol"]:
+                summary_state["symbol"] = symbol
+            execution = source.get("execution") if isinstance(source.get("execution"), dict) else {}
+            intent = execution.get("intent") if isinstance(execution.get("intent"), dict) else {}
+            nested_symbol = str(intent.get("symbol") or "").strip().upper()
+            if nested_symbol and not summary_state["symbol"]:
+                summary_state["symbol"] = nested_symbol
+
+        if role == "fund_manager" and event == "status_update":
+            summary_state["fund_manager_status"] = status or summary_state["fund_manager_status"]
+
+        if role == "trader" and event == "status_update" and status in {"completed", "blocked", "failed"}:
+            trader_status = str(details.get("status") or "").strip().lower() or status
+            summary_state["trader_status"] = trader_status
+            decision_id = str(details.get("decision_id") or "").strip()
+            if decision_id:
+                summary_state["decision_id"] = decision_id
+            order_id = details.get("order_id")
+            if order_id is None:
+                execution = details.get("execution") if isinstance(details.get("execution"), dict) else {}
+                order = execution.get("order") if isinstance(execution.get("order"), dict) else {}
+                order_id = order.get("id")
+            if order_id is not None:
+                summary_state["order_id"] = str(order_id)
+            reasons = details.get("reasons") if isinstance(details.get("reasons"), list) else []
+            if not reasons and details.get("reason"):
+                reasons = [details.get("reason")]
+            if not reasons:
+                execution = details.get("execution") if isinstance(details.get("execution"), dict) else {}
+                if execution.get("reason"):
+                    reasons = [execution.get("reason")]
+            if reasons:
+                summary_state["blocked_reasons"] = [str(reason) for reason in reasons if str(reason).strip()]
+
+        if role == "blog_writer" and event == "status_update":
+            post_ids = details.get("post_ids") if isinstance(details.get("post_ids"), list) else []
+            for post_id in post_ids:
+                pid = str(post_id).strip()
+                if pid and pid not in summary_state["blog_post_ids"]:
+                    summary_state["blog_post_ids"].append(pid)
+
+        if details.get("report_id"):
+            related_report_ids.add(str(details.get("report_id")))
+        for report_id in (details.get("report_ids") if isinstance(details.get("report_ids"), list) else []):
+            rid = str(report_id).strip()
+            if rid:
+                related_report_ids.add(rid)
+        for report_id in (payload.get("report_ids") if isinstance(payload.get("report_ids"), list) else []):
+            rid = str(report_id).strip()
+            if rid:
+                related_report_ids.add(rid)
+        if details.get("composite_report_id"):
+            related_report_ids.add(str(details.get("composite_report_id")))
+        for post_id in (details.get("post_ids") if isinstance(details.get("post_ids"), list) else []):
+            pid = str(post_id).strip()
+            if pid:
+                related_blog_ids.add(pid)
+        decision_id = str(details.get("decision_id") or "").strip()
+        if decision_id:
+            fallback_decision_id = decision_id
+
+        normalized_events.append(
+            {
+                "task_id": str(row.get("task_id") or ""),
+                "role": role,
+                "agent_id": str(row.get("agent_id") or ""),
+                "status": status,
+                "event": event,
+                "timestamp": ts.isoformat(),
+                "details": details,
+                "payload": payload,
+            }
+        )
+
+    normalized_events.sort(key=lambda item: item.get("timestamp") or "", reverse=True)
+    limited_events = normalized_events[:limit]
+
+    summary = LineageRow(
+        run_id=summary_state["run_id"],
+        started_at=summary_state["started_at"],
+        updated_at=summary_state["updated_at"],
+        signal_pack_id=summary_state["signal_pack_id"],
+        symbol=summary_state["symbol"],
+        analyst_completed=len(sorted(summary_state["analyst_completed_roles"])),
+        analyst_expected=(
+            len(sorted(summary_state["analyst_expected_roles"]))
+            if summary_state["analyst_expected_roles"]
+            else len(ANALYST_ROLE_SET)
+        ),
+        fund_manager_status=summary_state["fund_manager_status"],
+        trader_status=summary_state["trader_status"],
+        decision_id=summary_state["decision_id"],
+        order_id=summary_state["order_id"],
+        blocked_reasons=list(summary_state["blocked_reasons"]),
+        blog_post_ids=list(summary_state["blog_post_ids"]),
+    )
+
+    decision_id = str(summary.decision_id or fallback_decision_id or "").strip() or None
+    decision_detail = LineageDecisionDetail(decision_id=decision_id)
+    if decision_id:
+        decision = next((item for item in decision_ledger.list_decisions() if item.decision_id == decision_id), None)
+        if decision is not None:
+            decision_detail = LineageDecisionDetail(
+                decision_id=decision.decision_id,
+                status=decision.status,
+                run_id=decision.run_id,
+                agent_id=decision.agent_id,
+                sleeve=decision.sleeve.value if decision.sleeve else None,
+                thesis_id=decision.thesis_id,
+                risk_id=decision.risk_id,
+                intent_id=decision.intent_id,
+            )
+
+    order_id = summary.order_id
+    audit_timeline: list[dict[str, Any]] = []
+    if order_id:
+        audit_timeline = firm_orchestrator.audit_timeline_for_order(str(order_id))
+    elif decision_id:
+        for row in decision_ledger.list_events(limit=-1):
+            if str(row.get("decision_id") or "") != decision_id:
+                continue
+            audit_timeline.append(
+                {
+                    "source": "decision_ledger",
+                    "event_id": row.get("event_id"),
+                    "event_type": row.get("event_type"),
+                    "timestamp": row.get("ts"),
+                    "payload": row.get("payload") if isinstance(row.get("payload"), dict) else {},
+                }
+            )
+    audit_timeline.sort(key=lambda item: item.get("timestamp") or "")
+
+    related_blog_posts: list[dict[str, Any]] = []
+    for blog_id in sorted(related_blog_ids):
+        try:
+            post = storage_db.load_blog_post(blog_id)
+        except Exception:
+            post = None
+        if not post:
+            continue
+        related_blog_posts.append(
+            {
+                "id": post.get("id"),
+                "slug": post.get("slug"),
+                "title": post.get("title"),
+                "published_at": post.get("published_at"),
+            }
+        )
+
+    return LineageRunDetail(
+        run_id=run_key,
+        summary=summary,
+        decision=decision_detail,
+        related_research_report_ids=sorted(related_report_ids),
+        related_blog_post_ids=sorted(related_blog_ids),
+        related_blog_posts=related_blog_posts,
+        audit_timeline=audit_timeline[-200:],
+        task_events=limited_events,
+    )
+
+
+# ====================================================================
+# Research Endpoints (live-backed)
+# ====================================================================
+
+
+@research_router.get("/reports", response_model=dict)
+async def get_research_reports(
+    status: Optional[str] = Query(None, description="Filter by status: draft, published, archived"),
+    agent_role: Optional[str] = Query(None, description="Filter by agent role"),
+    asset: Optional[str] = Query(None, description="Filter by asset symbol"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+):
+    if status and status.lower() not in {"published", "all"}:
+        return {"reports": [], "total": 0, "limit": limit, "offset": offset}
+
+    raw = firm_orchestrator.list_recent_research_reports(limit=max(limit + offset, limit), symbol=asset)
+    mapped = [_map_live_report(item).model_dump(mode="json") for item in raw]
+
+    if agent_role:
+        agent_role_l = agent_role.lower()
+        mapped = [item for item in mapped if str(item.get("agent_role") or "").lower() == agent_role_l]
+
+    total = len(mapped)
+    paged = mapped[offset : offset + limit]
+    return {"reports": paged, "total": total, "limit": limit, "offset": offset}
+
+
+@research_router.get("/reports/{report_id}", response_model=ResearchReport)
+async def get_research_report_detail(report_id: str):
+    report = firm_orchestrator.get_research_report(report_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail="research_report_not_found")
+    return _map_live_report(report)
+
+
+@research_router.post("/reports")
+async def create_research_report(report: ResearchReportCreateIn):
+    run_id = report.run_id or f"run-research-api-{uuid.uuid4().hex[:10]}"
+    findings = tuple(report.findings or [report.summary])
+    refs = report.provenance.get("refs") if isinstance(report.provenance, dict) else None
+    provenance_refs: list[ProvenanceRef] = []
+    if isinstance(refs, list):
+        for item in refs:
+            if not isinstance(item, dict):
+                continue
+            source_type = str(item.get("source_type") or "research").strip().lower()
+            if source_type not in {"data", "research", "thesis", "risk", "execution", "allocation", "sentiment"}:
+                source_type = "research"
+            source_id = str(item.get("source_id") or "").strip()
+            if not source_id:
+                continue
+            provenance_refs.append(ProvenanceRef(source_type=source_type, source_id=source_id))
+
+    contract = ContractResearchReport(
+        run_id=run_id,
+        agent_id=report.agent_id,
+        asset_universe=tuple(str(asset).upper() for asset in report.asset_universe if str(asset).strip()),
+        summary=report.summary,
+        findings=findings,
+        confidence=Decimal(str(report.confidence)),
+        provenance=tuple(provenance_refs),
+    )
+    saved = firm_orchestrator.submit_research(contract)
+    return {
+        "status": "created",
+        "report_id": saved["report_id"],
+        "run_id": run_id,
+        "published_at": saved.get("created_at") or _utc_now().isoformat(),
+    }
+
+
+@research_router.get("/sentiment/current", response_model=dict)
+async def get_current_sentiment():
+    rows = sentiment_ingest.list_recent(limit=500)
+    by_symbol: dict[str, list[Any]] = {}
+    for row in rows:
+        by_symbol.setdefault(row.asset, []).append(row)
+
+    snapshots: list[dict[str, Any]] = []
+    for symbol, items in by_symbol.items():
+        items.sort(key=lambda x: x.created_at, reverse=True)
+        latest = items[0]
+        sample = items[:20]
+        avg_score = sum(item.sentiment_score for item in sample) / max(1, len(sample))
+        avg_conf = sum(item.provenance.confidence for item in sample) / max(1, len(sample))
+        snapshots.append(
+            {
+                "symbol": symbol,
+                "sentiment_score": round(avg_score, 6),
+                "confidence": round(avg_conf, 6),
+                "source": latest.provenance.source,
+                "created_at": latest.created_at.isoformat(),
+            }
+        )
+
+    snapshots.sort(key=lambda item: item.get("created_at", ""), reverse=True)
+    return {"snapshots": snapshots}
+
+
+@research_router.get("/sentiment/history/{symbol}")
+async def get_sentiment_history(
+    symbol: str,
+    days: int = Query(30, ge=1, le=365),
+):
+    cutoff = _utc_now() - timedelta(days=days)
+    rows = sentiment_ingest.list_by_asset(symbol, limit=10000)
+    history = [
+        {
+            "date": row.created_at.isoformat(),
+            "sentiment_score": round(row.sentiment_score, 6),
+            "confidence": round(row.provenance.confidence, 6),
+            "source": row.provenance.source,
+        }
+        for row in rows
+        if row.created_at >= cutoff
+    ]
+    history.sort(key=lambda item: item["date"])
+    return {"symbol": symbol.upper(), "history": history}
+
+
+# ====================================================================
+# Blog Endpoints (live-backed)
+# ====================================================================
+
+
+@blog_router.get("/posts", response_model=dict)
+async def get_blog_posts(
+    category: Optional[str] = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+):
+    return blog_service.list_posts(limit=limit, offset=offset, category=category)
+
+
+@blog_router.get("/posts/{post_id}", response_model=dict)
+async def get_blog_post(post_id: str):
+    post = blog_service.get_post_detail(post_id, increment_views=True)
+    if post is None:
+        raise HTTPException(status_code=404, detail="blog_post_not_found")
+    return post
+
+
+@blog_router.post("/posts/generate", response_model=dict)
+async def generate_blog_post(body: BlogGenerateIn):
+    run_id = body.run_id or f"run-blog-agent-{uuid.uuid4().hex[:10]}"
+    queue_result = fund_agent_runtime.enqueue_ceo_command(
+        run_id=run_id,
+        command=body.command,
+        agent_id="ceo",
+        target_role="blog_writer",
+        payload={
+            "report_ids": list(body.report_ids or []),
+            "symbol": body.symbol,
+            "command": body.command,
+            "trigger_source": "api.blog.generate",
+        },
+        priority=max(0, min(10, int(body.priority))),
+    )
+    return {
+        "accepted": True,
+        "run_id": run_id,
+        "queued": queue_result,
+    }

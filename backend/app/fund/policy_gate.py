@@ -104,6 +104,11 @@ class PolicyGate:
                 if intent.side == "buy" and notional > available_cash:
                     blocked.append("insufficient_cash")
 
+            remaining_budget = _safe_float(intent.metadata.get("sleeve_budget_remaining_usd"))
+            allocated_budget = _safe_float(intent.metadata.get("sleeve_budget_allocated_usd"))
+            if intent.side == "buy" and allocated_budget > 0 and notional > remaining_budget:
+                blocked.append("sleeve_budget_exceeded")
+
             sleeve = intent.metadata.get("sleeve")
             if sleeve is not None and str(sleeve).strip() == "":
                 blocked.append("invalid_sleeve")

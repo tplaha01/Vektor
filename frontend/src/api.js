@@ -81,3 +81,50 @@ export async function getAnalytics() {
   if (!res.ok) throw new Error("analytics fetch failed");
   return res.json();
 }
+
+export async function getFundWorkerStatus() {
+  const res = await fetch(`${BASE}/fund/agents/workers/status`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("fund worker status fetch failed");
+  return res.json();
+}
+
+export async function getFundActiveTasks() {
+  const res = await fetch(`${BASE}/fund/agents/tasks/active`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("fund active tasks fetch failed");
+  return res.json();
+}
+
+export async function getFundPendingDecisions() {
+  const res = await fetch(`${BASE}/fund/decisions/pending`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("fund pending decisions fetch failed");
+  return res.json();
+}
+
+export async function getFundBlockedTrades(limit = 20) {
+  const res = await fetch(`${BASE}/fund/trades/blocked?limit=${limit}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("fund blocked trades fetch failed");
+  return res.json();
+}
+
+export async function getFundKnowledgeStats() {
+  const res = await fetch(`${BASE}/fund/knowledge/stats`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("fund knowledge stats fetch failed");
+  return res.json();
+}
+
+export async function getFundSleeveBudgets(runId = "") {
+  const query = runId ? `?run_id=${encodeURIComponent(runId)}` : "";
+  const res = await fetch(`${BASE}/fund/sleeves/budgets${query}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("fund sleeve budgets fetch failed");
+  return res.json();
+}
+
+export async function kickFundAutopilot(runId = "") {
+  const res = await fetch(`${BASE}/fund/agents/autopilot/kick`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(runId ? { run_id: runId } : {}),
+  });
+  if (!res.ok) throw new Error("fund autopilot kick failed");
+  return res.json();
+}

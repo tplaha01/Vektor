@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from threading import RLock
 from typing import Any, Callable, Dict, List
 
+from app.config import get_settings
 from app.fund.audit_log import AuditLog, audit_log
 
 
@@ -49,13 +50,18 @@ class OpenClawIngestService:
         log: AuditLog | None = None,
         max_payload_bytes: int = 256_000,
         clock: Callable[[], datetime] | None = None,
+        event_sink: Callable[[dict[str, Any]], Any] | None = None,
     ) -> None:
-        configured = token if token is not None else os.getenv("OPENCLAW_INGEST_TOKEN")
+        settings = get_settings()
+        configured = token if token is not None else (
+            os.getenv("OPENCLAW_INGEST_TOKEN") or settings.OPENCLAW_INGEST_TOKEN
+        )
         self._token = configured
         self._log = log or audit_log
         self._max_payload_bytes = max_payload_bytes
         self._clock = clock or _utc_now
         self._lock = RLock()
+        self._event_sink = event_sink
 
         self._seq = 0
         self._accepted: List[Dict[str, Any]] = []
@@ -118,6 +124,17 @@ class OpenClawIngestService:
                 "decision_id": payload.get("decision_id"),
                 "agent_id": payload.get("agent_id"),
             },
+        )
+        self._emit_event(
+            {
+                "event_id": record["ingest_id"],
+                "event_type": "openclaw.ingest.accepted",
+                "received_at": now,
+                "run_id": payload.get("run_id"),
+                "decision_id": payload.get("decision_id"),
+                "agent_id": payload.get("agent_id"),
+                "payload": record,
+            }
         )
         return {"accepted": True, "ingest_id": ingest_id, "kind": normalized_kind}
 
@@ -203,7 +220,29 @@ class OpenClawIngestService:
                 "agent_id": payload.get("agent_id") if isinstance(payload, dict) else None,
             },
         )
+        self._emit_event(
+            {
+                "event_id": reject_id,
+                "event_type": "openclaw.ingest.rejected",
+                "received_at": occurred_at,
+                "run_id": payload.get("run_id") if isinstance(payload, dict) else None,
+                "decision_id": payload.get("decision_id") if isinstance(payload, dict) else None,
+                "agent_id": payload.get("agent_id") if isinstance(payload, dict) else None,
+                "payload": entry,
+            }
+        )
         return {"accepted": False, "reason": reason, "kind": kind}
+
+    def set_event_sink(self, sink: Callable[[dict[str, Any]], Any] | None) -> None:
+        self._event_sink = sink
+
+    def _emit_event(self, event: dict[str, Any]) -> None:
+        if self._event_sink is None:
+            return
+        try:
+            self._event_sink(dict(event))
+        except Exception:
+            pass
 
 
 openclaw_ingest_service = OpenClawIngestService()
