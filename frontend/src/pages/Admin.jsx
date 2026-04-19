@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { AlertCircle, BarChart3, Bot, TrendingUp, Activity, Shield, FileText, Settings, Menu, X, RefreshCw } from 'lucide-react';
+import { AlertCircle, BarChart3, Bot, TrendingUp, Activity, Shield, FileText, Settings, Menu, X, RefreshCw, ExternalLink, Globe, BookOpen } from 'lucide-react';
 import '../styles/admin.css';
 import { adminAPI } from '../api/adminAPI';
 import { useToast } from '../components/common/Toast';
@@ -324,6 +324,22 @@ const Admin = () => {
                 </button>
               );
             })}
+            
+            <div style={{ marginTop: 'auto', padding: '20px 0', borderTop: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--muted)', padding: '0 16px', marginBottom: '4px', fontWeight: 'bold' }}>Quick Links</div>
+              <a href="http://localhost:3000" target="_blank" rel="noreferrer" className="nav-item">
+                <Globe size={18} className="nav-icon" />
+                <span className="nav-label">Landing Page</span>
+              </a>
+              <a href="http://localhost:3001" target="_blank" rel="noreferrer" className="nav-item">
+                <BookOpen size={18} className="nav-icon" />
+                <span className="nav-label">Research Blog</span>
+              </a>
+              <a href="/" target="_blank" rel="noreferrer" className="nav-item">
+                <ExternalLink size={18} className="nav-icon" />
+                <span className="nav-label">Public PnL</span>
+              </a>
+            </div>
           </nav>
         </aside>
 

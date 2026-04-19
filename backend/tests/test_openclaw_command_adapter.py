@@ -147,6 +147,36 @@ class _StubRuntime:
         return {"accepted": True, "run_id": run_id or "run-kick-test"}
 
 
+class _StubOrchestrator:
+    def __init__(self) -> None:
+        self.task_history_calls = []
+        self.blocked_calls = []
+        self.budget_calls = []
+
+    def list_active_tasks(self):
+        return [{"task_id": "task-active-1", "run_id": "run-a", "role": "technical_analyst", "status": "running"}]
+
+    def list_task_history(self, *, limit: int = 200, run_id: str | None = None, agent_id: str | None = None, role: str | None = None, status: str | None = None):
+        self.task_history_calls.append(
+            {"limit": limit, "run_id": run_id, "agent_id": agent_id, "role": role, "status": status}
+        )
+        return [{"task_id": "task-hist-1", "run_id": run_id or "run-h", "role": role or "fund_manager", "status": status or "completed"}]
+
+    def list_pending_decisions(self):
+        return [{"decision_id": "dec-1", "status": "proposed"}]
+
+    def list_blocked_trades(self, limit: int = 100):
+        self.blocked_calls.append(limit)
+        return [{"decision_id": "dec-blocked-1", "reason": "max_position_exceeded"}]
+
+    def sleeve_budget_status(self, run_id: str | None = None):
+        self.budget_calls.append(run_id)
+        return {"run_id": run_id, "sleeves": {"tactical": {"remaining_usd": 1000.0}}}
+
+    def knowledge_stats(self):
+        return {"event_count": 42, "entity_count": 8}
+
+
 def test_openclaw_command_adapter_rejects_unauthorized():
     runtime = _StubRuntime()
     adapter = OpenClawCommandAdapter(
@@ -285,6 +315,35 @@ def test_openclaw_command_adapter_routes_blog_writer():
     assert runtime.calls[0]["target_role"] == "blog_writer"
 
 
+def test_openclaw_command_adapter_prioritizes_swarm_over_blog_when_both_present():
+    runtime = _StubRuntime()
+    adapter = OpenClawCommandAdapter(
+        runtime=runtime,
+        token="adapter-secret",
+        enabled=True,
+        channel_allowlist=["vektor-ceo"],
+        role_allowlist={"blog_writer", "signal_swarm", "insight_researcher"},
+        channel_role_policies={"vektor-ceo": {"blog_writer", "signal_swarm", "insight_researcher"}},
+        fund_manager_mode=False,
+        log=AuditLog(),
+    )
+
+    accepted = adapter.route_message(
+        {
+            "platform": "discord",
+            "channel_name": "vektor-ceo",
+            "sender_name": "ceo",
+            "text": "run full signal swarm on NVDA and publish a blog",
+            "run_id": "run-ocmd-swarm-priority-1",
+        },
+        token="adapter-secret",
+    )
+    assert accepted["accepted"] is True
+    assert accepted["role"] == "signal_swarm"
+    assert len(runtime.swarm_calls) == 1
+    assert runtime.swarm_calls[0]["symbol"] == "NVDA"
+
+
 def test_openclaw_command_adapter_fund_manager_mode_routes_analyst_to_swarm():
     runtime = _StubRuntime()
     adapter = OpenClawCommandAdapter(
@@ -323,9 +382,11 @@ def test_openclaw_command_adapter_fund_manager_mode_routes_analyst_to_swarm():
 
 def test_openclaw_command_adapter_routes_runtime_pause_control(monkeypatch):
     runtime = _StubRuntime()
+    orchestrator = _StubOrchestrator()
     knowledge_events = _stub_knowledge_graph(monkeypatch)
     adapter = OpenClawCommandAdapter(
         runtime=runtime,
+        orchestrator=orchestrator,
         token="adapter-secret",
         enabled=True,
         channel_allowlist=["vektor-ceo"],
@@ -360,9 +421,11 @@ def test_openclaw_command_adapter_routes_runtime_pause_control(monkeypatch):
 
 def test_openclaw_command_adapter_rejects_resume_when_halted(monkeypatch):
     runtime = _StubRuntime()
+    orchestrator = _StubOrchestrator()
     knowledge_events = _stub_knowledge_graph(monkeypatch)
     adapter = OpenClawCommandAdapter(
         runtime=runtime,
+        orchestrator=orchestrator,
         token="adapter-secret",
         enabled=True,
         channel_allowlist=["vektor-ceo"],
@@ -397,10 +460,12 @@ def test_openclaw_command_adapter_rejects_resume_when_halted(monkeypatch):
 
 def test_openclaw_command_adapter_routes_runtime_status_control(monkeypatch):
     runtime = _StubRuntime()
+    orchestrator = _StubOrchestrator()
     runtime.started = False
     knowledge_events = _stub_knowledge_graph(monkeypatch)
     adapter = OpenClawCommandAdapter(
         runtime=runtime,
+        orchestrator=orchestrator,
         token="adapter-secret",
         enabled=True,
         channel_allowlist=["vektor-ceo"],
@@ -438,9 +503,11 @@ def test_openclaw_command_adapter_routes_runtime_status_control(monkeypatch):
 
 def test_openclaw_command_adapter_routes_clear_halt_control(monkeypatch):
     runtime = _StubRuntime()
+    orchestrator = _StubOrchestrator()
     knowledge_events = _stub_knowledge_graph(monkeypatch)
     adapter = OpenClawCommandAdapter(
         runtime=runtime,
+        orchestrator=orchestrator,
         token="adapter-secret",
         enabled=True,
         channel_allowlist=["vektor-ceo"],
@@ -482,9 +549,11 @@ def test_openclaw_command_adapter_routes_clear_halt_control(monkeypatch):
 
 def test_openclaw_command_adapter_routes_kick_autopilot_control(monkeypatch):
     runtime = _StubRuntime()
+    orchestrator = _StubOrchestrator()
     knowledge_events = _stub_knowledge_graph(monkeypatch)
     adapter = OpenClawCommandAdapter(
         runtime=runtime,
+        orchestrator=orchestrator,
         token="adapter-secret",
         enabled=True,
         channel_allowlist=["vektor-ceo"],
@@ -512,3 +581,84 @@ def test_openclaw_command_adapter_routes_kick_autopilot_control(monkeypatch):
     assert route_result["status"] == "accepted"
     assert runtime.kick_calls == 1
     assert knowledge_events[-1]["event_type"] == "runtime.control.kick_autopilot"
+
+
+def test_openclaw_command_adapter_routes_task_history_control(monkeypatch):
+    runtime = _StubRuntime()
+    orchestrator = _StubOrchestrator()
+    knowledge_events = _stub_knowledge_graph(monkeypatch)
+    adapter = OpenClawCommandAdapter(
+        runtime=runtime,
+        orchestrator=orchestrator,
+        token="adapter-secret",
+        enabled=True,
+        channel_allowlist=["vektor-ceo"],
+        role_allowlist={"fund_manager"},
+        channel_role_policies={"vektor-ceo": {"fund_manager"}},
+        fund_manager_mode=False,
+        log=AuditLog(),
+    )
+    monkeypatch.setattr(openclaw_adapter_module.data_integrity_guard, "halted", lambda: False)
+    monkeypatch.setattr(openclaw_adapter_module.data_integrity_guard, "halt_reason", lambda: None)
+
+    accepted = adapter.route_message(
+        {
+            "platform": "discord",
+            "channel_name": "vektor-ceo",
+            "sender_name": "ceo",
+            "text": "task history run_id=run-123 role=technical_analyst status=completed limit=25",
+            "run_id": "run-ocmd-control-history-1",
+        },
+        token="adapter-secret",
+    )
+    assert accepted["accepted"] is True
+    route_result = accepted["route_result"]
+    assert route_result["action"] == "task_history"
+    assert route_result["status"] == "reported"
+    assert route_result["limit"] == 25
+    assert route_result["count"] == 1
+    assert orchestrator.task_history_calls[-1] == {
+        "limit": 25,
+        "run_id": "run-123",
+        "agent_id": None,
+        "role": "technical_analyst",
+        "status": "completed",
+    }
+    assert knowledge_events[-1]["event_type"] == "runtime.control.task_history"
+
+
+def test_openclaw_command_adapter_routes_pending_decisions_control(monkeypatch):
+    runtime = _StubRuntime()
+    orchestrator = _StubOrchestrator()
+    knowledge_events = _stub_knowledge_graph(monkeypatch)
+    adapter = OpenClawCommandAdapter(
+        runtime=runtime,
+        orchestrator=orchestrator,
+        token="adapter-secret",
+        enabled=True,
+        channel_allowlist=["vektor-ceo"],
+        role_allowlist={"fund_manager"},
+        channel_role_policies={"vektor-ceo": {"fund_manager"}},
+        fund_manager_mode=False,
+        log=AuditLog(),
+    )
+    monkeypatch.setattr(openclaw_adapter_module.data_integrity_guard, "halted", lambda: False)
+    monkeypatch.setattr(openclaw_adapter_module.data_integrity_guard, "halt_reason", lambda: None)
+
+    accepted = adapter.route_message(
+        {
+            "platform": "discord",
+            "channel_name": "vektor-ceo",
+            "sender_name": "ceo",
+            "text": "pending decisions",
+            "run_id": "run-ocmd-control-pending-1",
+        },
+        token="adapter-secret",
+    )
+    assert accepted["accepted"] is True
+    route_result = accepted["route_result"]
+    assert route_result["action"] == "pending_decisions"
+    assert route_result["status"] == "reported"
+    assert route_result["count"] == 1
+    assert route_result["decisions"][0]["decision_id"] == "dec-1"
+    assert knowledge_events[-1]["event_type"] == "runtime.control.pending_decisions"

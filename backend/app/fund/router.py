@@ -404,6 +404,14 @@ async def openclaw_commands_rejections(
     return adapter.list_rejected(limit=limit)
 
 
+@router.get("/openclaw/commands/accepted")
+async def openclaw_commands_accepted(
+    limit: int = Query(default=100, ge=1, le=1000),
+    adapter: OpenClawCommandAdapter = Depends(get_openclaw_command_adapter),
+):
+    return adapter.list_accepted(limit=limit)
+
+
 @router.get("/openclaw/rejections")
 async def openclaw_rejections(
     limit: int = Query(default=100, ge=1, le=1000),

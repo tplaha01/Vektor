@@ -3,6 +3,7 @@ from __future__ import annotations
 import threading
 import time
 import os
+from contextlib import contextmanager
 from datetime import datetime, timedelta
 from typing import Callable, Dict, List
 
@@ -12,6 +13,15 @@ from app.config import get_settings
 from app.fund.runtime_guard import DataMode, data_integrity_guard
 
 settings = get_settings()
+
+_PROXY_ENV_KEYS = (
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "all_proxy",
+)
 
 
 def _is_test_mode() -> bool:
@@ -50,6 +60,28 @@ def _synthetic_history(symbol: str, bars: int) -> pd.DataFrame:
             }
         )
     return pd.DataFrame(rows)
+
+
+@contextmanager
+def _without_proxy_env():
+    """
+    Temporarily disable inherited proxy environment variables for provider SDK calls.
+    This prevents broken local proxy settings from forcing real-data requests through
+    invalid endpoints (for example 127.0.0.1:9).
+    """
+    previous: dict[str, str] = {}
+    removed: list[str] = []
+    for key in _PROXY_ENV_KEYS:
+        if key in os.environ:
+            previous[key] = os.environ[key]
+            removed.append(key)
+            os.environ.pop(key, None)
+    try:
+        yield
+    finally:
+        for key in removed:
+            if key in previous:
+                os.environ[key] = previous[key]
 
 
 class AlpacaRealtimeFeed:
@@ -284,12 +316,13 @@ class AlpacaRealtimeFeed:
         from alpaca.data.historical import StockHistoricalDataClient
         from alpaca.data.requests import StockLatestTradeRequest
 
-        client = StockHistoricalDataClient(
-            settings.ALPACA_API_KEY,
-            settings.ALPACA_SECRET_KEY,
-        )
-        req = StockLatestTradeRequest(symbol_or_symbols=symbol)
-        resp = client.get_stock_latest_trade(req)
+        with _without_proxy_env():
+            client = StockHistoricalDataClient(
+                settings.ALPACA_API_KEY,
+                settings.ALPACA_SECRET_KEY,
+            )
+            req = StockLatestTradeRequest(symbol_or_symbols=symbol)
+            resp = client.get_stock_latest_trade(req)
         if symbol in resp:
             return float(resp[symbol].price)
         return 0.0
@@ -299,16 +332,17 @@ class AlpacaRealtimeFeed:
         from alpaca.data.requests import StockBarsRequest
         from alpaca.data.timeframe import TimeFrame
 
-        client = StockHistoricalDataClient(
-            settings.ALPACA_API_KEY,
-            settings.ALPACA_SECRET_KEY,
-        )
-        req = StockBarsRequest(
-            symbol_or_symbols=symbol,
-            timeframe=TimeFrame.Day,
-            start=datetime.utcnow() - timedelta(days=bars * 2),
-        )
-        df = client.get_stock_bars(req).df
+        with _without_proxy_env():
+            client = StockHistoricalDataClient(
+                settings.ALPACA_API_KEY,
+                settings.ALPACA_SECRET_KEY,
+            )
+            req = StockBarsRequest(
+                symbol_or_symbols=symbol,
+                timeframe=TimeFrame.Day,
+                start=datetime.utcnow() - timedelta(days=bars * 2),
+            )
+            df = client.get_stock_bars(req).df
         if isinstance(df.index, pd.MultiIndex):
             df = df.xs(symbol, level="symbol")
         df = df.reset_index()

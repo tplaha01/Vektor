@@ -13,6 +13,7 @@ from app.config import get_settings
 from app.fund.agent_runtime import FundAgentRuntime, fund_agent_runtime
 from app.fund.audit_log import AuditLog, audit_log
 from app.fund.knowledge_graph import knowledge_graph
+from app.fund.orchestrator import FirmOrchestrator, firm_orchestrator
 from app.fund.runtime_guard import data_integrity_guard
 
 
@@ -80,10 +81,10 @@ def _infer_role(command: str) -> str:
     text = command.lower()
     if "research" in text and any(key in text for key in ("trade", "execute", "position", "portfolio")):
         return "signal_swarm"
-    if any(key in text for key in ("blog", "publish post", "write post", "write article", "newsletter")):
-        return "blog_writer"
     if any(key in text for key in ("swarm", "multi-signal", "full signal", "signal pack")):
         return "signal_swarm"
+    if any(key in text for key in ("blog", "publish post", "write post", "write article", "newsletter")):
+        return "blog_writer"
     if any(key in text for key in ("technical", "rsi", "macd", "ema", "atr")):
         return "technical_analyst"
     if any(key in text for key in ("fundamental", "valuation", "earnings", "fmp")):
@@ -170,6 +171,71 @@ def _parse_control_command(command: str) -> dict[str, Any] | None:
         "/fund runtime status",
         "/fund control status",
     )
+    workers_patterns = (
+        "workers status",
+        "agent workers status",
+        "agents workers status",
+        "/fund workers status",
+    )
+    active_tasks_patterns = (
+        "active tasks",
+        "tasks active",
+        "/fund tasks active",
+    )
+    task_history_patterns = (
+        "task history",
+        "tasks history",
+        "/fund tasks history",
+    )
+    pending_decisions_patterns = (
+        "pending decisions",
+        "decisions pending",
+        "/fund decisions pending",
+    )
+    blocked_trades_patterns = (
+        "blocked trades",
+        "trades blocked",
+        "/fund trades blocked",
+    )
+    sleeve_budgets_patterns = (
+        "sleeve budgets",
+        "sleeves budgets",
+        "budgets sleeves",
+        "/fund sleeves budgets",
+    )
+    knowledge_stats_patterns = (
+        "knowledge stats",
+        "kb stats",
+        "graph stats",
+        "/fund knowledge stats",
+    )
+    openclaw_health_patterns = (
+        "openclaw health",
+        "command adapter health",
+        "/fund openclaw health",
+    )
+    openclaw_rejections_patterns = (
+        "openclaw rejections",
+        "command rejections",
+        "/fund openclaw rejections",
+    )
+
+    def _parse_int_param(key: str, default: int, minimum: int, maximum: int) -> int:
+        match = re.search(rf"(?:^|\s){re.escape(key)}\s*[:=]\s*(\d+)\b", normalized)
+        if not match:
+            return default
+        try:
+            value = int(match.group(1))
+        except Exception:
+            return default
+        return max(minimum, min(maximum, value))
+
+    def _parse_text_param(key: str) -> str | None:
+        match = re.search(rf"(?:^|\s){re.escape(key)}\s*[:=]\s*([a-zA-Z0-9_.:-]+)\b", normalized)
+        if not match:
+            return None
+        value = str(match.group(1)).strip()
+        return value or None
 
     if any(phrase in normalized for phrase in pause_patterns):
         return {"action": "pause_runtime"}
@@ -181,6 +247,31 @@ def _parse_control_command(command: str) -> dict[str, Any] | None:
         return {"action": "kick_autopilot"}
     if any(phrase in normalized for phrase in status_patterns):
         return {"action": "runtime_status"}
+    if any(phrase in normalized for phrase in workers_patterns):
+        return {"action": "workers_status"}
+    if any(phrase in normalized for phrase in active_tasks_patterns):
+        return {"action": "active_tasks"}
+    if any(phrase in normalized for phrase in task_history_patterns):
+        return {
+            "action": "task_history",
+            "limit": _parse_int_param("limit", default=50, minimum=1, maximum=500),
+            "run_id": _parse_text_param("run_id") or _parse_text_param("run"),
+            "agent_id": _parse_text_param("agent_id") or _parse_text_param("agent"),
+            "role": _parse_text_param("role"),
+            "status": _parse_text_param("status"),
+        }
+    if any(phrase in normalized for phrase in pending_decisions_patterns):
+        return {"action": "pending_decisions"}
+    if any(phrase in normalized for phrase in blocked_trades_patterns):
+        return {"action": "blocked_trades", "limit": _parse_int_param("limit", default=50, minimum=1, maximum=500)}
+    if any(phrase in normalized for phrase in sleeve_budgets_patterns):
+        return {"action": "sleeve_budgets", "run_id": _parse_text_param("run_id") or _parse_text_param("run")}
+    if any(phrase in normalized for phrase in knowledge_stats_patterns):
+        return {"action": "knowledge_stats"}
+    if any(phrase in normalized for phrase in openclaw_health_patterns):
+        return {"action": "openclaw_health"}
+    if any(phrase in normalized for phrase in openclaw_rejections_patterns):
+        return {"action": "openclaw_rejections", "limit": _parse_int_param("limit", default=50, minimum=1, maximum=500)}
     return None
 
 
@@ -193,6 +284,7 @@ class OpenClawCommandAdapter:
         self,
         *,
         runtime: FundAgentRuntime = fund_agent_runtime,
+        orchestrator: FirmOrchestrator = firm_orchestrator,
         token: str | None = None,
         enabled: bool | None = None,
         default_agent_id: str | None = None,
@@ -257,6 +349,7 @@ class OpenClawCommandAdapter:
             configured_roles.add("fund_manager")
 
         self._runtime = runtime
+        self._orchestrator = orchestrator
         self._token = configured_token
         self._enabled = settings.OPENCLAW_COMMANDS_ENABLED if enabled is None else bool(enabled)
         self._default_agent_id = default_agent_id or settings.OPENCLAW_COMMAND_DEFAULT_AGENT_ID or "ceo"
@@ -311,7 +404,22 @@ class OpenClawCommandAdapter:
 
         if data_integrity_guard.halted():
             action = str((control or {}).get("action") or "").strip().lower()
-            if action not in {"clear_halt", "runtime_status"}:
+            if action not in {
+                "clear_halt",
+                "runtime_status",
+                "pause_runtime",
+                "resume_runtime",
+                "kick_autopilot",
+                "workers_status",
+                "active_tasks",
+                "task_history",
+                "pending_decisions",
+                "blocked_trades",
+                "sleeve_budgets",
+                "knowledge_stats",
+                "openclaw_health",
+                "openclaw_rejections",
+            }:
                 return self._reject(
                     reason=data_integrity_guard.halt_reason() or "system_halted",
                     message=message,
@@ -341,6 +449,7 @@ class OpenClawCommandAdapter:
                 run_id=run_id,
                 agent_id=agent_id,
                 reason=f"openclaw:{command[:120]}",
+                control=control,
             )
             if not control_result.get("accepted", True):
                 return self._reject(
@@ -581,10 +690,12 @@ class OpenClawCommandAdapter:
         run_id: str,
         agent_id: str,
         reason: str,
+        control: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         control_id = f"ctrl-{uuid4().hex[:16]}"
         clean_action = str(action or "").strip().lower()
         clean_reason = str(reason or "openclaw_control").strip() or "openclaw_control"
+        control_payload = dict(control or {})
 
         if clean_action == "runtime_status":
             runtime = self._runtime.status()
@@ -606,6 +717,211 @@ class OpenClawCommandAdapter:
                 agent_id=agent_id,
                 control_id=control_id,
                 payload={"runtime_started": result["runtime_started"]},
+            )
+            return result
+
+        if clean_action == "workers_status":
+            runtime = self._runtime.status()
+            workers = list(runtime.get("workers") or [])
+            result = {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "workers_status",
+                "status": "reported",
+                "worker_count": len(workers),
+                "workers": workers,
+            }
+            self._record_control_event(
+                action="workers_status",
+                status="reported",
+                reason=clean_reason,
+                run_id=run_id,
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"worker_count": len(workers)},
+            )
+            return result
+
+        if clean_action == "active_tasks":
+            tasks = self._orchestrator.list_active_tasks()
+            result = {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "active_tasks",
+                "status": "reported",
+                "count": len(tasks),
+                "tasks": tasks,
+            }
+            self._record_control_event(
+                action="active_tasks",
+                status="reported",
+                reason=clean_reason,
+                run_id=run_id,
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"count": len(tasks)},
+            )
+            return result
+
+        if clean_action == "task_history":
+            limit = int(control_payload.get("limit") or 50)
+            run_id_filter = control_payload.get("run_id")
+            agent_id_filter = control_payload.get("agent_id")
+            role_filter = control_payload.get("role")
+            status_filter = control_payload.get("status")
+            rows = self._orchestrator.list_task_history(
+                limit=limit,
+                run_id=run_id_filter,
+                agent_id=agent_id_filter,
+                role=role_filter,
+                status=status_filter,
+            )
+            result = {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "task_history",
+                "status": "reported",
+                "count": len(rows),
+                "limit": limit,
+                "rows": rows,
+            }
+            self._record_control_event(
+                action="task_history",
+                status="reported",
+                reason=clean_reason,
+                run_id=run_id,
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"count": len(rows), "limit": limit},
+            )
+            return result
+
+        if clean_action == "pending_decisions":
+            rows = self._orchestrator.list_pending_decisions()
+            result = {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "pending_decisions",
+                "status": "reported",
+                "count": len(rows),
+                "decisions": rows,
+            }
+            self._record_control_event(
+                action="pending_decisions",
+                status="reported",
+                reason=clean_reason,
+                run_id=run_id,
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"count": len(rows)},
+            )
+            return result
+
+        if clean_action == "blocked_trades":
+            limit = int(control_payload.get("limit") or 50)
+            rows = self._orchestrator.list_blocked_trades(limit=limit)
+            result = {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "blocked_trades",
+                "status": "reported",
+                "count": len(rows),
+                "limit": limit,
+                "trades": rows,
+            }
+            self._record_control_event(
+                action="blocked_trades",
+                status="reported",
+                reason=clean_reason,
+                run_id=run_id,
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"count": len(rows), "limit": limit},
+            )
+            return result
+
+        if clean_action == "sleeve_budgets":
+            run_id_filter = control_payload.get("run_id")
+            budgets = self._orchestrator.sleeve_budget_status(run_id=run_id_filter)
+            result = {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "sleeve_budgets",
+                "status": "reported",
+                "run_id_filter": run_id_filter,
+                "budgets": budgets,
+            }
+            self._record_control_event(
+                action="sleeve_budgets",
+                status="reported",
+                reason=clean_reason,
+                run_id=run_id,
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"run_id_filter": run_id_filter},
+            )
+            return result
+
+        if clean_action == "knowledge_stats":
+            stats = self._orchestrator.knowledge_stats()
+            result = {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "knowledge_stats",
+                "status": "reported",
+                "stats": stats,
+            }
+            self._record_control_event(
+                action="knowledge_stats",
+                status="reported",
+                reason=clean_reason,
+                run_id=run_id,
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"event_count": stats.get("event_count")},
+            )
+            return result
+
+        if clean_action == "openclaw_health":
+            health = self.health()
+            result = {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "openclaw_health",
+                "status": "reported",
+                "health": health,
+            }
+            self._record_control_event(
+                action="openclaw_health",
+                status="reported",
+                reason=clean_reason,
+                run_id=run_id,
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"accepted_count": health.get("accepted_count"), "rejected_count": health.get("rejected_count")},
+            )
+            return result
+
+        if clean_action == "openclaw_rejections":
+            limit = int(control_payload.get("limit") or 50)
+            rows = self.list_rejected(limit=limit)
+            result = {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "openclaw_rejections",
+                "status": "reported",
+                "count": len(rows),
+                "limit": limit,
+                "rejections": rows,
+            }
+            self._record_control_event(
+                action="openclaw_rejections",
+                status="reported",
+                reason=clean_reason,
+                run_id=run_id,
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"count": len(rows), "limit": limit},
             )
             return result
 

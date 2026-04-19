@@ -9,6 +9,7 @@
     "preview": "vite preview --host 127.0.0.1 --port 9000 --strictPort"
   },
   "dependencies": {
+    "esbuild": "^0.28.0",
     "lucide-react": "^0.553.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

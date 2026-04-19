@@ -4304,3 +4304,433 @@ files:
 - backend/app/admin_research_routes.py
 validation: in_progress
 notes: Automated session start on server boot
+
+[2026-04-18T10:41:19.251448Z] [START]
+entry_id: devlog-20260418-ccabc7dc
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-0036696160ca
+git_branch: main
+git_commit_start: 57d4967ac0bd4cd0a9e30c263d0d2e9e76fc3db4
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-18T11:02:13.462050Z] [UPDATE]
+entry_id: devlog-20260418-110213-codex-openclaw
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-openclaw-complete-20260418
+git_branch: main
+git_commit_start: 57d4967ac0bd4cd0a9e30c263d0d2e9e76fc3db4
+git_commit_end: 
+scope: OpenClaw Discord CEO-control completion pass: canonical role policy, websocket stability fix, and orchestration smoke validation.
+files:
+- backend/app/fund/openclaw_command_adapter.py
+- backend/tests/test_openclaw_command_adapter.py
+- backend/app/main.py
+- backend/.env
+- docs/OPENCLAW_DISCORD_SETUP.md
+validation: pytest backend/tests/test_openclaw_command_adapter.py -q (13 passed); pytest backend/tests/test_fund_pipeline.py -q (1 passed); openclaw command runtime_status accepted via /fund/openclaw/commands
+notes: Requires backend restart to apply updated role-inference ordering and websocket endpoint changes in the running process.
+
+[2026-04-18T17:14:18.707074Z] [START]
+entry_id: devlog-20260418-6083aa39
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-b7f28a1856b8
+git_branch: main
+git_commit_start: 57d4967ac0bd4cd0a9e30c263d0d2e9e76fc3db4
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-18T17:18:39.713047Z] [START]
+entry_id: devlog-20260418-e5cdfd79
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-47139c8bb460
+git_branch: main
+git_commit_start: 57d4967ac0bd4cd0a9e30c263d0d2e9e76fc3db4
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-18T17:37:43.345564Z] [START]
+entry_id: devlog-20260418-2e77e970
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-1774d6d1ae19
+git_branch: main
+git_commit_start: 57d4967ac0bd4cd0a9e30c263d0d2e9e76fc3db4
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-18T17:40:21.618162Z] [START]
+entry_id: devlog-20260418-884042bc
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-3aa97a6fb248
+git_branch: main
+git_commit_start: bd3350e9bd638f7b59a6278939cd32f97b093134
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-19T02:38:20.172225Z] [START]
+entry_id: devlog-20260419-6ec0227b
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-f81f237e520d
+git_branch: main
+git_commit_start: 423b5123cc8efbfd009bfc3a6950a5085847158d
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-19T02:38:20.172225Z] [END]
+entry_id: devlog-20260419-6ec0227b
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-f81f237e520d
+git_branch: main
+git_commit_start: 423b5123cc8efbfd009bfc3a6950a5085847158d
+git_commit_end: 423b5123cc8efbfd009bfc3a6950a5085847158d
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: completed
+notes: Server shutdown - session ended normally
+
+[2026-04-19T02:41:56.719867Z] [START]
+entry_id: devlog-20260419-1eeb2b28
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-9d70d8b39df8
+git_branch: main
+git_commit_start: 423b5123cc8efbfd009bfc3a6950a5085847158d
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-19T02:42:36.575742Z] [START]
+entry_id: devlog-20260419-b93322b4
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-e5a69726fe91
+git_branch: main
+git_commit_start: 423b5123cc8efbfd009bfc3a6950a5085847158d
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-19T19:02:26.451584Z] [START]
+entry_id: devlog-20260419-0dff9922
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-2fc1ddd26f09
+git_branch: main
+git_commit_start: 423b5123cc8efbfd009bfc3a6950a5085847158d
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-19T19:07:59.057894Z] [START]
+entry_id: devlog-20260419-a98b4713
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-9c42125ca765
+git_branch: main
+git_commit_start: 423b5123cc8efbfd009bfc3a6950a5085847158d
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-19T19:09:44.658040Z] [START]
+entry_id: devlog-20260419-9d63afbc
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-df42894a346c
+git_branch: main
+git_commit_start: 423b5123cc8efbfd009bfc3a6950a5085847158d
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-19T19:23:19.723798Z] [START]
+entry_id: devlog-20260419-b4f8284d
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-94c377f45078
+git_branch: main
+git_commit_start: 423b5123cc8efbfd009bfc3a6950a5085847158d
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-19T19:28:56.205305Z] [START]
+entry_id: devlog-20260419-d9f50d37
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-5536681c32c8
+git_branch: main
+git_commit_start: 423b5123cc8efbfd009bfc3a6950a5085847158d
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-19T19:28:57Z] [START]
+entry_id: devlog-ui-ux-verification-001
+actor_name: antigravity
+actor_platform: gemini
+actor_model: gemini-3.1-pro
+actor_provider: google
+run_id: run-viktor-ui-ux-001
+git_branch: master
+git_commit_start:
+git_commit_end:
+scope: UI UX verification pass, linking pages, 3D animated landing page, How It Works page.
+files:
+- landing-next/app/page.jsx
+- landing-next/app/globals.css
+- landing-next/app/how-it-works/page.jsx
+- frontend/src/pages/Admin.jsx
+validation: UI updated and visually verified
+notes: Added 3D animations, updated dark mode aesthetics, linked Blog/PnL/Admin pages.
+
+[2026-04-19T19:28:57Z] [END]
+entry_id: devlog-ui-ux-verification-001
+actor_name: antigravity
+actor_platform: gemini
+actor_model: gemini-3.1-pro
+actor_provider: google
+run_id: run-viktor-ui-ux-001
+git_branch: master
+git_commit_start:
+git_commit_end:
+scope: Completed UI UX pass.
+files:
+- landing-next/app/page.jsx
+- landing-next/app/globals.css
+- landing-next/app/how-it-works/page.jsx
+- frontend/src/pages/Admin.jsx
+validation: done
+notes: All requested pages linked, how-it-works technical page created, logs updated.
+
+[2026-04-19T19:29:56.657141Z] [START]
+entry_id: devlog-20260419-65755460
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-a69106ebc58f
+git_branch: main
+git_commit_start: 423b5123cc8efbfd009bfc3a6950a5085847158d
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-19T19:29:56.657141Z] [END]
+entry_id: devlog-20260419-65755460
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-a69106ebc58f
+git_branch: main
+git_commit_start: 423b5123cc8efbfd009bfc3a6950a5085847158d
+git_commit_end: 423b5123cc8efbfd009bfc3a6950a5085847158d
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: completed
+notes: Server shutdown - session ended normally
+
+[2026-04-19T19:34:55Z] [START]
+entry_id: devlog-ui-ux-cinematic-theme-001
+actor_name: antigravity
+actor_platform: other
+actor_model: gemini-3.1-pro
+actor_provider: google
+run_id: run-viktor-ui-ux-002
+git_branch: master
+git_commit_start:
+git_commit_end:
+scope: Removed gimmicky 3D scroll and glassmorphism, applied cinematic dark theme.
+files:
+- landing-next/app/globals.css
+- landing-next/app/page.jsx
+- landing-next/app/how-it-works/page.jsx
+validation: UI updated and visually verified
+notes: Unified dark aesthetic across landing pages with slow cinematic fade-ins.
+
+[2026-04-19T19:34:55Z] [END]
+entry_id: devlog-ui-ux-cinematic-theme-001
+actor_name: antigravity
+actor_platform: other
+actor_model: gemini-3.1-pro
+actor_provider: google
+run_id: run-viktor-ui-ux-002
+git_branch: master
+git_commit_start:
+git_commit_end:
+scope: Completed cinematic theme update.
+files:
+- landing-next/app/globals.css
+- landing-next/app/page.jsx
+- landing-next/app/how-it-works/page.jsx
+validation: done
+notes: Reverted radial gradients, removed 3D transforms, applied cinematic fade.

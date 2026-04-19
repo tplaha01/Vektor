@@ -516,8 +516,12 @@ async def websocket_endpoint(ws: WebSocket):
     await manager.connect(ws)
     try:
         while True:
-            await ws.receive_text()
+            message = await ws.receive()
+            if message.get("type") == "websocket.disconnect":
+                break
     except (WebSocketDisconnect, RuntimeError):
+        pass
+    finally:
         manager.disconnect(ws)
 
 
@@ -535,8 +539,12 @@ async def websocket_agent_events(ws: WebSocket):
     await agent_event_stream.connect(ws)
     try:
         while True:
-            # Just keep connection open; events are broadcast from task bus
-            await ws.receive_text()
+            # Keep connection open; events are broadcast from task bus.
+            message = await ws.receive()
+            if message.get("type") == "websocket.disconnect":
+                break
     except (WebSocketDisconnect, RuntimeError):
+        pass
+    finally:
         await agent_event_stream.disconnect(ws)
         

@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "fumadocs-mdx && next dev --turbopack",
+    "dev": "fumadocs-mdx && next dev -p 3001 --turbopack",
     "build": "fumadocs-mdx && next build",
-    "start": "next start",
+    "start": "next start -p 3001",
     "lint": "next lint",
     "postinstall": "fumadocs-mdx"
   },
@@ -20,6 +20,7 @@
     "@types/mdx": "^2.0.13",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "esbuild": "^0.28.0",
     "fumadocs-core": "^15.6.2",
     "fumadocs-mdx": "^11.6.10",
     "fumadocs-ui": "^15.6.2",

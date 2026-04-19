@@ -42,7 +42,7 @@ Expected payload shape:
   "message_id": "1122334455",
   "text": "research and trade aapl",
   "run_id": "run-optional",
-  "target_role": "researcher",
+  "target_role": "insight_researcher",
   "priority": 8,
   "payload": {
     "symbol": "AAPL",
@@ -67,10 +67,50 @@ Example strict policy:
 
 ```env
 OPENCLAW_COMMAND_CHANNEL_ALLOWLIST=vektor-ceo,vektor-research,vektor-risk
-OPENCLAW_COMMAND_CHANNEL_ROLE_POLICIES=vektor-ceo=researcher,sentiment_researcher,fund_manager,trader,risk_auditor;vektor-research=researcher,sentiment_researcher;vektor-risk=risk_auditor
+OPENCLAW_COMMAND_ROLE_ALLOWLIST=technical_analyst,fundamental_analyst,sentiment_analyst,ml_timeseries_analyst,insight_researcher,hedge_fund_researcher,fund_manager,trader,risk_auditor,signal_swarm,blog_writer
+OPENCLAW_COMMAND_CHANNEL_ROLE_POLICIES=vektor-ceo=technical_analyst,fundamental_analyst,sentiment_analyst,ml_timeseries_analyst,insight_researcher,hedge_fund_researcher,fund_manager,trader,risk_auditor,signal_swarm,blog_writer;vektor-research=technical_analyst,fundamental_analyst,sentiment_analyst,ml_timeseries_analyst,insight_researcher,hedge_fund_researcher,blog_writer;vektor-risk=risk_auditor,fund_manager
+OPENCLAW_FUND_MANAGER_MODE=true
+OPENCLAW_FUND_MANAGER_AGENT_ID=fund_manager
+OPENCLAW_FUND_MANAGER_ASSIGNED_ROLES=technical_analyst,fundamental_analyst,sentiment_analyst,ml_timeseries_analyst,insight_researcher,hedge_fund_researcher
 ```
 
-## 5) Verification
+If you want strict CEO-only command authority, set:
+
+```env
+OPENCLAW_COMMAND_SENDER_ALLOWLIST=<YOUR_DISCORD_USER_ID>,<YOUR_DISCORD_USERNAME>
+```
+
+## 5) CEO command catalog (Discord text)
+
+Direct execution/orchestration:
+
+- `run full signal swarm on NVDA`
+- `research and trade AAPL`
+- `write blog post on AI hedge fund risk controls`
+- `target_role=trader` via payload when calling HTTP directly
+
+Runtime controls:
+
+- `pause runtime`
+- `resume runtime`
+- `runtime status`
+- `clear halt`
+- `kick autopilot`
+
+CEO operational reads:
+
+- `workers status`
+- `active tasks`
+- `task history run_id=run-xyz limit=50`
+- `pending decisions`
+- `blocked trades limit=50`
+- `sleeve budgets`
+- `sleeve budgets run_id=run-xyz`
+- `knowledge stats`
+- `openclaw health`
+- `openclaw rejections limit=50`
+
+## 6) Verification
 
 Check adapter health:
 
@@ -110,4 +150,10 @@ Review rejected commands:
 
 ```powershell
 Invoke-RestMethod -Method GET -Uri "http://localhost:8000/fund/openclaw/commands/rejections?limit=50"
+```
+
+Review accepted commands:
+
+```powershell
+Invoke-RestMethod -Method GET -Uri "http://localhost:8000/fund/openclaw/commands/accepted?limit=50"
 ```
