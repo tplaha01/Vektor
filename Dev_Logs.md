@@ -4829,3 +4829,27 @@ files:
 - backend/tests/test_fund_agent_runtime.py
 validation: py -3 -m pytest backend/tests/test_fund_agent_runtime.py -q -> 9 passed
 notes: Logged by request; includes cloud-cost assessment constraints for 24/7 backend + Ollama.
+
+[2026-04-19T22:49:20Z] [UPDATE]
+entry_id: devlog-20260419-oracle-20260419-224920
+actor_name: codex_runtime_engineer
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-viktor-oracle-migration-20260419-224920
+git_branch: main
+git_commit_start: b020c333
+git_commit_end:
+scope: Added Oracle Free VM deployment path for backend with systemd service automation, daily backup timer, cloud-lean requirements, and Sentry production alert wiring.
+files:
+- backend/app/config.py
+- backend/app/main.py
+- backend/requirements.txt
+- backend/requirements.cloud.txt
+- backend/.env.example
+- scripts/oracle/setup_oracle_backend.sh
+- scripts/oracle/backup_backend.sh
+- docs/DEPLOY_ORACLE_FREE_VM.md
+- README.md
+validation: py -3 -m pytest backend/tests/test_fund_agent_runtime.py -q -> 9 passed
+notes: Prepared immediate migration path for backend on Oracle Always Free while frontend remains on Vercel and laptop hosts Ollama/OpenClaw.

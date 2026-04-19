@@ -103,6 +103,10 @@ class Settings(BaseSettings):
 
     # Set to your Vercel URL in production for CORS
     FRONTEND_URL: str | None = None
+    SENTRY_DSN: str | None = None
+    SENTRY_ENVIRONMENT: str = "production"
+    SENTRY_TRACES_SAMPLE_RATE: float = 0.0
+    SENTRY_PROFILES_SAMPLE_RATE: float = 0.0
 
     class Config:
         env_file = ".env"

@@ -180,6 +180,20 @@ az login --use-device-code
 .\scripts\deploy-all.ps1 -AzureAppName "<globally-unique-app-name>"
 ```
 
+## Deploy (Vercel + Oracle Free VM)
+
+- Frontend (`frontend` / `landing-next`) -> Vercel
+- Backend (`backend`) -> Oracle Always Free VM (systemd, daily backups)
+
+Runbook:
+
+- `docs/DEPLOY_ORACLE_FREE_VM.md`
+
+Oracle setup scripts:
+
+- `scripts/oracle/setup_oracle_backend.sh`
+- `scripts/oracle/backup_backend.sh`
+
 ## Startup Canonical Spec
 
 - Repository source-of-truth startup document: `Vektor.md`

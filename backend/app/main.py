@@ -48,6 +48,30 @@ settings = get_settings()
 
 app = FastAPI(title="Hybrid Trading Bot", version="5.1.0")
 
+
+def _init_sentry() -> None:
+    dsn = (settings.SENTRY_DSN or "").strip()
+    if not dsn:
+        return
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.fastapi import FastApiIntegration
+
+        sentry_sdk.init(
+            dsn=dsn,
+            environment=(settings.SENTRY_ENVIRONMENT or settings.ENV or "production"),
+            traces_sample_rate=float(settings.SENTRY_TRACES_SAMPLE_RATE or 0.0),
+            profiles_sample_rate=float(settings.SENTRY_PROFILES_SAMPLE_RATE or 0.0),
+            integrations=[FastApiIntegration()],
+            send_default_pii=False,
+        )
+        logger.info("Sentry enabled for backend alerts")
+    except Exception as exc:
+        logger.warning("Failed to initialize Sentry: %s", exc)
+
+
+_init_sentry()
+
 # Development session tracking
 _current_dev_session = None
 
