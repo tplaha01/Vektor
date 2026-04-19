@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import ThemeSwitcher from "./ThemeSwitcher";
+import LiquidBackground from "../components/liquid-background";
 
 const productUrl = process.env.NEXT_PUBLIC_PRODUCT_APP_URL || "http://localhost:9000";
 
@@ -25,6 +26,7 @@ export default function Page() {
 
   return (
     <>
+      <LiquidBackground />
       <header className="topbar">
         <div className="container topbar-inner">
           <a href="/" className="brand" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

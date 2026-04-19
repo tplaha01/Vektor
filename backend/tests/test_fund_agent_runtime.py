@@ -211,6 +211,116 @@ async def test_runtime_autopilot_kick_enqueues_and_executes():
 
 
 @pytest.mark.anyio
+async def test_runtime_autopilot_skips_when_market_closed(monkeypatch):
+    bus, orchestrator, runtime = _build_stack()
+    runtime = FundAgentRuntime(
+        orchestrator=orchestrator,
+        task_bus_service=bus,
+        enabled=True,
+        poll_interval_seconds=0.05,
+        autopilot_enabled=True,
+        autopilot_interval_seconds=300,
+        autopilot_symbols=("AAPL",),
+        autopilot_dynamic_universe_enabled=False,
+        session_guard_enabled=True,
+    )
+
+    from app.fund import agent_runtime as runtime_module
+
+    monkeypatch.setattr(
+        runtime_module,
+        "market_session_status",
+        lambda _settings: {
+            "open": False,
+            "trading_day": False,
+            "reason": "weekend_or_holiday",
+            "source": "test",
+            "checked_at": "2026-04-19T00:00:00Z",
+        },
+    )
+
+    await runtime.start()
+    try:
+        kicked = runtime.kick_autopilot(run_id="run-autopilot-closed-1")
+        assert kicked["accepted"] is True
+        assert kicked["enqueued_count"] == 0
+        assert kicked["reason"] == "weekend_or_holiday"
+
+        status = runtime.status()
+        assert status["autopilot"]["last_error"] == "weekend_or_holiday"
+        assert status["autopilot"]["last_session"]["open"] is False
+        assert status["autopilot"]["last_scout"]["selected_symbols"] == []
+        assert all(task.role != "trader" for task in bus.list_tasks())
+    finally:
+        await runtime.stop()
+
+
+@pytest.mark.anyio
+async def test_fund_manager_holds_cash_when_conviction_too_low():
+    bus, orchestrator, runtime = _build_stack()
+    runtime = FundAgentRuntime(
+        orchestrator=orchestrator,
+        task_bus_service=bus,
+        enabled=True,
+        poll_interval_seconds=0.05,
+        min_trade_conviction=0.90,
+        allow_cash_hold=True,
+    )
+
+    report = ContractResearchReport(
+        run_id="run-hold-cash-1",
+        agent_id="insight_researcher_agent",
+        asset_universe=("NVDA",),
+        summary="Low conviction context.",
+        findings=("Signals are weak and contradictory.",),
+        confidence=Decimal("0.40"),
+    )
+    saved = orchestrator.submit_research(report)
+
+    await runtime.start()
+    try:
+        enqueued = runtime.enqueue_ceo_command(
+            run_id="run-hold-cash-1",
+            agent_id="ceo-1",
+            command="fund manager decide",
+            target_role="fund_manager",
+            payload={
+                "report_ids": [saved["report_id"]],
+                "symbol": "NVDA",
+                "conviction": 0.40,
+                "sleeve": "tactical",
+            },
+        )
+        assert enqueued["role"] == "fund_manager"
+
+        deadline = monotonic() + 5
+        hold_event = None
+        while monotonic() < deadline:
+            for row in bus.history(limit=-1):
+                details = row.get("details") or {}
+                if (
+                    row.get("role") == "fund_manager"
+                    and row.get("status") == "completed"
+                    and details.get("decision") == "hold_cash"
+                ):
+                    hold_event = row
+                    break
+            if hold_event is not None:
+                break
+            await asyncio.sleep(0.05)
+        else:
+            raise AssertionError("fund_manager hold_cash decision did not complete in time")
+
+        assert hold_event is not None
+        details = hold_event.get("details") or {}
+        assert details.get("reason") == "conviction_below_threshold"
+        assert float(details.get("conviction") or 0) < 0.90
+        assert all(task.role != "trader" for task in bus.list_tasks())
+    finally:
+        await runtime.stop()
+
+
+@pytest.mark.anyio
 async def test_runtime_uses_ai_role_adapter_when_available(monkeypatch):
     bus, orchestrator, runtime = _build_stack()
 
