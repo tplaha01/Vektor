@@ -57,6 +57,11 @@ a {
   text-decoration: none;
 }
 
+main {
+  position: relative;
+  z-index: 1;
+}
+
 .container {
   max-width: var(--max);
   margin: 0 auto;

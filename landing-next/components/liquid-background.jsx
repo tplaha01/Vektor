@@ -197,7 +197,10 @@ export default function LiquidBackground() {
       alpha: false, antialias: false,
       premultipliedAlpha: false, preserveDrawingBuffer: false,
     });
-    if (!gl) return;
+    if (!gl) {
+      console.warn("WebGL not supported");
+      return;
+    }
     glRef.current = gl;
 
     const vs = compileShader(gl, gl.VERTEX_SHADER, VERTEX);
@@ -293,7 +296,7 @@ export default function LiquidBackground() {
           width: "100%",
           height: "100%",
           display: "block",
-          filter: "blur(60px)",
+          filter: "blur(80px)",
         }}
       />
       {/* Subtle noise grain */}
