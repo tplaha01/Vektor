@@ -18,7 +18,7 @@ export function PromoContent({
           <img
             src="/VektorLogo.png"
             alt="Vektor Trading"
-            className="w-8 h-8 rounded object-cover flex-shrink-0"
+            className="h-10 w-auto rounded object-contain flex-shrink-0"
           />
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium text-foreground/90 truncate">

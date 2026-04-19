@@ -56,7 +56,7 @@ export default function BlogPost({ params }: PageProps) {
         <header className="topbar">
           <div className="container topbar-inner">
             <a href="/" className="brand" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <img src="/VektorLogo.png" alt="Vektor Logo" style={{ height: 32 }} />
+            <img src="/VektorLogo.png" alt="Vektor Logo" style={{ height: "48px", width: "auto", objectFit: "contain" }} />
             <span>Vektor <em>Blog</em></span>
           </a>
             <nav className="hero-actions" style={{ alignItems: 'center' }}>
@@ -79,7 +79,7 @@ export default function BlogPost({ params }: PageProps) {
         <header className="topbar">
           <div className="container topbar-inner">
             <a href="/" className="brand" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <img src="/VektorLogo.png" alt="Vektor Logo" style={{ height: 32 }} />
+            <img src="/VektorLogo.png" alt="Vektor Logo" style={{ height: "48px", width: "auto", objectFit: "contain" }} />
             <span>Vektor <em>Blog</em></span>
           </a>
             <nav className="hero-actions" style={{ alignItems: 'center' }}>
@@ -103,7 +103,7 @@ export default function BlogPost({ params }: PageProps) {
       <header className="topbar">
         <div className="container topbar-inner">
           <a href="/" className="brand" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <img src="/VektorLogo.png" alt="Vektor Logo" style={{ height: 32 }} />
+            <img src="/VektorLogo.png" alt="Vektor Logo" style={{ height: "48px", width: "auto", objectFit: "contain" }} />
             <span>Vektor <em>Blog</em></span>
           </a>
           <nav className="hero-actions" style={{ alignItems: 'center' }}>

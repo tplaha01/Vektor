@@ -293,7 +293,7 @@ const Admin = () => {
         <aside className={`admin-sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
           <div className="sidebar-header">
             <div className="sidebar-logo" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <img src="/VektorLogo.png" alt="Vektor Logo" style={{ height: '24px' }} />
+              <img src="/VektorLogo.png" alt="Vektor Logo" style={{ height: "36px", width: "auto", objectFit: "contain" }} />
               <span>Vektor Admin</span>
             </div>
             <button

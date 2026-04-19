@@ -31,7 +31,7 @@ export default function HowItWorksPage() {
       <header className="topbar">
         <div className="container topbar-inner">
           <a href="/" className="brand" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <img src="/VektorLogo.png" alt="Vektor Logo" style={{ height: 32 }} />
+            <img src="/VektorLogo.png" alt="Vektor Logo" style={{ height: "48px", width: "auto", objectFit: "contain" }} />
             <span>Vektor <em>Fund OS</em></span>
           </a>
           <nav className="hero-actions" style={{ alignItems: 'center' }}>

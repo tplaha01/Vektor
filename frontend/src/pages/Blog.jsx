@@ -405,7 +405,7 @@ export default function Blog() {
         <header className="blog-header" role="banner">
           <div className="blog-header-content">
             <div className="blog-logo" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <img src="/VektorLogo.png" alt="Vektor Logo" style={{ height: '24px' }} />
+              <img src="/VektorLogo.png" alt="Vektor Logo" style={{ height: "36px", width: "auto", objectFit: "contain" }} />
               <span>Vektor Blog</span>
             </div>
 
