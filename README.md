@@ -182,5 +182,5 @@ az login --use-device-code
 
 ## Startup Canonical Spec
 
-- Repository source-of-truth startup document: `Viktor.md`
-- All agent/model environments should read `Viktor.md` before planning or implementation.
+- Repository source-of-truth startup document: `Vektor.md`
+- All agent/model environments should read `Vektor.md` before planning or implementation.

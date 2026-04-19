@@ -9,14 +9,14 @@ const productUrl = process.env.NEXT_PUBLIC_PRODUCT_APP_URL || "http://localhost:
 // Hard-coded blog posts for client-side rendering
 const blogPosts = [
   {
-    slug: "intro-to-viktor",
-    title: "Introduction to Viktor - AI-Native Hedge Fund OS",
-    description: "Learn how Viktor revolutionizes fund management with transparent, AI-driven decision making and complete auditability.",
+    slug: "intro-to-vektor",
+    title: "Introduction to Vektor - AI-Native Hedge Fund OS",
+    description: "Learn how Vektor revolutionizes fund management with transparent, AI-driven decision making and complete auditability.",
     date: "2026-04-15",
     tags: ["Getting Started", "AI", "Transparency"],
     featured: true,
     readTime: 8,
-    author: "Viktor Team",
+    author: "Vektor Team",
   },
   {
     slug: "multi-agent-trading",
@@ -26,7 +26,7 @@ const blogPosts = [
     tags: ["Technical", "Architecture", "Agents"],
     featured: true,
     readTime: 6,
-    author: "Viktor Team",
+    author: "Vektor Team",
   },
   {
     slug: "paper-trading-explained",
@@ -36,17 +36,17 @@ const blogPosts = [
     tags: ["Best Practices", "Safety", "Paper Trading"],
     featured: false,
     readTime: 5,
-    author: "Viktor Team",
+    author: "Vektor Team",
   },
   {
     slug: "risk-management-deep-dive",
     title: "Risk Management: Our Multi-Layer Approach",
-    description: "How Viktor protects your capital through automated and manual risk controls at every layer.",
+    description: "How Vektor protects your capital through automated and manual risk controls at every layer.",
     date: "2026-04-01",
     tags: ["Technical", "Risk Management", "Safety"],
     featured: false,
     readTime: 7,
-    author: "Viktor Team",
+    author: "Vektor Team",
   },
 ];
 
@@ -89,8 +89,8 @@ export default function BlogPage() {
       <header className="topbar">
         <div className="container topbar-inner">
           <a href="/" className="brand" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <img src="/VektorLogo.png" alt="Viktor Logo" style={{ height: 32 }} />
-            <span>Viktor <em>Blog</em></span>
+            <img src="/VektorLogo.png" alt="Vektor Logo" style={{ height: 32 }} />
+            <span>Vektor <em>Blog</em></span>
           </a>
           <nav className="hero-actions" style={{ alignItems: 'center' }}>
             <Link className="btn ghost" href="/">Back to Home</Link>
@@ -103,9 +103,9 @@ export default function BlogPage() {
 
       <main className="container overflow-hidden" style={{ padding: '120px 24px' }}>
         <div className="cinematic-fade">
-          <h1 style={{ fontSize: 'clamp(40px, 7vw, 64px)', marginBottom: '24px', letterSpacing: '-0.03em' }}>Viktor Research & Insights</h1>
+          <h1 style={{ fontSize: 'clamp(40px, 7vw, 64px)', marginBottom: '24px', letterSpacing: '-0.03em' }}>Vektor Research & Insights</h1>
           <p style={{ color: 'var(--muted)', fontSize: 'clamp(18px, 2.5vw, 22px)', maxWidth: '800px', marginBottom: '60px', lineHeight: '1.6' }}>
-            Deep dives into AI-driven trading, fund management, risk assessment, and how Viktor is reshaping the future of investing.
+            Deep dives into AI-driven trading, fund management, risk assessment, and how Vektor is reshaping the future of investing.
           </p>
         </div>
 
@@ -173,7 +173,7 @@ export default function BlogPage() {
       <footer className="footer">
         <div className="container">
            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-              <span>Viktor Fund OS • Research & Insights</span>
+              <span>Vektor Fund OS • Research & Insights</span>
               <div style={{display: 'flex', gap: '24px'}}>
                  <Link href="/">Home</Link>
                  <a href={productUrl}>PnL</a>

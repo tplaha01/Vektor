@@ -1,4 +1,4 @@
-# Dark Theme Setup - Viktor Trading Bot Blog
+# Dark Theme Setup - Vektor Trading Bot Blog
 
 This Next.js blog uses a custom dark theme that matches the Admin and Research pages of the trading bot.
 

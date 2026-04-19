@@ -45,12 +45,12 @@ export async function generateMetadata({
       ],
       authors: [
         {
-          name: post.author || "Viktor Trading",
+          name: post.author || "Vektor Trading",
           url: siteConfig.url,
         },
       ],
-      creator: post.author || "Viktor Trading",
-      publisher: "Viktor Trading",
+      creator: post.author || "Vektor Trading",
+      publisher: "Vektor Trading",
       robots: {
         index: true,
         follow: true,
@@ -68,7 +68,7 @@ export async function generateMetadata({
         type: "article",
         url: ogUrl,
         publishedTime: post.date,
-        authors: [post.author || "Viktor Trading"],
+        authors: [post.author || "Vektor Trading"],
         tags: post.tags,
         images: [
           {
@@ -85,8 +85,8 @@ export async function generateMetadata({
         title: post.title,
         description: post.description,
         images: [post.thumbnail || ogImage],
-        creator: "@viktortrading",
-        site: "@viktortrading",
+        creator: "@vektortrading",
+        site: "@vektortrading",
       },
       alternates: {
         canonical: ogUrl,

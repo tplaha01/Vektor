@@ -89,7 +89,7 @@ export default function AlfredDashboard() {
       }}>
         {/* Logo */}
         <div style={{ display:"flex", alignItems:"center", gap:8, flexShrink:0 }}>
-          <img src="/VektorLogo.png" alt="Viktor Logo" style={{ height: '18px' }} />
+          <img src="/VektorLogo.png" alt="Vektor Logo" style={{ height: '18px' }} />
           <span style={{ fontFamily:"'Outfit'", fontWeight:700, fontSize:14, letterSpacing:"0.12em", color:"var(--amber)" }}>ALFRED</span>
         </div>
 

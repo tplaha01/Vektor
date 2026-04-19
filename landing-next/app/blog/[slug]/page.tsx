@@ -56,8 +56,8 @@ export default function BlogPost({ params }: PageProps) {
         <header className="topbar">
           <div className="container topbar-inner">
             <a href="/" className="brand" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <img src="/VektorLogo.png" alt="Viktor Logo" style={{ height: 32 }} />
-            <span>Viktor <em>Blog</em></span>
+            <img src="/VektorLogo.png" alt="Vektor Logo" style={{ height: 32 }} />
+            <span>Vektor <em>Blog</em></span>
           </a>
             <nav className="hero-actions" style={{ alignItems: 'center' }}>
               <Link className="btn ghost" href="/blog">Back to Blog</Link>
@@ -79,8 +79,8 @@ export default function BlogPost({ params }: PageProps) {
         <header className="topbar">
           <div className="container topbar-inner">
             <a href="/" className="brand" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <img src="/VektorLogo.png" alt="Viktor Logo" style={{ height: 32 }} />
-            <span>Viktor <em>Blog</em></span>
+            <img src="/VektorLogo.png" alt="Vektor Logo" style={{ height: 32 }} />
+            <span>Vektor <em>Blog</em></span>
           </a>
             <nav className="hero-actions" style={{ alignItems: 'center' }}>
               <Link className="btn ghost" href="/blog">Back to Blog</Link>
@@ -103,8 +103,8 @@ export default function BlogPost({ params }: PageProps) {
       <header className="topbar">
         <div className="container topbar-inner">
           <a href="/" className="brand" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <img src="/VektorLogo.png" alt="Viktor Logo" style={{ height: 32 }} />
-            <span>Viktor <em>Blog</em></span>
+            <img src="/VektorLogo.png" alt="Vektor Logo" style={{ height: 32 }} />
+            <span>Vektor <em>Blog</em></span>
           </a>
           <nav className="hero-actions" style={{ alignItems: 'center' }}>
             <Link className="btn ghost" href="/blog">Back to Blog</Link>
@@ -166,7 +166,7 @@ export default function BlogPost({ params }: PageProps) {
       <footer className="footer">
         <div className="container">
            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-              <span>Viktor Fund OS • Research & Insights</span>
+              <span>Vektor Fund OS • Research & Insights</span>
               <div style={{display: 'flex', gap: '24px'}}>
                  <Link href="/">Home</Link>
                  <Link href="/blog">Blog</Link>

@@ -25,7 +25,7 @@ const ThesisDetail = () => {
         setThesisData({
           id: thesisId,
           title: `Run Thesis Context: ${symbol}`,
-          author: 'Viktor Research Runtime',
+          author: 'Vektor Research Runtime',
           createdAt,
           summary: decision.thesis || 'No explicit thesis text available for this run yet.',
           hypothesis: decision.thesis || 'This run has not generated a formal thesis body yet.',

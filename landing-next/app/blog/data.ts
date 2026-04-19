@@ -1,22 +1,22 @@
 export const blogPostsData = {
-  "intro-to-viktor": {
-    slug: "intro-to-viktor",
-    title: "Introduction to Viktor - AI-Native Hedge Fund OS",
-    description: "Learn how Viktor revolutionizes fund management with transparent, AI-driven decision making and complete auditability.",
+  "intro-to-vektor": {
+    slug: "intro-to-vektor",
+    title: "Introduction to Vektor - AI-Native Hedge Fund OS",
+    description: "Learn how Vektor revolutionizes fund management with transparent, AI-driven decision making and complete auditability.",
     date: "2026-04-15",
     tags: ["Getting Started", "AI", "Transparency"],
     featured: true,
     readTime: 8,
-    author: "Viktor Team",
-    content: `# Introduction to Viktor: AI-Native Hedge Fund OS
+    author: "Vektor Team",
+    content: `# Introduction to Vektor: AI-Native Hedge Fund OS
 
-Viktor is a next-generation hedge fund operating system built on principles of transparency and explainability. Every trade is explained in plain English, backed by real data, and subject to independent risk checks.
+Vektor is a next-generation hedge fund operating system built on principles of transparency and explainability. Every trade is explained in plain English, backed by real data, and subject to independent risk checks.
 
 ## The Problem We Solve
 
 Traditional hedge funds operate as black boxes. You submit capital, wait for quarterly reports, and hope for the best. Robo-advisors execute automated strategies with no explanation of why trades were made.
 
-## The Viktor Solution
+## The Vektor Solution
 
 We combine the intelligence of AI with the accountability of human oversight. Every trade is:
 
@@ -36,13 +36,13 @@ Our system combines four specialized agents:
 4. **Compliance Officer** - Ensures regulatory requirements are met
 
 ### Paper Trading First
-All trades start with simulated execution. You learn how Viktor works, validate strategies, and build confidence—all with fake money. Only after explicit approval does real capital deploy.
+All trades start with simulated execution. You learn how Vektor works, validate strategies, and build confidence—all with fake money. Only after explicit approval does real capital deploy.
 
 ### Real-Time Monitoring
 Track performance on our public PnL page. See exactly how well strategies are performing. No quarterly reports—live data always.
 
 ### Complete Override
-Pause or reject any trade with one click. You remain in complete control. Viktor is an assistant, not an autopilot.
+Pause or reject any trade with one click. You remain in complete control. Vektor is an assistant, not an autopilot.
 
 ### Cryptographic Audit Trail
 Every decision is signed and verifiable. No tampering possible. Complete transparency.
@@ -60,7 +60,7 @@ Every decision is signed and verifiable. No tampering possible. Complete transpa
 
 Head to the admin console to set up your first trading strategy. Start in paper mode and progress to live trading when you're ready.
 
-Visit the Admin Console or read more about how Viktor works.`
+Visit the Admin Console or read more about how Vektor works.`
   },
   "multi-agent-trading": {
     slug: "multi-agent-trading",
@@ -70,10 +70,10 @@ Visit the Admin Console or read more about how Viktor works.`
     tags: ["Technical", "Architecture", "Agents"],
     featured: true,
     readTime: 6,
-    author: "Viktor Team",
+    author: "Vektor Team",
     content: `# How Multi-Agent Trading Works
 
-Viktor doesn't use a single monolithic AI. Instead, we orchestrate multiple specialized agents that work together while maintaining independence. No single agent can make a trade alone.
+Vektor doesn't use a single monolithic AI. Instead, we orchestrate multiple specialized agents that work together while maintaining independence. No single agent can make a trade alone.
 
 ## The Four Agents
 
@@ -136,16 +136,16 @@ This architecture ensures that intelligence and safety work together, not agains
     tags: ["Best Practices", "Safety", "Paper Trading"],
     featured: false,
     readTime: 5,
-    author: "Viktor Team",
+    author: "Vektor Team",
     content: `# Why We Start with Paper Trading
 
-All trades in Viktor start in paper mode. This isn't optional—it's our default. Here's why.
+All trades in Vektor start in paper mode. This isn't optional—it's our default. Here's why.
 
 ## The Paper Trading Philosophy
 
-Paper (simulated) trading lets you validate that Viktor works the way you expect before any real capital is at risk. You can:
+Paper (simulated) trading lets you validate that Vektor works the way you expect before any real capital is at risk. You can:
 
-- Watch how Viktor makes decisions
+- Watch how Vektor makes decisions
 - Understand the reasoning behind each trade
 - See performance in real market conditions
 - Learn the system without financial risk
@@ -172,7 +172,7 @@ Paper (simulated) trading lets you validate that Viktor works the way you expect
 ## The Workflow
 
 1. **Configure your strategy** in the admin console
-2. **Viktor begins trading** in paper mode with simulated capital
+2. **Vektor begins trading** in paper mode with simulated capital
 3. **Watch trades execute** with realistic market data
 4. **Review decision explanations** after each trade
 5. **When satisfied**, explicitly enable live trading
@@ -195,15 +195,15 @@ Paper trading isn't a training wheels phase—it's the foundation of informed in
   "risk-management-deep-dive": {
     slug: "risk-management-deep-dive",
     title: "Risk Management: Our Multi-Layer Approach",
-    description: "How Viktor protects your capital through automated and manual risk controls at every layer.",
+    description: "How Vektor protects your capital through automated and manual risk controls at every layer.",
     date: "2026-04-01",
     tags: ["Technical", "Risk Management", "Safety"],
     featured: false,
     readTime: 7,
-    author: "Viktor Team",
+    author: "Vektor Team",
     content: `# Risk Management: Our Multi-Layer Approach
 
-Risk management isn't an afterthought in Viktor—it's built into every layer. We implement multiple independent checks so no single decision can put your capital at risk.
+Risk management isn't an afterthought in Vektor—it's built into every layer. We implement multiple independent checks so no single decision can put your capital at risk.
 
 ## Four Layers of Risk Control
 
@@ -271,6 +271,6 @@ You always have the final say. Even the best system needs human judgment sometim
 
 ## The Bottom Line
 
-Viktor's risk management is paranoid by design. We assume things can go wrong and build safeguards at every level. Your capital is protected not by luck, but by architecture.`
+Vektor's risk management is paranoid by design. We assume things can go wrong and build safeguards at every level. Your capital is protected not by luck, but by architecture.`
   }
 };

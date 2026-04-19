@@ -807,6 +807,63 @@ class FundAgentRuntime:
             "scout": scout_meta,
         }
 
+    def _market_session(self) -> dict[str, Any]:
+        return market_session_status(get_settings())
+
+    def _resolve_autopilot_symbols(self) -> tuple[tuple[str, ...], dict[str, Any]]:
+        if not self._autopilot_dynamic_universe_enabled:
+            selected = tuple(self._autopilot_symbols[: self._autopilot_scout_max_symbols])
+            return selected, {
+                "dynamic_universe_enabled": False,
+                "candidate_count": len(self._autopilot_symbols),
+                "selected_symbols": list(selected),
+            }
+
+        scored: list[tuple[float, str]] = []
+        for symbol in self._autopilot_scout_symbols:
+            score = self._score_autopilot_symbol(symbol)
+            if score is None:
+                continue
+            scored.append((score, symbol))
+
+        if not scored:
+            fallback = tuple(self._autopilot_symbols[: self._autopilot_scout_max_symbols])
+            return fallback, {
+                "dynamic_universe_enabled": True,
+                "candidate_count": len(self._autopilot_scout_symbols),
+                "selected_symbols": list(fallback),
+                "reason": "scout_no_scores_fallback_to_seed",
+            }
+
+        scored.sort(key=lambda item: (-item[0], item[1]))
+        selected = tuple(symbol for _, symbol in scored[: self._autopilot_scout_max_symbols])
+        return selected, {
+            "dynamic_universe_enabled": True,
+            "candidate_count": len(self._autopilot_scout_symbols),
+            "selected_symbols": list(selected),
+            "top_scores": [{"symbol": symbol, "score": round(score, 4)} for score, symbol in scored[:5]],
+        }
+
+    def _score_autopilot_symbol(self, symbol: str) -> float | None:
+        normalized = str(symbol or "").upper().strip()
+        if not normalized:
+            return None
+        try:
+            technical = market_ingestion.build_technical_report(normalized)
+            ml = market_ingestion.build_ml_timeseries_report(normalized)
+            sentiment = market_ingestion.build_sentiment(normalized)
+        except Exception:
+            return None
+
+        ml_prob_up = _extract_metric(ml.findings, "Directional probability(up)")
+        if ml_prob_up is None:
+            ml_prob_up = 0.5
+        ml_prob_up = max(0.0, min(1.0, float(ml_prob_up)))
+        sentiment_norm = max(0.0, min(1.0, (_to_float(sentiment.sentiment_score, 0.0) + 1.0) / 2.0))
+        tech_conf = max(0.0, min(1.0, _to_float(technical.confidence, 0.5)))
+        ml_conf = max(0.0, min(1.0, _to_float(ml.confidence, 0.5)))
+        return (ml_prob_up * 0.55) + (sentiment_norm * 0.15) + (tech_conf * 0.15) + (ml_conf * 0.15)
+
     def _enqueue_blog_editorial_cycle(self, run_id: str) -> dict[str, Any]:
         remaining = blog_service.daily_quota_remaining(self._blog_editorial_target_per_day)
         if remaining <= 0:
@@ -1262,14 +1319,39 @@ class FundAgentRuntime:
         report_ids = list(payload.get("report_ids") or [])
         if not report_ids:
             return {"status": "failed", "error": "missing_report_ids"}
+        symbol = str(payload.get("symbol") or "SPY").upper().strip()
+        conviction = _to_float(payload.get("conviction"), 0.6)
         thesis = self._orchestrator.create_thesis(
             run_id=run_id,
             agent_id=str(payload.get("worker_agent_id") or "fund_manager_agent"),
             sleeve=_normalize_sleeve(payload.get("sleeve")),
             report_ids=report_ids,
             statement=str(payload.get("statement") or "System-generated thesis."),
-            conviction=_as_decimal(payload.get("conviction"), "0.6"),
+            conviction=_as_decimal(conviction, "0.6"),
         )
+        session = self._market_session()
+        if self._allow_cash_hold and conviction < self._min_trade_conviction:
+            return {
+                "status": "completed",
+                "thesis_id": thesis["thesis_id"],
+                "decision": "hold_cash",
+                "reason": "conviction_below_threshold",
+                "symbol": symbol,
+                "conviction": conviction,
+                "min_trade_conviction": self._min_trade_conviction,
+                "market_session": session,
+            }
+        if self._session_guard_enabled and self._block_trades_when_closed:
+            if not session.get("open") or not session.get("trading_day"):
+                return {
+                    "status": "completed",
+                    "thesis_id": thesis["thesis_id"],
+                    "decision": "hold_cash",
+                    "reason": str(session.get("reason") or "market_closed"),
+                    "symbol": symbol,
+                    "conviction": conviction,
+                    "market_session": session,
+                }
         trader_task = self._task_bus.create_task(
             run_id=run_id,
             agent_id="trader_agent",
@@ -1277,16 +1359,25 @@ class FundAgentRuntime:
             priority=9,
             payload={
                 "thesis_id": thesis["thesis_id"],
-                "symbol": str(payload.get("symbol") or "SPY").upper().strip(),
+                "symbol": symbol,
                 "side": str(payload.get("side") or "buy").lower(),
                 "quantity": float(payload.get("quantity") or 1.0),
                 "price": payload.get("price"),
-                "metadata": dict(payload.get("metadata") or {}),
+                "metadata": {**dict(payload.get("metadata") or {}), "market_session": session},
             },
         )
         return {"status": "completed", "thesis_id": thesis["thesis_id"], "next_task_id": trader_task.task_id, "next_role": "trader"}
 
     def _handle_trader(self, payload: dict[str, Any], *, run_id: str) -> dict[str, Any]:
+        if self._session_guard_enabled and self._block_trades_when_closed:
+            session = self._market_session()
+            if not session.get("open") or not session.get("trading_day"):
+                return {
+                    "status": "blocked",
+                    "reason": str(session.get("reason") or "market_closed"),
+                    "market_session": session,
+                    "symbol": str(payload.get("symbol") or "SPY").upper().strip(),
+                }
         result = self._orchestrator.execute_decision(
             run_id=run_id,
             agent_id=str(payload.get("worker_agent_id") or "trader_agent"),
@@ -1357,9 +1448,16 @@ def _build_runtime() -> FundAgentRuntime:
         autopilot_enabled=settings.AGENT_RUNTIME_AUTOPILOT_ENABLED,
         autopilot_interval_seconds=settings.AGENT_RUNTIME_AUTOPILOT_INTERVAL_SECONDS,
         autopilot_symbols=_parse_symbol_csv(settings.AGENT_RUNTIME_AUTOPILOT_SYMBOLS),
+        autopilot_dynamic_universe_enabled=settings.AGENT_RUNTIME_AUTOPILOT_DYNAMIC_UNIVERSE_ENABLED,
+        autopilot_scout_symbols=_parse_symbol_csv(settings.AGENT_RUNTIME_AUTOPILOT_SCOUT_SYMBOLS),
+        autopilot_scout_max_symbols=settings.AGENT_RUNTIME_AUTOPILOT_SCOUT_MAX_SYMBOLS,
         autopilot_default_side="sell" if settings.AGENT_RUNTIME_AUTOPILOT_DEFAULT_SIDE.strip().lower() == "sell" else "buy",
         autopilot_default_quantity=settings.AGENT_RUNTIME_AUTOPILOT_DEFAULT_QUANTITY,
         autopilot_sleeve=_normalize_sleeve(settings.AGENT_RUNTIME_AUTOPILOT_SLEEVE),
+        session_guard_enabled=settings.AGENT_RUNTIME_SESSION_GUARD_ENABLED,
+        block_trades_when_closed=settings.AGENT_RUNTIME_BLOCK_TRADES_WHEN_CLOSED,
+        min_trade_conviction=settings.AGENT_RUNTIME_MIN_TRADE_CONVICTION,
+        allow_cash_hold=settings.AGENT_RUNTIME_ALLOW_CASH_HOLD,
         blog_editorial_enabled=settings.BLOG_AUTO_EDITORIAL_ENABLED,
         blog_editorial_interval_hours=settings.BLOG_AUTO_EDITORIAL_INTERVAL_HOURS,
         blog_editorial_target_per_day=settings.BLOG_AUTO_EDITORIAL_TARGET_PER_DAY,

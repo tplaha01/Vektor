@@ -110,7 +110,7 @@ export default async function Image() {
                 assetData?.logoBase64 ||
                 `${process.env.NEXT_PUBLIC_SITE_URL}/VektorLogo.png`
               }
-              alt="Viktor Trading Logo"
+              alt="Vektor Trading Logo"
               width={100}
               height={100}
             />

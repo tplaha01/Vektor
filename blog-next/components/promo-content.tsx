@@ -17,7 +17,7 @@ export function PromoContent({
         <div className="flex items-center gap-3">
           <img
             src="/VektorLogo.png"
-            alt="Viktor Trading"
+            alt="Vektor Trading"
             className="w-8 h-8 rounded object-cover flex-shrink-0"
           />
           <div className="flex-1 min-w-0">

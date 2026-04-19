@@ -1,7 +1,7 @@
-# Viktor: Canonical Startup Goal Specification
+# Vektor: Canonical Startup Goal Specification
 
 ## 1) Mission
-Viktor is an AI-native hedge fund startup operating initially in paper-trading mode, built to become a scalable, institutional-grade investment firm with full traceability, persistent memory, and autonomous multi-agent operations across multi-asset markets.
+Vektor is an AI-native hedge fund startup operating initially in paper-trading mode, built to become a scalable, institutional-grade investment firm with full traceability, persistent memory, and autonomous multi-agent operations across multi-asset markets.
 
 This repository is not a toy bot project. It is the operating system of the firm.
 
@@ -57,7 +57,7 @@ This repository is not a toy bot project. It is the operating system of the firm
 - Operations panel: active tasks, queues, blocked decisions, channel health, and ingest health.
 - PnL and attribution page: sleeve-level and strategy-level contribution analysis.
 - Audit timeline page: full lineage by order/decision/run with immutable IDs.
-- Knowledge graph explorer page: what Viktor knows, when it learned it, and source provenance.
+- Knowledge graph explorer page: what Vektor knows, when it learned it, and source provenance.
 - Agent management page: role roster, workload, quality metrics, and handoff visibility.
 - Investor portal (future): authenticated LP-facing reports, tear sheets, and communications.
 
@@ -70,9 +70,9 @@ This repository is not a toy bot project. It is the operating system of the firm
 - Memory is graph-first, persistent, queryable, and suitable for low-token retrieval workflows.
 
 ## 7) Multi-Environment Agent Coordination Protocol
-All models/agents working on Viktor must follow one shared protocol:
+All models/agents working on Vektor must follow one shared protocol:
 
-1. Read this `Viktor.md` before planning or coding.
+1. Read this `Vektor.md` before planning or coding.
 2. Attach all output to an explicit run ID and role.
 3. Log intent, changes, and outcomes into the knowledge graph layer.
 4. Never bypass policy/risk gates for execution paths.
@@ -94,10 +94,10 @@ All models/agents working on Viktor must follow one shared protocol:
 - Product has clear public and private surfaces appropriate for startup growth.
 
 ## 10) Current Constraint
-Until explicitly changed by policy and legal/compliance readiness, Viktor remains paper-trading only.
+Until explicitly changed by policy and legal/compliance readiness, Vektor remains paper-trading only.
 
 ## 11) Specialist Signal Mandate
-Viktor decision quality depends on six dedicated specialist analyst agents whose outputs are all mandatory inputs to the trading thesis:
+Vektor decision quality depends on six dedicated specialist analyst agents whose outputs are all mandatory inputs to the trading thesis:
 - `technical_analyst`
 - `fundamental_analyst`
 - `sentiment_analyst`
@@ -145,7 +145,7 @@ Quality bar:
 - All of the above must be indexed into the knowledge graph with OpenClaw namespace events.
 
 ## 13) Development Governance Files
-- `DevViktor.md`: operating contract for development models/agents.
+- `DevVektor.md`: operating contract for development models/agents.
 - `Dev_Logs.md`: append-only session log for who changed what and validation status.
 
 These files are mandatory for multi-model/multi-environment development alignment.

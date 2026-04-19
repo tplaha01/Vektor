@@ -13,7 +13,7 @@ export function SiteNav() {
           >
             <img
               src="/VektorLogo.png"
-              alt="Viktor Trading"
+              alt="Vektor Trading"
               className="w-10 h-10 object-cover"
             />
           </Link>

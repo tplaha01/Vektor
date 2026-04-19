@@ -28,8 +28,8 @@ export default function Page() {
       <header className="topbar">
         <div className="container topbar-inner">
           <a href="/" className="brand" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <img src="/VektorLogo.png" alt="Viktor Logo" style={{ height: 32 }} />
-            <span>Viktor <em>Fund OS</em></span>
+            <img src="/VektorLogo.png" alt="Vektor Logo" style={{ height: 32 }} />
+            <span>Vektor <em>Fund OS</em></span>
           </a>
           <nav className="hero-actions" style={{ alignItems: 'center' }}>
             <Link className="btn ghost" href="/how-it-works">How It Works</Link>
@@ -47,7 +47,7 @@ export default function Page() {
           <p className="eyebrow">The Future of Investing</p>
           <h1>A smart, transparent trading assistant you can actually understand.</h1>
           <p>
-            Think of Viktor like a team of world-class specialists working together in one room. One reads the news,
+            Think of Vektor like a team of world-class specialists working together in one room. One reads the news,
             one analyzes the market, one checks the risks, and one executes the trade. Every decision is clearly explained, 
             so you never have to guess why a trade was made.
           </p>
@@ -86,15 +86,15 @@ export default function Page() {
           <article className="dark-card">
             <h2>Safety You Can Trust</h2>
             <ul>
-              <li><strong>Practice Mode First:</strong> Viktor practices with fake money by default until you are perfectly comfortable.</li>
-              <li><strong>Automatic Brakes:</strong> If the market gets too crazy, Viktor automatically pauses to keep your investments safe.</li>
+              <li><strong>Practice Mode First:</strong> Vektor practices with fake money by default until you are perfectly comfortable.</li>
+              <li><strong>Automatic Brakes:</strong> If the market gets too crazy, Vektor automatically pauses to keep your investments safe.</li>
               <li><strong>You Are the Boss:</strong> You can pause, review, or stop any action with the click of a button.</li>
             </ul>
           </article>
           <article className="dark-card">
             <h2>No Black Boxes</h2>
             <ul>
-              <li><strong>Public Scoreboard:</strong> See exactly how well Viktor is doing on our Public PnL page.</li>
+              <li><strong>Public Scoreboard:</strong> See exactly how well Vektor is doing on our Public PnL page.</li>
               <li><strong>Full Access:</strong> The Admin Console lets you look under the hood whenever you want.</li>
               <li><strong>Plain English:</strong> We explain our strategies in our Blog, not in complicated math equations.</li>
             </ul>
@@ -136,7 +136,7 @@ export default function Page() {
             </div>
             <div className="feature-item dark-card">
               <h3>Complete Transparency</h3>
-              <p>Every decision is logged and explained. No black boxes. Understand exactly why Viktor made each trade. Full audit trail included.</p>
+              <p>Every decision is logged and explained. No black boxes. Understand exactly why Vektor made each trade. Full audit trail included.</p>
             </div>
             <div className="feature-item dark-card">
               <h3>Risk First Architecture</h3>
@@ -158,13 +158,13 @@ export default function Page() {
         </section>
 
         <section className="section cinematic-fade" id="comparison">
-          <h2 className="section-title">How Viktor Compares</h2>
+          <h2 className="section-title">How Vektor Compares</h2>
           <div className="comparison-table">
             <div className="comparison-row dark-card">
               <div className="comparison-header">Feature</div>
               <div className="comparison-cell">Traditional Fund</div>
               <div className="comparison-cell">Automated Bots</div>
-              <div className="comparison-cell" style={{ borderColor: 'var(--accent)' }}>Viktor</div>
+              <div className="comparison-cell" style={{ borderColor: 'var(--accent)' }}>Vektor</div>
             </div>
             <div className="comparison-row">
               <div className="comparison-header">Transparent Decisions</div>
@@ -203,19 +203,19 @@ export default function Page() {
           <h2 className="section-title">Frequently Asked Questions</h2>
           <div className="faq-grid">
             <details className="dark-card faq-item">
-              <summary><strong>Is Viktor suitable for beginners?</strong></summary>
-              <p>Yes. Viktor starts in paper trading mode with detailed explanations of every decision. You can learn at your own pace before risking real capital.</p>
+              <summary><strong>Is Vektor suitable for beginners?</strong></summary>
+              <p>Yes. Vektor starts in paper trading mode with detailed explanations of every decision. You can learn at your own pace before risking real capital.</p>
             </details>
             <details className="dark-card faq-item">
               <summary><strong>How much capital is required to start?</strong></summary>
               <p>You can start with paper trading for free. For live trading, check our Admin Console for minimum requirements and current offerings.</p>
             </details>
             <details className="dark-card faq-item">
-              <summary><strong>What exchanges does Viktor support?</strong></summary>
-              <p>Viktor integrates with major brokerages. See our Blog for current integrations or contact us via the Admin Console.</p>
+              <summary><strong>What exchanges does Vektor support?</strong></summary>
+              <p>Vektor integrates with major brokerages. See our Blog for current integrations or contact us via the Admin Console.</p>
             </details>
             <details className="dark-card faq-item">
-              <summary><strong>Can I customize Viktor's strategy?</strong></summary>
+              <summary><strong>Can I customize Vektor's strategy?</strong></summary>
               <p>Yes. You can adjust risk parameters, set custom constraints, and define your investment universe. Check the How It Works section for details.</p>
             </details>
             <details className="dark-card faq-item">
@@ -223,8 +223,8 @@ export default function Page() {
               <p>You can pause or override any trade at any time. Every override is logged for analysis and learning.</p>
             </details>
             <details className="dark-card faq-item">
-              <summary><strong>How is Viktor different from robo-advisors?</strong></summary>
-              <p>Viktor uses multi-agent orchestration with transparent decision reasoning. We explain our logic, not just execute trades.</p>
+              <summary><strong>How is Vektor different from robo-advisors?</strong></summary>
+              <p>Vektor uses multi-agent orchestration with transparent decision reasoning. We explain our logic, not just execute trades.</p>
             </details>
           </div>
         </section>
@@ -232,7 +232,7 @@ export default function Page() {
         <section className="section cinematic-fade" id="cta-final">
           <div className="dark-card" style={{ textAlign: "center", padding: "80px 40px" }}>
              <h2 style={{ marginBottom: "16px", fontSize: "clamp(28px, 5vw, 48px)" }}>Ready to Experience AI-Driven Investing?</h2>
-             <p style={{ margin: "0 auto 40px", maxWidth: "700px", color: "var(--muted)", fontSize: "18px" }}>Start with paper trading to see how Viktor works. Progress to live trading when you're confident. Always transparent, always in control.</p>
+             <p style={{ margin: "0 auto 40px", maxWidth: "700px", color: "var(--muted)", fontSize: "18px" }}>Start with paper trading to see how Vektor works. Progress to live trading when you're confident. Always transparent, always in control.</p>
              <div className="hero-actions" style={{ justifyContent: 'center', gap: "16px" }}>
                 <a className="btn primary" href={productUrl}>Launch Admin Console</a>
                 <Link className="btn ghost" href="/how-it-works">View Full Architecture</Link>
@@ -245,7 +245,7 @@ export default function Page() {
       <footer className="footer">
         <div className="container">
            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-              <span>Viktor Fund OS • Smart, Safe, Explainable</span>
+              <span>Vektor Fund OS • Smart, Safe, Explainable</span>
               <div style={{display: 'flex', gap: '24px'}}>
                  <Link href="/blog">Blog</Link>
                  <a href={productUrl}>PnL</a>

@@ -4,8 +4,8 @@ import { siteConfig } from "@/lib/site";
 export const metadataKeywords = [
     "Blog",
     "Trading",
-    "Viktor Trading Blog",
-    "Viktor Blog Template",
+    "Vektor Trading Blog",
+    "Vektor Blog Template",
     "AI Trading",
     "Multi-Agent Systems",
     "Algorithmic Trading",

@@ -31,8 +31,8 @@ export default function HowItWorksPage() {
       <header className="topbar">
         <div className="container topbar-inner">
           <a href="/" className="brand" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <img src="/VektorLogo.png" alt="Viktor Logo" style={{ height: 32 }} />
-            <span>Viktor <em>Fund OS</em></span>
+            <img src="/VektorLogo.png" alt="Vektor Logo" style={{ height: 32 }} />
+            <span>Vektor <em>Fund OS</em></span>
           </a>
           <nav className="hero-actions" style={{ alignItems: 'center' }}>
             <Link className="btn ghost" href="/">Back to Home</Link>
@@ -45,16 +45,16 @@ export default function HowItWorksPage() {
 
       <main className="container overflow-hidden" style={{ padding: '120px 24px' }}>
         <div className="cinematic-fade">
-          <h1 style={{ fontSize: 'clamp(40px, 7vw, 64px)', marginBottom: '24px', letterSpacing: '-0.03em' }}>How Viktor Works</h1>
+          <h1 style={{ fontSize: 'clamp(40px, 7vw, 64px)', marginBottom: '24px', letterSpacing: '-0.03em' }}>How Vektor Works</h1>
           <p style={{ color: 'var(--muted)', fontSize: 'clamp(18px, 2.5vw, 22px)', maxWidth: '800px', marginBottom: '80px', lineHeight: '1.6' }}>
-            Viktor is an AI-native hedge fund operating system. We orchestrate multiple specialized agents, enforce strict safety constraints, and log every decision for complete transparency. No black boxes. No hidden logic. Every trade is explainable.
+            Vektor is an AI-native hedge fund operating system. We orchestrate multiple specialized agents, enforce strict safety constraints, and log every decision for complete transparency. No black boxes. No hidden logic. Every trade is explainable.
           </p>
         </div>
 
         <div className="dark-card cinematic-fade" style={{ marginBottom: '60px' }}>
           <h2 style={{ fontSize: '32px', marginBottom: '24px', color: 'var(--text)' }}>1. Data Ingestion & Analysis</h2>
           <p style={{ color: 'var(--muted)', marginBottom: '20px', lineHeight: '1.8' }}>
-            Viktor continuously reads market data from multiple sources: news feeds, financial statements, technical indicators, and macro events. Our Research Agent processes thousands of data points to identify patterns humans might miss.
+            Vektor continuously reads market data from multiple sources: news feeds, financial statements, technical indicators, and macro events. Our Research Agent processes thousands of data points to identify patterns humans might miss.
           </p>
           <ul style={{ color: 'var(--muted)', paddingLeft: '24px', marginBottom: '0' }}>
             <li style={{ marginBottom: '12px' }}>📰 News Analysis: Real-time financial news with sentiment scoring</li>
@@ -172,7 +172,7 @@ Risk Level: MODERATE`}
               <strong style={{ color: 'var(--text)' }}>Launch Admin Console</strong> - Connect to your broker and set up your strategy
             </li>
             <li style={{ marginBottom: '16px', lineHeight: '1.8' }}>
-              <strong style={{ color: 'var(--text)' }}>Start in Paper Mode</strong> - Viktor trades with fake money first so you can learn
+              <strong style={{ color: 'var(--text)' }}>Start in Paper Mode</strong> - Vektor trades with fake money first so you can learn
             </li>
             <li style={{ marginBottom: '16px', lineHeight: '1.8' }}>
               <strong style={{ color: 'var(--text)' }}>Review Decisions</strong> - Check the admin console to see why each trade was made
@@ -195,7 +195,7 @@ Risk Level: MODERATE`}
       <footer className="footer">
         <div className="container">
            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-              <span>Viktor Fund OS • Technical Documentation</span>
+              <span>Vektor Fund OS • Technical Documentation</span>
               <div style={{display: 'flex', gap: '24px'}}>
                  <Link href="/">Back to Home</Link>
                  <Link href="/blog">Blog</Link>
