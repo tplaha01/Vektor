@@ -63,4 +63,75 @@ CREATE TABLE IF NOT EXISTS blog_posts (
 CREATE INDEX IF NOT EXISTS idx_blog_posts_published_at ON blog_posts (published_at DESC);
 CREATE INDEX IF NOT EXISTS idx_blog_posts_category ON blog_posts (category);
 CREATE INDEX IF NOT EXISTS idx_blog_posts_source_report_id ON blog_posts (source_report_id);
+
+CREATE TABLE IF NOT EXISTS fund_decisions (
+    decision_id   TEXT PRIMARY KEY,
+    run_id        TEXT,
+    status        TEXT NOT NULL,
+    sleeve        TEXT,
+    payload_json  TEXT NOT NULL,
+    created_at    TEXT NOT NULL,
+    updated_at    TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_fund_decisions_run_status ON fund_decisions (run_id, status);
+
+CREATE TABLE IF NOT EXISTS fund_decision_events (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_id     TEXT NOT NULL UNIQUE,
+    event_type   TEXT NOT NULL,
+    decision_id  TEXT,
+    order_id     TEXT,
+    ts           TEXT NOT NULL,
+    payload_json TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_fund_decision_events_decision_ts ON fund_decision_events (decision_id, ts);
+CREATE INDEX IF NOT EXISTS idx_fund_decision_events_order_ts ON fund_decision_events (order_id, ts);
+
+CREATE TABLE IF NOT EXISTS fund_audit_events (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_id     TEXT NOT NULL UNIQUE,
+    event_type   TEXT NOT NULL,
+    event_ts     TEXT NOT NULL,
+    run_id       TEXT,
+    decision_id  TEXT,
+    order_id     TEXT,
+    outcome      TEXT,
+    payload_json TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_fund_audit_events_order_ts ON fund_audit_events (order_id, event_ts);
+CREATE INDEX IF NOT EXISTS idx_fund_audit_events_decision_ts ON fund_audit_events (decision_id, event_ts);
+CREATE INDEX IF NOT EXISTS idx_fund_audit_events_run_ts ON fund_audit_events (run_id, event_ts);
+
+CREATE TABLE IF NOT EXISTS fund_research_reports (
+    report_id        TEXT PRIMARY KEY,
+    agent_id         TEXT NOT NULL,
+    created_at       TEXT NOT NULL,
+    assets_json      TEXT NOT NULL,
+    title            TEXT NOT NULL,
+    summary          TEXT NOT NULL,
+    thesis           TEXT,
+    confidence       REAL NOT NULL,
+    provenance_json  TEXT NOT NULL,
+    tags_json        TEXT NOT NULL,
+    metadata_json    TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_fund_research_reports_created_at ON fund_research_reports (created_at DESC);
+
+CREATE TABLE IF NOT EXISTS fund_sentiment_snapshots (
+    snapshot_id      TEXT PRIMARY KEY,
+    asset            TEXT NOT NULL,
+    channel          TEXT NOT NULL,
+    text             TEXT NOT NULL,
+    sentiment_score  REAL NOT NULL,
+    model_name       TEXT,
+    provenance_json  TEXT NOT NULL,
+    created_at       TEXT NOT NULL,
+    metadata_json    TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_fund_sentiment_asset_created ON fund_sentiment_snapshots (asset, created_at DESC);
 """

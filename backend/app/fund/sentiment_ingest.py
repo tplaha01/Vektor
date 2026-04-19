@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+import logging
 from threading import RLock
 from typing import Any, Callable, Dict, Iterable, List, Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
+
+logger = logging.getLogger("alfred.fund.sentiment_ingest")
 
 
 def _utc_now() -> datetime:
@@ -105,6 +108,7 @@ class SentimentIngestService:
             self._artifacts[model.snapshot_id] = model
             self._asset_index[model.asset].append(model.snapshot_id)
             self._prune_if_needed()
+            self._persist_snapshot(model)
             self._emit_event(model)
 
         return model
@@ -193,6 +197,44 @@ class SentimentIngestService:
 
     def set_event_sink(self, sink: Callable[[dict[str, Any]], Any] | None) -> None:
         self._event_sink = sink
+
+    def restore_from_storage(self) -> dict[str, int]:
+        try:
+            from app.storage import db as storage_db
+
+            rows = storage_db.load_sentiment_snapshots()
+        except Exception as exc:
+            logger.warning("sentiment_ingest.restore_failed: %s", exc)
+            return {"restored": 0, "snapshots": len(self._artifacts)}
+
+        restored: Dict[str, SentimentSnapshot] = {}
+        ordered_ids: List[str] = []
+        asset_index: Dict[str, List[str]] = defaultdict(list)
+
+        for row in rows:
+            try:
+                model = SentimentSnapshot.model_validate(row)
+            except Exception:
+                continue
+            restored[model.snapshot_id] = model
+            ordered_ids.append(model.snapshot_id)
+            asset_index[model.asset].append(model.snapshot_id)
+
+        with self._lock:
+            self._artifacts = restored
+            self._ordered_ids = ordered_ids
+            self._asset_index = asset_index
+            self._prune_if_needed()
+
+        return {"restored": 1, "snapshots": len(restored)}
+
+    def _persist_snapshot(self, snapshot: SentimentSnapshot) -> None:
+        try:
+            from app.storage import db as storage_db
+
+            storage_db.save_sentiment_snapshot(snapshot.model_dump(mode="json"))
+        except Exception as exc:
+            logger.debug("sentiment_ingest.persist_failed: %s", exc)
 
     def _emit_event(self, snapshot: SentimentSnapshot) -> None:
         if self._event_sink is None:

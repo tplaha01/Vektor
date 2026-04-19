@@ -323,3 +323,379 @@ def load_task_history_events(limit: int | None = None) -> List[Dict[str, Any]]:
                 pass
         out.append(item)
     return out
+
+
+# Decision ledger persistence
+def save_decision_record(record: Dict[str, Any]) -> None:
+    payload = dict(record or {})
+    decision_id = str(payload.get("decision_id") or "").strip()
+    if not decision_id:
+        return
+    now = datetime.utcnow().isoformat()
+    with get_db() as db:
+        db.execute(
+            """
+            INSERT INTO fund_decisions (
+                decision_id, run_id, status, sleeve, payload_json, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(decision_id) DO UPDATE SET
+                run_id=excluded.run_id,
+                status=excluded.status,
+                sleeve=excluded.sleeve,
+                payload_json=excluded.payload_json,
+                updated_at=excluded.updated_at
+            """,
+            (
+                decision_id,
+                payload.get("run_id"),
+                str(payload.get("status") or "proposed"),
+                payload.get("sleeve"),
+                json.dumps(payload, ensure_ascii=False),
+                now,
+                now,
+            ),
+        )
+
+
+def load_decision_records() -> List[Dict[str, Any]]:
+    with get_db() as db:
+        rows = db.execute(
+            """
+            SELECT decision_id, payload_json
+            FROM fund_decisions
+            ORDER BY updated_at ASC, decision_id ASC
+            """
+        ).fetchall()
+    out: list[Dict[str, Any]] = []
+    for raw in rows:
+        payload_raw = raw["payload_json"]
+        if not payload_raw:
+            continue
+        try:
+            payload = json.loads(payload_raw)
+            if isinstance(payload, dict):
+                out.append(payload)
+        except Exception:
+            continue
+    return out
+
+
+def save_decision_event(event: Dict[str, Any]) -> None:
+    row = dict(event or {})
+    event_id = str(row.get("event_id") or "").strip()
+    if not event_id:
+        return
+    payload = row.get("payload") if isinstance(row.get("payload"), dict) else {}
+    with get_db() as db:
+        db.execute(
+            """
+            INSERT INTO fund_decision_events (
+                event_id, event_type, decision_id, order_id, ts, payload_json
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(event_id) DO NOTHING
+            """,
+            (
+                event_id,
+                str(row.get("event_type") or "unknown"),
+                row.get("decision_id"),
+                row.get("order_id"),
+                str(row.get("ts") or datetime.utcnow().isoformat()),
+                json.dumps(payload, ensure_ascii=False),
+            ),
+        )
+
+
+def load_decision_events(limit: int | None = None) -> List[Dict[str, Any]]:
+    query = (
+        "SELECT event_id, event_type, decision_id, order_id, ts, payload_json "
+        "FROM fund_decision_events ORDER BY id ASC"
+    )
+    params: list[Any] = []
+    if limit is not None and limit >= 0:
+        query = (
+            "SELECT * FROM ("
+            "SELECT event_id, event_type, decision_id, order_id, ts, payload_json "
+            "FROM fund_decision_events ORDER BY id DESC LIMIT ?"
+            ") ORDER BY ts ASC"
+        )
+        params.append(int(limit))
+    with get_db() as db:
+        rows = db.execute(query, params).fetchall()
+    out: list[Dict[str, Any]] = []
+    for raw in rows:
+        row = dict(raw)
+        payload: Dict[str, Any] = {}
+        payload_raw = row.get("payload_json")
+        if payload_raw:
+            try:
+                parsed = json.loads(payload_raw)
+                if isinstance(parsed, dict):
+                    payload = parsed
+            except Exception:
+                payload = {}
+        out.append(
+            {
+                "event_id": row.get("event_id"),
+                "event_type": row.get("event_type"),
+                "decision_id": row.get("decision_id"),
+                "order_id": row.get("order_id"),
+                "ts": row.get("ts"),
+                "payload": payload,
+            }
+        )
+    return out
+
+
+# Audit log persistence
+def save_audit_event(event: Dict[str, Any]) -> None:
+    row = dict(event or {})
+    event_id = str(row.get("event_id") or "").strip()
+    if not event_id:
+        return
+    payload = row.get("payload") if isinstance(row.get("payload"), dict) else {}
+    with get_db() as db:
+        db.execute(
+            """
+            INSERT INTO fund_audit_events (
+                event_id, event_type, event_ts, run_id, decision_id, order_id, outcome, payload_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(event_id) DO NOTHING
+            """,
+            (
+                event_id,
+                str(row.get("event_type") or "unknown"),
+                str(row.get("event_ts") or datetime.utcnow().isoformat()),
+                payload.get("run_id"),
+                payload.get("decision_id"),
+                payload.get("order_id"),
+                payload.get("outcome"),
+                json.dumps(payload, ensure_ascii=False),
+            ),
+        )
+
+
+def load_audit_events(limit: int | None = None) -> List[Dict[str, Any]]:
+    query = (
+        "SELECT event_id, event_type, event_ts, payload_json "
+        "FROM fund_audit_events ORDER BY id ASC"
+    )
+    params: list[Any] = []
+    if limit is not None and limit >= 0:
+        query = (
+            "SELECT * FROM ("
+            "SELECT event_id, event_type, event_ts, payload_json "
+            "FROM fund_audit_events ORDER BY id DESC LIMIT ?"
+            ") ORDER BY event_ts ASC"
+        )
+        params.append(int(limit))
+    with get_db() as db:
+        rows = db.execute(query, params).fetchall()
+    out: list[Dict[str, Any]] = []
+    for raw in rows:
+        row = dict(raw)
+        payload: Dict[str, Any] = {}
+        payload_raw = row.get("payload_json")
+        if payload_raw:
+            try:
+                parsed = json.loads(payload_raw)
+                if isinstance(parsed, dict):
+                    payload = parsed
+            except Exception:
+                payload = {}
+        out.append(
+            {
+                "event_id": row.get("event_id"),
+                "event_type": row.get("event_type"),
+                "event_ts": row.get("event_ts"),
+                "payload": payload,
+            }
+        )
+    return out
+
+
+# Research report persistence
+def save_research_report(report: Dict[str, Any]) -> None:
+    row = dict(report or {})
+    report_id = str(row.get("report_id") or "").strip()
+    if not report_id:
+        return
+    with get_db() as db:
+        db.execute(
+            """
+            INSERT INTO fund_research_reports (
+                report_id, agent_id, created_at, assets_json, title, summary, thesis, confidence,
+                provenance_json, tags_json, metadata_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(report_id) DO UPDATE SET
+                agent_id=excluded.agent_id,
+                created_at=excluded.created_at,
+                assets_json=excluded.assets_json,
+                title=excluded.title,
+                summary=excluded.summary,
+                thesis=excluded.thesis,
+                confidence=excluded.confidence,
+                provenance_json=excluded.provenance_json,
+                tags_json=excluded.tags_json,
+                metadata_json=excluded.metadata_json
+            """,
+            (
+                report_id,
+                str(row.get("agent_id") or "unknown"),
+                str(row.get("created_at") or datetime.utcnow().isoformat()),
+                json.dumps(list(row.get("assets") or []), ensure_ascii=False),
+                str(row.get("title") or report_id),
+                str(row.get("summary") or ""),
+                row.get("thesis"),
+                float(row.get("confidence") or 0.0),
+                json.dumps(list(row.get("provenance") or []), ensure_ascii=False),
+                json.dumps(list(row.get("tags") or []), ensure_ascii=False),
+                json.dumps(dict(row.get("metadata") or {}), ensure_ascii=False),
+            ),
+        )
+
+
+def load_research_reports(limit: int | None = None) -> List[Dict[str, Any]]:
+    query = (
+        "SELECT report_id, agent_id, created_at, assets_json, title, summary, thesis, confidence, "
+        "provenance_json, tags_json, metadata_json "
+        "FROM fund_research_reports ORDER BY created_at ASC"
+    )
+    params: list[Any] = []
+    if limit is not None and limit >= 0:
+        query = (
+            "SELECT * FROM ("
+            "SELECT report_id, agent_id, created_at, assets_json, title, summary, thesis, confidence, "
+            "provenance_json, tags_json, metadata_json "
+            "FROM fund_research_reports ORDER BY created_at DESC LIMIT ?"
+            ") ORDER BY created_at ASC"
+        )
+        params.append(int(limit))
+    with get_db() as db:
+        rows = db.execute(query, params).fetchall()
+    out: list[Dict[str, Any]] = []
+    for raw in rows:
+        row = dict(raw)
+        try:
+            assets = json.loads(row.get("assets_json") or "[]")
+            if not isinstance(assets, list):
+                assets = []
+        except Exception:
+            assets = []
+        try:
+            provenance = json.loads(row.get("provenance_json") or "[]")
+            if not isinstance(provenance, list):
+                provenance = []
+        except Exception:
+            provenance = []
+        try:
+            tags = json.loads(row.get("tags_json") or "[]")
+            if not isinstance(tags, list):
+                tags = []
+        except Exception:
+            tags = []
+        try:
+            metadata = json.loads(row.get("metadata_json") or "{}")
+            if not isinstance(metadata, dict):
+                metadata = {}
+        except Exception:
+            metadata = {}
+        out.append(
+            {
+                "report_id": row.get("report_id"),
+                "agent_id": row.get("agent_id"),
+                "created_at": row.get("created_at"),
+                "assets": assets,
+                "title": row.get("title"),
+                "summary": row.get("summary"),
+                "thesis": row.get("thesis"),
+                "confidence": float(row.get("confidence") or 0.0),
+                "provenance": provenance,
+                "tags": tags,
+                "metadata": metadata,
+            }
+        )
+    return out
+
+
+# Sentiment snapshot persistence
+def save_sentiment_snapshot(snapshot: Dict[str, Any]) -> None:
+    row = dict(snapshot or {})
+    snapshot_id = str(row.get("snapshot_id") or "").strip()
+    if not snapshot_id:
+        return
+    with get_db() as db:
+        db.execute(
+            """
+            INSERT INTO fund_sentiment_snapshots (
+                snapshot_id, asset, channel, text, sentiment_score, model_name,
+                provenance_json, created_at, metadata_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(snapshot_id) DO UPDATE SET
+                asset=excluded.asset,
+                channel=excluded.channel,
+                text=excluded.text,
+                sentiment_score=excluded.sentiment_score,
+                model_name=excluded.model_name,
+                provenance_json=excluded.provenance_json,
+                created_at=excluded.created_at,
+                metadata_json=excluded.metadata_json
+            """,
+            (
+                snapshot_id,
+                str(row.get("asset") or ""),
+                str(row.get("channel") or ""),
+                str(row.get("text") or ""),
+                float(row.get("sentiment_score") or 0.0),
+                row.get("model_name"),
+                json.dumps(dict(row.get("provenance") or {}), ensure_ascii=False),
+                str(row.get("created_at") or datetime.utcnow().isoformat()),
+                json.dumps(dict(row.get("metadata") or {}), ensure_ascii=False),
+            ),
+        )
+
+
+def load_sentiment_snapshots(limit: int | None = None) -> List[Dict[str, Any]]:
+    query = (
+        "SELECT snapshot_id, asset, channel, text, sentiment_score, model_name, provenance_json, created_at, metadata_json "
+        "FROM fund_sentiment_snapshots ORDER BY created_at ASC"
+    )
+    params: list[Any] = []
+    if limit is not None and limit >= 0:
+        query = (
+            "SELECT * FROM ("
+            "SELECT snapshot_id, asset, channel, text, sentiment_score, model_name, provenance_json, created_at, metadata_json "
+            "FROM fund_sentiment_snapshots ORDER BY created_at DESC LIMIT ?"
+            ") ORDER BY created_at ASC"
+        )
+        params.append(int(limit))
+    with get_db() as db:
+        rows = db.execute(query, params).fetchall()
+    out: list[Dict[str, Any]] = []
+    for raw in rows:
+        row = dict(raw)
+        try:
+            provenance = json.loads(row.get("provenance_json") or "{}")
+            if not isinstance(provenance, dict):
+                provenance = {}
+        except Exception:
+            provenance = {}
+        try:
+            metadata = json.loads(row.get("metadata_json") or "{}")
+            if not isinstance(metadata, dict):
+                metadata = {}
+        except Exception:
+            metadata = {}
+        out.append(
+            {
+                "snapshot_id": row.get("snapshot_id"),
+                "asset": row.get("asset"),
+                "channel": row.get("channel"),
+                "text": row.get("text"),
+                "sentiment_score": float(row.get("sentiment_score") or 0.0),
+                "model_name": row.get("model_name"),
+                "provenance": provenance,
+                "created_at": row.get("created_at"),
+                "metadata": metadata,
+            }
+        )
+    return out

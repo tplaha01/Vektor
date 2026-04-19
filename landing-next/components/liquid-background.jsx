@@ -104,28 +104,28 @@ void main(){
 
   float f = fbm(p + vec3(3.5 * r, 0.0));
 
-  // Build luminance
+  // Build luminance - much brighter
   float lum = f * 0.5 + 0.5;
-  lum = lum * lum;
-  lum = smoothstep(0.2, 0.85, lum);
+  lum = lum * lum * lum * lum;  // very aggressive contrast
+  lum = smoothstep(0.0, 1.0, lum);
 
   float swirl = snoise(vec3(uv * 2.2 + r * 1.2, t * 0.25));
   swirl = swirl * 0.5 + 0.5;
-  swirl = smoothstep(0.25, 0.75, swirl);
+  swirl = smoothstep(0.15, 0.85, swirl);
 
-  // Mix glow colors onto the background
+  // Mix glow colors onto the background - EXTREMELY AGGRESSIVE
   float intensity = lum * swirl;
   vec3 glow = mix(u_color1, u_color2, swirl);
-  vec3 col = mix(u_bg, glow, intensity * 1.2);
-
-  // Soft highlight in brightest areas
-  float highlight = smoothstep(0.55, 1.0, intensity);
-  col += glow * highlight * 0.4;
-
-  // Vignette
-  vec2 vuv = gl_FragCoord.xy / u_resolution.xy;
-  float vig = 1.0 - smoothstep(0.2, 1.8, length(vuv - 0.5) * 1.2);
-  col = mix(u_bg, col, vig);
+  // Boost colors massively
+  glow = glow * 2.0;  // Double the glow color intensity
+  
+  // Very strong glow with additive blending
+  vec3 col = u_bg;
+  col = col + glow * intensity * 2.0;  // Add glow additively
+  col = mix(col, glow, intensity * 0.8);  // Also blend for richness
+  
+  // No vignette - show effect everywhere
+  col = clamp(col, 0.0, 1.0);
 
   gl_FragColor = vec4(col, 1.0);
 }
@@ -241,10 +241,14 @@ export default function LiquidBackground() {
     const t0 = performance.now();
 
     function resize() {
-      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-      cvs.width  = cvs.clientWidth  * dpr;
-      cvs.height = cvs.clientHeight * dpr;
-      gl.viewport(0, 0, cvs.width, cvs.height);
+      const dpr = window.devicePixelRatio || 1;
+      const w = cvs.clientWidth;
+      const h = cvs.clientHeight;
+      if (w > 0 && h > 0) {
+        cvs.width  = w * dpr;
+        cvs.height = h * dpr;
+        gl.viewport(0, 0, cvs.width, cvs.height);
+      }
     }
     resize();
     window.addEventListener("resize", resize);
@@ -296,8 +300,8 @@ export default function LiquidBackground() {
           width: "100%",
           height: "100%",
           display: "block",
-          filter: "blur(40px)",
-          opacity: 0.8,
+          filter: "blur(10px)",
+          opacity: 1.0,
         }}
       />
       {/* Subtle noise grain */}

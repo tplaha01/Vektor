@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+import logging
 from threading import RLock
 from typing import Any, Callable, Dict, Iterable, List, Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
+
+logger = logging.getLogger("alfred.fund.research_memory")
 
 
 def _utc_now() -> datetime:
@@ -133,6 +136,7 @@ class ResearchMemoryStore:
                 self._asset_index[symbol].append(model.report_id)
 
             self._prune_if_needed()
+            self._persist_report(model)
             self._emit_event(model)
         return model
 
@@ -213,6 +217,45 @@ class ResearchMemoryStore:
 
     def set_event_sink(self, sink: Callable[[dict[str, Any]], Any] | None) -> None:
         self._event_sink = sink
+
+    def restore_from_storage(self) -> dict[str, int]:
+        try:
+            from app.storage import db as storage_db
+
+            rows = storage_db.load_research_reports()
+        except Exception as exc:
+            logger.warning("research_memory.restore_failed: %s", exc)
+            return {"restored": 0, "reports": len(self._reports)}
+
+        restored_reports: Dict[str, ResearchReport] = {}
+        ordered_ids: List[str] = []
+        asset_index: Dict[str, List[str]] = defaultdict(list)
+
+        for row in rows:
+            try:
+                model = ResearchReport.model_validate(row)
+            except Exception:
+                continue
+            restored_reports[model.report_id] = model
+            ordered_ids.append(model.report_id)
+            for symbol in model.assets:
+                asset_index[symbol].append(model.report_id)
+
+        with self._lock:
+            self._reports = restored_reports
+            self._ordered_ids = ordered_ids
+            self._asset_index = asset_index
+            self._prune_if_needed()
+
+        return {"restored": 1, "reports": len(restored_reports)}
+
+    def _persist_report(self, report: ResearchReport) -> None:
+        try:
+            from app.storage import db as storage_db
+
+            storage_db.save_research_report(report.model_dump(mode="json"))
+        except Exception as exc:
+            logger.debug("research_memory.persist_failed: %s", exc)
 
     def _emit_event(self, report: ResearchReport) -> None:
         if self._event_sink is None:

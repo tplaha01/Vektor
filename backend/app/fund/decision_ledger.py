@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import logging
 from threading import RLock
 from typing import Any, Callable, Dict, List
 from uuid import uuid4
 
 from app.fund.contracts import DecisionRecord
+
+logger = logging.getLogger("alfred.fund.decision_ledger")
 
 
 def _utc_iso() -> str:
@@ -36,6 +39,8 @@ class DecisionLedger:
                     "payload": record.model_dump(mode="json"),
                 }
             )
+            self._persist_decision(record)
+            self._persist_event(self._events[-1])
             self._emit_event(self._events[-1])
         return record
 
@@ -56,6 +61,8 @@ class DecisionLedger:
                     "payload": payload or {"status": status},
                 }
             )
+            self._persist_decision(updated)
+            self._persist_event(self._events[-1])
             self._emit_event(self._events[-1])
             return updated
 
@@ -77,6 +84,7 @@ class DecisionLedger:
         }
         with self._lock:
             self._events.append(event)
+            self._persist_event(event)
             self._emit_event(event)
         return event
 
@@ -108,6 +116,55 @@ class DecisionLedger:
 
     def set_event_sink(self, sink: Callable[[dict[str, Any]], Any] | None) -> None:
         self._event_sink = sink
+
+    def restore_from_storage(self) -> dict[str, int]:
+        try:
+            from app.storage import db as storage_db
+
+            loaded_decisions = storage_db.load_decision_records()
+            loaded_events = storage_db.load_decision_events()
+        except Exception as exc:
+            logger.warning("decision_ledger.restore_failed: %s", exc)
+            return {"restored": 0, "decisions": len(self._decisions), "events": len(self._events)}
+
+        restored_decisions: Dict[str, DecisionRecord] = {}
+        restored_events: List[dict[str, Any]] = []
+
+        for row in loaded_decisions:
+            try:
+                model = DecisionRecord.model_validate(row)
+            except Exception:
+                continue
+            restored_decisions[model.decision_id] = model
+
+        for row in loaded_events:
+            if not isinstance(row, dict):
+                continue
+            restored_events.append(dict(row))
+
+        restored_events.sort(key=lambda item: str(item.get("ts") or ""))
+
+        with self._lock:
+            self._decisions = restored_decisions
+            self._events = restored_events
+
+        return {"restored": 1, "decisions": len(restored_decisions), "events": len(restored_events)}
+
+    def _persist_decision(self, record: DecisionRecord) -> None:
+        try:
+            from app.storage import db as storage_db
+
+            storage_db.save_decision_record(record.model_dump(mode="json"))
+        except Exception as exc:
+            logger.debug("decision_ledger.persist_decision_failed: %s", exc)
+
+    def _persist_event(self, event: dict[str, Any]) -> None:
+        try:
+            from app.storage import db as storage_db
+
+            storage_db.save_decision_event(dict(event))
+        except Exception as exc:
+            logger.debug("decision_ledger.persist_event_failed: %s", exc)
 
     def _emit_event(self, event: dict[str, Any]) -> None:
         if self._event_sink is None:

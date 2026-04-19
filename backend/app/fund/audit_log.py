@@ -2,8 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import logging
 from threading import RLock
 from typing import Any, Callable, Dict, Iterable, List, Optional
+
+logger = logging.getLogger("alfred.fund.audit_log")
 
 
 def _utc_now() -> datetime:
@@ -95,6 +98,7 @@ class AuditLog:
                 },
             )
             self._events.append(event)
+            self._persist_event(event)
             self._emit_event(event)
             return event
 
@@ -192,6 +196,54 @@ class AuditLog:
 
     def set_event_sink(self, sink: Optional[Callable[[dict[str, Any]], Any]]) -> None:
         self._event_sink = sink
+
+    def restore_from_storage(self) -> dict[str, int]:
+        try:
+            from app.storage import db as storage_db
+
+            rows = storage_db.load_audit_events()
+        except Exception as exc:
+            logger.warning("audit_log.restore_failed: %s", exc)
+            return {"restored": 0, "events": len(self._events)}
+
+        restored: list[AuditEvent] = []
+        max_seq = 0
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            event_id = str(row.get("event_id") or "").strip()
+            event_type = str(row.get("event_type") or "").strip()
+            event_ts = str(row.get("event_ts") or "").strip()
+            payload = row.get("payload") if isinstance(row.get("payload"), dict) else {}
+            if not event_id or not event_type or not event_ts:
+                continue
+            restored.append(
+                AuditEvent(
+                    event_id=event_id,
+                    event_type=event_type,
+                    event_ts=event_ts,
+                    payload=payload,
+                )
+            )
+            if event_id.startswith("aevt-"):
+                try:
+                    max_seq = max(max_seq, int(event_id.split("aevt-")[1]))
+                except Exception:
+                    pass
+
+        with self._lock:
+            self._events = restored
+            self._seq = max(max_seq, len(restored))
+
+        return {"restored": 1, "events": len(restored)}
+
+    def _persist_event(self, event: AuditEvent) -> None:
+        try:
+            from app.storage import db as storage_db
+
+            storage_db.save_audit_event(event.to_dict())
+        except Exception as exc:
+            logger.debug("audit_log.persist_failed: %s", exc)
 
     def _emit_event(self, event: AuditEvent) -> None:
         if self._event_sink is None:
