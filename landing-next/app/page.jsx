@@ -233,7 +233,7 @@ export default function Page() {
              <div className="hero-actions" style={{ justifyContent: 'center', gap: "16px" }}>
                 <a className="btn primary" href={productUrl}>Launch Admin Console</a>
                 <Link className="btn ghost" href="/how-it-works">View Full Architecture</Link>
-                <a className="btn ghost" href={blogUrl}>Read Latest Research</a>
+                <Link className="btn ghost" href="/blog">Read Latest Research</Link>
              </div>
           </div>
         </section>

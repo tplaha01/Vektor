@@ -197,7 +197,7 @@ const blogPosts = [
 
 export default function BlogPage() {
   const [mounted, setMounted] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState(null);
 
   useEffect(() => {
     setMounted(true);
