@@ -16,7 +16,7 @@ const getAssetData = async () => {
     const fontUrls = {
       clashDisplay: `${baseUrl}/fonts/ClashDisplay-Semibold.ttf`,
       cabinetGrotesk: `${baseUrl}/fonts/CabinetGrotesk-Medium.ttf`,
-      logo: `${baseUrl}/viktor-logo.svg`,
+      logo: `${baseUrl}/VektorLogo.png`,
     };
 
     const [clashDisplayRes, cabinetGroteskRes, logoRes] = await Promise.all([
@@ -108,7 +108,7 @@ export default async function Image() {
             <img
               src={
                 assetData?.logoBase64 ||
-                `${process.env.NEXT_PUBLIC_SITE_URL}/viktor-logo.svg`
+                `${process.env.NEXT_PUBLIC_SITE_URL}/VektorLogo.png`
               }
               alt="Viktor Trading Logo"
               width={100}

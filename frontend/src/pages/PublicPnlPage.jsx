@@ -46,9 +46,12 @@ export default function PublicPnlPage() {
     <div style={{ minHeight: "100vh", background: "var(--bg0)", color: "var(--txt)" }}>
       <header style={{ borderBottom: "1px solid var(--line)", background: "var(--bg1)", position: "sticky", top: 0, zIndex: 2 }}>
         <div style={{ maxWidth: 1180, margin: "0 auto", padding: "14px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-          <div>
-            <div className="label" style={{ marginBottom: 4 }}>Viktor Public Board</div>
-            <h1 style={{ fontSize: 24 }}>Live Paper PnL</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <img src="/VektorLogo.png" alt="Viktor Logo" style={{ height: '32px' }} />
+            <div>
+              <div className="label" style={{ marginBottom: 4 }}>Viktor Public Board</div>
+              <h1 style={{ fontSize: 24 }}>Live Paper PnL</h1>
+            </div>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <a className="btn btn-tab on" href="/admin">Admin Portal</a>

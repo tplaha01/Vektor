@@ -292,8 +292,8 @@ const Admin = () => {
         {/* Sidebar */}
         <aside className={`admin-sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
           <div className="sidebar-header">
-            <div className="sidebar-logo">
-              <Bot size={24} />
+            <div className="sidebar-logo" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <img src="/VektorLogo.png" alt="Viktor Logo" style={{ height: '24px' }} />
               <span>Viktor Admin</span>
             </div>
             <button

@@ -16,7 +16,7 @@ export function PromoContent({
       <div className={cn("border-t border-border bg-muted/20 p-3", className)}>
         <div className="flex items-center gap-3">
           <img
-            src="/viktor-logo.svg"
+            src="/VektorLogo.png"
             alt="Viktor Trading"
             className="w-8 h-8 rounded object-cover flex-shrink-0"
           />

@@ -27,7 +27,10 @@ export default function Page() {
     <>
       <header className="topbar">
         <div className="container topbar-inner">
-          <a href="/" className="brand">Viktor <em>Fund OS</em></a>
+          <a href="/" className="brand" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <img src="/VektorLogo.png" alt="Viktor Logo" style={{ height: 32 }} />
+            <span>Viktor <em>Fund OS</em></span>
+          </a>
           <nav className="hero-actions" style={{ alignItems: 'center' }}>
             <Link className="btn ghost" href="/how-it-works">How It Works</Link>
             <Link className="btn ghost" href="/blog">Blog</Link>

@@ -404,11 +404,9 @@ export default function Blog() {
       <div className="blog-page">
         <header className="blog-header" role="banner">
           <div className="blog-header-content">
-            <div className="blog-logo">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <path d="M4 6h16M4 12h16M4 18h8" stroke="var(--purple)" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-              <span>Blog</span>
+            <div className="blog-logo" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <img src="/VektorLogo.png" alt="Viktor Logo" style={{ height: '24px' }} />
+              <span>Viktor Blog</span>
             </div>
 
             <div className="header-controls">

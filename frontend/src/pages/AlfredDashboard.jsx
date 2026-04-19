@@ -89,10 +89,7 @@ export default function AlfredDashboard() {
       }}>
         {/* Logo */}
         <div style={{ display:"flex", alignItems:"center", gap:8, flexShrink:0 }}>
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <path d="M1 13 L5 8 L9 11 L13 5 L17 2" stroke="var(--amber)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-            <circle cx="17" cy="2" r="1.5" fill="var(--amber)"/>
-          </svg>
+          <img src="/VektorLogo.png" alt="Viktor Logo" style={{ height: '18px' }} />
           <span style={{ fontFamily:"'Outfit'", fontWeight:700, fontSize:14, letterSpacing:"0.12em", color:"var(--amber)" }}>ALFRED</span>
         </div>
 

@@ -55,7 +55,10 @@ export default function BlogPost({ params }: PageProps) {
       <>
         <header className="topbar">
           <div className="container topbar-inner">
-            <a href="/" className="brand">Viktor <em>Blog</em></a>
+            <a href="/" className="brand" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <img src="/VektorLogo.png" alt="Viktor Logo" style={{ height: 32 }} />
+            <span>Viktor <em>Blog</em></span>
+          </a>
             <nav className="hero-actions" style={{ alignItems: 'center' }}>
               <Link className="btn ghost" href="/blog">Back to Blog</Link>
               <div style={{ width: '1px', height: '24px', background: 'var(--line)', margin: '0 8px' }} />
@@ -75,7 +78,10 @@ export default function BlogPost({ params }: PageProps) {
       <>
         <header className="topbar">
           <div className="container topbar-inner">
-            <a href="/" className="brand">Viktor <em>Blog</em></a>
+            <a href="/" className="brand" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <img src="/VektorLogo.png" alt="Viktor Logo" style={{ height: 32 }} />
+            <span>Viktor <em>Blog</em></span>
+          </a>
             <nav className="hero-actions" style={{ alignItems: 'center' }}>
               <Link className="btn ghost" href="/blog">Back to Blog</Link>
               <div style={{ width: '1px', height: '24px', background: 'var(--line)', margin: '0 8px' }} />
@@ -96,7 +102,10 @@ export default function BlogPost({ params }: PageProps) {
     <>
       <header className="topbar">
         <div className="container topbar-inner">
-          <a href="/" className="brand">Viktor <em>Blog</em></a>
+          <a href="/" className="brand" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <img src="/VektorLogo.png" alt="Viktor Logo" style={{ height: 32 }} />
+            <span>Viktor <em>Blog</em></span>
+          </a>
           <nav className="hero-actions" style={{ alignItems: 'center' }}>
             <Link className="btn ghost" href="/blog">Back to Blog</Link>
             <a className="btn primary" href={`${productUrl}/admin`}>Admin Console</a>
