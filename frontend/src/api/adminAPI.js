@@ -21,7 +21,20 @@ function withAuth(options = {}) {
 async function fetchJson(url, options = {}) {
   const res = await fetch(url, withAuth(options));
   if (!res.ok) {
-    throw new Error(`Request failed (${res.status}): ${url}`);
+    let detail = "";
+    try {
+      const contentType = String(res.headers.get("content-type") || "").toLowerCase();
+      if (contentType.includes("application/json")) {
+        const payload = await res.json();
+        detail = payload?.detail || payload?.message || JSON.stringify(payload);
+      } else {
+        detail = (await res.text()) || "";
+      }
+    } catch {
+      detail = "";
+    }
+    const suffix = detail ? ` - ${String(detail).slice(0, 220)}` : "";
+    throw new Error(`Request failed (${res.status}): ${url}${suffix}`);
   }
   return res.json();
 }

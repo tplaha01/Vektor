@@ -40,7 +40,7 @@ const Admin = () => {
     try {
       setConnectionStatus(prev => (prev === 'connected' ? 'connected' : 'connecting'));
 
-      const withTimeout = (promise, label, timeoutMs = 15000) =>
+      const withTimeout = (promise, label, timeoutMs = 30000) =>
         Promise.race([
           promise,
           new Promise((_, reject) =>
@@ -48,11 +48,24 @@ const Admin = () => {
           ),
         ]);
 
+      const fetchWithRetry = async (fn, label) => {
+        try {
+          return await withTimeout(fn(), label, 30000);
+        } catch (err) {
+          const message = String(err?.message || "").toLowerCase();
+          if (!message.includes("timeout")) {
+            throw err;
+          }
+          // Retry once because model/routing checks can spike latency under strict real-data mode.
+          return withTimeout(fn(), label, 30000);
+        }
+      };
+
       const [metricsResult, systemResult, runtimeResult, historyResult] = await Promise.allSettled([
-        withTimeout(adminAPI.getMetricsSummary(), 'metrics'),
-        withTimeout(adminAPI.getSystemStatusBadges(), 'status-badges'),
-        withTimeout(adminAPI.getRuntimeControlStatus(), 'runtime-control'),
-        withTimeout(adminAPI.getRuntimeControlHistory(20), 'control-history'),
+        fetchWithRetry(adminAPI.getMetricsSummary, 'metrics'),
+        fetchWithRetry(adminAPI.getSystemStatusBadges, 'status-badges'),
+        fetchWithRetry(adminAPI.getRuntimeControlStatus, 'runtime-control'),
+        fetchWithRetry(() => adminAPI.getRuntimeControlHistory(20), 'control-history'),
       ]);
 
       if (!isMounted.current) return;
@@ -60,8 +73,48 @@ const Admin = () => {
       const fulfilledCount = [metricsResult, systemResult, runtimeResult, historyResult]
         .filter((result) => result.status === 'fulfilled').length;
 
+      const rejectedReasons = [metricsResult, systemResult, runtimeResult, historyResult]
+        .filter((result) => result.status === 'rejected')
+        .map((result) => String(result.reason?.message || result.reason || ''));
+
+      const reasonBlob = rejectedReasons.join(' | ').toLowerCase();
+      const policyBlocked =
+        reasonBlob.includes('real-data') ||
+        reasonBlob.includes('real data') ||
+        reasonBlob.includes('strict') ||
+        reasonBlob.includes('halt');
+
       if (fulfilledCount === 0) {
-        throw new Error('All admin endpoints timed out');
+        if (policyBlocked) {
+          setConnectionStatus('connected');
+          setLastUpdate(new Date());
+          setRetryCount(0);
+          setLoading(false);
+          setSystemStatus({
+            orchestration: { label: 'Orchestration', status: 'Degraded', reason: rejectedReasons[0] || 'policy_blocked' },
+            data_source: { label: 'Data Source', status: 'Fallback' },
+            execution_mode: { label: 'Execution Mode', status: 'Paper Only', reason: 'strict_real_data_required' },
+            llm_agent_health: { label: 'LLM Agent Health', status: 'Degraded', by_role: [] },
+            halt: {
+              halted: true,
+              reason: rejectedReasons[0] || 'strict_real_data_required',
+              message: 'Strict real-data policy is active and blocked runtime actions until verified live data is available.',
+            },
+          });
+          setRuntimeControl({
+            runtime_started: false,
+            halted: true,
+            halt_reason: rejectedReasons[0] || 'strict_real_data_required',
+            strict_real_data_only: true,
+            autopilot: { enabled: false, running: false },
+          });
+          setControlHistory([]);
+          if (manual) {
+            showError('Real-data policy block active. Backend reachable, but runtime is halted until live data checks pass.');
+          }
+          return;
+        }
+        throw new Error(`All admin endpoints failed: ${rejectedReasons.join(' | ') || 'unknown error'}`);
       }
 
       if (metricsResult.status === 'fulfilled') {
@@ -91,7 +144,9 @@ const Admin = () => {
       setConnectionStatus('error');
       setLoading(false);
       setRetryCount(prev => prev + 1);
-      showError(`Connection error: ${err.message}`);
+      if (manual) {
+        showError(`Connection error: ${err.message}`);
+      }
 
       // Fail closed: do not inject synthetic KPI values.
       setSystemStatus({
