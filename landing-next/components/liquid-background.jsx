@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useEffect, useRef, useCallback } from "react";
+import React, { useEffect, useRef, useCallback, useState } from "react";
+import { useTheme } from "next-themes";
 
 /* ─────────────────────────────────────────────
-   Animated Liquid / Plasma Background  –  WebGL
-   Replicates the Framer "Plasma" preset:
-   Vivid purple organic blobs flowing on black.
+   Animated Liquid Background  –  WebGL
+   Subtle, slow-moving purple plasma glow.
+   Adapts to dark / light theme.
    ───────────────────────────────────────────── */
 
 const VERTEX = `
@@ -13,14 +14,16 @@ const VERTEX = `
   void main() { gl_Position = vec4(a_position, 0.0, 1.0); }
 `;
 
-// Plasma shader — smooth organic purple luminance on black
 const FRAGMENT = `
 precision highp float;
 
 uniform float u_time;
 uniform vec2  u_resolution;
+uniform vec3  u_color1;
+uniform vec3  u_color2;
+uniform vec3  u_bg;
 
-// ---- noise helpers ----
+// ---- 3D simplex noise ----
 vec3 mod289(vec3 x){ return x - floor(x*(1.0/289.0))*289.0; }
 vec4 mod289(vec4 x){ return x - floor(x*(1.0/289.0))*289.0; }
 vec4 permute(vec4 x){ return mod289(((x*34.0)+1.0)*x); }
@@ -85,56 +88,57 @@ void main(){
   float aspect = u_resolution.x / u_resolution.y;
   uv.x *= aspect;
 
-  float t = u_time * 0.12;
+  // Very slow time — dreamy, gentle motion
+  float t = u_time * 0.04;
 
-  // Domain warping — creates the organic flowing shapes
-  vec3 p = vec3(uv * 1.8, t);
+  vec3 p = vec3(uv * 1.6, t);
 
-  // First warp layer
+  // Double domain-warp for organic flow
   float q1 = fbm(p + vec3(1.7, 9.2, 0.0));
   float q2 = fbm(p + vec3(8.3, 2.8, 0.0));
   vec2 q  = vec2(q1, q2);
 
-  // Second warp layer — produces the swirling motion
-  float r1 = fbm(p + vec3(1.2 * q.x + 1.7, 1.3 * q.y + 9.2, t * 0.5));
-  float r2 = fbm(p + vec3(8.3 * q.x + 8.3, 2.8 * q.y + 2.8, t * 0.4));
+  float r1 = fbm(p + vec3(1.2 * q.x + 1.7, 1.3 * q.y + 9.2, t * 0.4));
+  float r2 = fbm(p + vec3(8.3 * q.x + 8.3, 2.8 * q.y + 2.8, t * 0.3));
   vec2 r  = vec2(r1, r2);
 
-  // Final warp
-  float f = fbm(p + vec3(4.0 * r, 0.0));
+  float f = fbm(p + vec3(3.5 * r, 0.0));
 
-  // Build the color
-  // Plasma palette: purple (#B566FF) on black
-  vec3 purple = vec3(0.710, 0.400, 1.000);   // #B566FF
-  vec3 deepPurple = vec3(0.400, 0.100, 0.700);
-  vec3 black = vec3(0.020, 0.020, 0.020);
+  // Build luminance
+  float lum = f * 0.5 + 0.5;
+  lum = lum * lum;
+  lum = smoothstep(0.2, 0.85, lum);
 
-  // Map noise to luminance — create big soft glowing regions
-  float luminance = f * 0.5 + 0.5;
-  luminance = luminance * luminance; // increase contrast
-  luminance = smoothstep(0.15, 0.85, luminance);
-
-  // Secondary swirl for variation
-  float swirl = snoise(vec3(uv * 2.5 + r * 1.5, t * 0.3));
+  float swirl = snoise(vec3(uv * 2.2 + r * 1.2, t * 0.25));
   swirl = swirl * 0.5 + 0.5;
-  swirl = smoothstep(0.2, 0.8, swirl);
+  swirl = smoothstep(0.25, 0.75, swirl);
 
-  // Mix colors
-  vec3 col = mix(black, deepPurple, luminance * 0.6);
-  col = mix(col, purple, luminance * swirl * 0.8);
+  // Mix glow colors onto the background
+  float intensity = lum * swirl;
+  vec3 glow = mix(u_color1, u_color2, swirl);
+  vec3 col = mix(u_bg, glow, intensity * 0.55);
 
-  // Add bright highlights in the most intense areas
-  float highlight = smoothstep(0.6, 1.0, luminance * swirl);
-  col += purple * highlight * 0.5;
+  // Soft highlight in brightest areas
+  float highlight = smoothstep(0.55, 1.0, intensity);
+  col += glow * highlight * 0.2;
 
-  // Subtle vignette to frame the effect
+  // Vignette
   vec2 vuv = gl_FragCoord.xy / u_resolution.xy;
-  float vig = 1.0 - smoothstep(0.4, 1.4, length(vuv - 0.5) * 1.4);
-  col *= mix(0.6, 1.0, vig);
+  float vig = 1.0 - smoothstep(0.3, 1.5, length(vuv - 0.5) * 1.6);
+  col = mix(u_bg, col, vig);
 
   gl_FragColor = vec4(col, 1.0);
 }
 `;
+
+function hexToVec3(hex) {
+  hex = hex.replace("#", "");
+  return [
+    parseInt(hex.substring(0, 2), 16) / 255,
+    parseInt(hex.substring(2, 4), 16) / 255,
+    parseInt(hex.substring(4, 6), 16) / 255,
+  ];
+}
 
 function compileShader(gl, type, src) {
   const s = gl.createShader(type);
@@ -148,21 +152,53 @@ function compileShader(gl, type, src) {
   return s;
 }
 
+// Theme color palettes
+const PALETTES = {
+  dark: {
+    bg: "#060608",
+    color1: "#6B2FA0",  // deep purple
+    color2: "#B566FF",  // vivid purple
+  },
+  light: {
+    bg: "#f8fafc",
+    color1: "#C4A0F0",  // soft lavender
+    color2: "#9B7FE8",  // gentle purple
+  },
+};
+
 export default function LiquidBackground() {
   const canvasRef = useRef(null);
   const rafRef = useRef(null);
+  const glRef = useRef(null);
+  const uniformsRef = useRef(null);
+  const { resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
+
+  // Update uniforms when theme changes (no re-init needed)
+  useEffect(() => {
+    if (!uniformsRef.current || !glRef.current) return;
+    const gl = glRef.current;
+    const loc = uniformsRef.current;
+    const pal = PALETTES[resolvedTheme] || PALETTES.dark;
+
+    gl.useProgram(loc._prog);
+    gl.uniform3fv(loc.u_bg, hexToVec3(pal.bg));
+    gl.uniform3fv(loc.u_color1, hexToVec3(pal.color1));
+    gl.uniform3fv(loc.u_color2, hexToVec3(pal.color2));
+  }, [resolvedTheme]);
 
   const boot = useCallback(() => {
     const cvs = canvasRef.current;
     if (!cvs) return;
 
     const gl = cvs.getContext("webgl", {
-      alpha: false,
-      antialias: false,
-      premultipliedAlpha: false,
-      preserveDrawingBuffer: false,
+      alpha: false, antialias: false,
+      premultipliedAlpha: false, preserveDrawingBuffer: false,
     });
     if (!gl) return;
+    glRef.current = gl;
 
     const vs = compileShader(gl, gl.VERTEX_SHADER, VERTEX);
     const fs = compileShader(gl, gl.FRAGMENT_SHADER, FRAGMENT);
@@ -182,8 +218,22 @@ export default function LiquidBackground() {
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
 
     const aPos = gl.getAttribLocation(prog, "a_position");
-    const uTime = gl.getUniformLocation(prog, "u_time");
-    const uRes  = gl.getUniformLocation(prog, "u_resolution");
+    const loc = {
+      _prog: prog,
+      u_time: gl.getUniformLocation(prog, "u_time"),
+      u_resolution: gl.getUniformLocation(prog, "u_resolution"),
+      u_color1: gl.getUniformLocation(prog, "u_color1"),
+      u_color2: gl.getUniformLocation(prog, "u_color2"),
+      u_bg: gl.getUniformLocation(prog, "u_bg"),
+    };
+    uniformsRef.current = loc;
+
+    // Set initial palette
+    const pal = PALETTES[resolvedTheme] || PALETTES.dark;
+    gl.useProgram(prog);
+    gl.uniform3fv(loc.u_bg, hexToVec3(pal.bg));
+    gl.uniform3fv(loc.u_color1, hexToVec3(pal.color1));
+    gl.uniform3fv(loc.u_color2, hexToVec3(pal.color2));
 
     const t0 = performance.now();
 
@@ -194,8 +244,7 @@ export default function LiquidBackground() {
       gl.viewport(0, 0, cvs.width, cvs.height);
     }
     resize();
-    const onResize = () => resize();
-    window.addEventListener("resize", onResize);
+    window.addEventListener("resize", resize);
 
     function frame() {
       const t = (performance.now() - t0) / 1000;
@@ -203,27 +252,31 @@ export default function LiquidBackground() {
       gl.enableVertexAttribArray(aPos);
       gl.bindBuffer(gl.ARRAY_BUFFER, buf);
       gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
-      gl.uniform1f(uTime, t);
-      gl.uniform2f(uRes, cvs.width, cvs.height);
+      gl.uniform1f(loc.u_time, t);
+      gl.uniform2f(loc.u_resolution, cvs.width, cvs.height);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       rafRef.current = requestAnimationFrame(frame);
     }
     rafRef.current = requestAnimationFrame(frame);
 
     return () => {
-      window.removeEventListener("resize", onResize);
+      window.removeEventListener("resize", resize);
       cancelAnimationFrame(rafRef.current);
       gl.deleteProgram(prog);
       gl.deleteShader(vs);
       gl.deleteShader(fs);
       gl.deleteBuffer(buf);
+      glRef.current = null;
+      uniformsRef.current = null;
     };
-  }, []);
+  }, []); // intentionally no deps — palette updates handled via separate effect
 
   useEffect(() => {
     const cleanup = boot();
     return () => cleanup?.();
   }, [boot]);
+
+  if (!mounted) return null;
 
   return (
     <div
@@ -236,9 +289,14 @@ export default function LiquidBackground() {
     >
       <canvas
         ref={canvasRef}
-        style={{ width: "100%", height: "100%", display: "block" }}
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "block",
+          filter: "blur(60px)",
+        }}
       />
-      {/* Noise grain overlay */}
+      {/* Subtle noise grain */}
       <div
         style={{
           position: "absolute",
@@ -247,7 +305,7 @@ export default function LiquidBackground() {
             'url("https://framerusercontent.com/images/g0QcWrxr87K0ufOxIUFBakwYA8.png")',
           backgroundSize: 200,
           backgroundRepeat: "repeat",
-          opacity: 0.06,
+          opacity: 0.04,
           mixBlendMode: "overlay",
         }}
       />
