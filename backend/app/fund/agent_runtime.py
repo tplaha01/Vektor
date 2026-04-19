@@ -19,6 +19,7 @@ from app.fund.contracts import (
 )
 from app.fund.blog_service import blog_service
 from app.fund.ingestion_adapters import market_ingestion
+from app.fund.market_session import market_session_status
 from app.fund.orchestrator import FirmOrchestrator, firm_orchestrator
 from app.fund.runtime_guard import data_integrity_guard
 from app.fund.task_bus import TaskBus, task_bus
@@ -74,6 +75,13 @@ def _as_decimal(value: Any, fallback: str = "0.5") -> Decimal:
         return Decimal(fallback)
 
 
+def _to_float(value: Any, fallback: float = 0.0) -> float:
+    try:
+        return float(value)
+    except Exception:
+        return fallback
+
+
 def _parse_symbol_csv(value: str | None) -> tuple[str, ...]:
     if not value:
         return tuple()
@@ -122,6 +130,20 @@ def _extract_symbol(text: str, fallback: str = "SPY") -> str:
         if token not in ignored:
             return token
     return fallback
+
+
+def _extract_metric(findings: Iterable[str], label: str) -> float | None:
+    pattern = re.compile(rf"{re.escape(label)}\s*:?\s*(-?\d+(?:\.\d+)?)", re.IGNORECASE)
+    for row in findings:
+        text = str(row or "").strip()
+        match = pattern.search(text)
+        if not match:
+            continue
+        try:
+            return float(match.group(1))
+        except Exception:
+            return None
+    return None
 
 
 def _infer_role_from_command(command: str) -> WorkerRole:
@@ -199,9 +221,16 @@ class FundAgentRuntime:
         autopilot_enabled: bool = False,
         autopilot_interval_seconds: float = 120.0,
         autopilot_symbols: Iterable[str] | None = None,
+        autopilot_dynamic_universe_enabled: bool = True,
+        autopilot_scout_symbols: Iterable[str] | None = None,
+        autopilot_scout_max_symbols: int = 4,
         autopilot_default_side: Literal["buy", "sell"] = "buy",
         autopilot_default_quantity: float = 1.0,
         autopilot_sleeve: Sleeve = Sleeve.TACTICAL,
+        session_guard_enabled: bool = True,
+        block_trades_when_closed: bool = True,
+        min_trade_conviction: float = 0.60,
+        allow_cash_hold: bool = True,
         blog_editorial_enabled: bool = True,
         blog_editorial_interval_hours: int = 12,
         blog_editorial_target_per_day: int = 2,
@@ -221,17 +250,28 @@ class FundAgentRuntime:
         self._started = False
 
         symbols = tuple(str(item).strip().upper() for item in (autopilot_symbols or ()) if str(item).strip())
+        scout_symbols = tuple(str(item).strip().upper() for item in (autopilot_scout_symbols or ()) if str(item).strip())
         self._autopilot_enabled = bool(autopilot_enabled)
         self._autopilot_interval_seconds = max(5.0, float(autopilot_interval_seconds))
         self._autopilot_symbols = tuple(dict.fromkeys(symbols)) or ("SPY",)
+        self._autopilot_dynamic_universe_enabled = bool(autopilot_dynamic_universe_enabled)
+        merged_scout_universe = tuple(dict.fromkeys((*self._autopilot_symbols, *scout_symbols)))
+        self._autopilot_scout_symbols = merged_scout_universe or self._autopilot_symbols
+        self._autopilot_scout_max_symbols = max(1, int(autopilot_scout_max_symbols))
         self._autopilot_default_side: Literal["buy", "sell"] = "sell" if autopilot_default_side == "sell" else "buy"
         self._autopilot_default_quantity = max(0.01, float(autopilot_default_quantity))
         self._autopilot_sleeve = autopilot_sleeve
+        self._session_guard_enabled = bool(session_guard_enabled)
+        self._block_trades_when_closed = bool(block_trades_when_closed)
+        self._min_trade_conviction = max(0.0, min(1.0, float(min_trade_conviction)))
+        self._allow_cash_hold = bool(allow_cash_hold)
         self._autopilot_cycles = 0
         self._autopilot_enqueued = 0
         self._autopilot_last_run_id: str | None = None
         self._autopilot_last_run_at: str | None = None
         self._autopilot_last_error: str | None = None
+        self._autopilot_last_session: dict[str, Any] | None = None
+        self._autopilot_last_scout: dict[str, Any] | None = None
         self._last_halt_drain_reason: str | None = None
         self._blog_editorial_enabled = bool(blog_editorial_enabled)
         self._blog_editorial_interval_seconds = max(60.0, float(max(1, int(blog_editorial_interval_hours)) * 3600))
@@ -300,14 +340,23 @@ class FundAgentRuntime:
                 "running": self._autopilot_task is not None and not self._autopilot_task.done(),
                 "interval_seconds": self._autopilot_interval_seconds,
                 "symbols": list(self._autopilot_symbols),
+                "dynamic_universe_enabled": self._autopilot_dynamic_universe_enabled,
+                "scout_symbols": list(self._autopilot_scout_symbols),
+                "scout_max_symbols": self._autopilot_scout_max_symbols,
                 "default_side": self._autopilot_default_side,
                 "default_quantity": self._autopilot_default_quantity,
                 "sleeve": self._autopilot_sleeve.value,
+                "session_guard_enabled": self._session_guard_enabled,
+                "block_trades_when_closed": self._block_trades_when_closed,
+                "min_trade_conviction": self._min_trade_conviction,
+                "allow_cash_hold": self._allow_cash_hold,
                 "cycles": self._autopilot_cycles,
                 "enqueued_count": self._autopilot_enqueued,
                 "last_run_id": self._autopilot_last_run_id,
                 "last_run_at": self._autopilot_last_run_at,
                 "last_error": self._autopilot_last_error,
+                "last_session": dict(self._autopilot_last_session or {}),
+                "last_scout": dict(self._autopilot_last_scout or {}),
             }
             blog_editorial = {
                 "enabled": self._blog_editorial_enabled,
@@ -702,8 +751,26 @@ class FundAgentRuntime:
             await asyncio.sleep(self._blog_editorial_interval_seconds)
 
     def _enqueue_autopilot_cycle(self, run_id: str) -> dict[str, Any]:
+        session = self._market_session()
+        if self._session_guard_enabled and (not session.get("open") or not session.get("trading_day")):
+            reason = str(session.get("reason") or "market_closed")
+            with self._state_lock:
+                self._autopilot_cycles += 1
+                self._autopilot_last_run_id = run_id
+                self._autopilot_last_run_at = _utc_iso()
+                self._autopilot_last_error = reason
+                self._autopilot_last_session = dict(session)
+                self._autopilot_last_scout = {
+                    "selected_symbols": [],
+                    "candidate_count": len(self._autopilot_scout_symbols),
+                    "dynamic_universe_enabled": self._autopilot_dynamic_universe_enabled,
+                    "reason": reason,
+                }
+            return {"run_id": run_id, "enqueued_count": 0, "task_ids": [], "reason": reason, "session": session}
+
+        selected_symbols, scout_meta = self._resolve_autopilot_symbols()
         queued_ids: list[str] = []
-        for symbol in self._autopilot_symbols:
+        for symbol in selected_symbols:
             if self._has_inflight_analyst_tasks(symbol=symbol):
                 continue
             swarm = self.enqueue_signal_swarm(
@@ -727,8 +794,18 @@ class FundAgentRuntime:
             self._autopilot_last_run_id = run_id
             self._autopilot_last_run_at = _utc_iso()
             self._autopilot_last_error = None
+            self._autopilot_last_session = dict(session)
+            self._autopilot_last_scout = dict(scout_meta)
 
-        return {"run_id": run_id, "enqueued_count": len(queued_ids), "task_ids": queued_ids, "symbol_count": len(self._autopilot_symbols)}
+        return {
+            "run_id": run_id,
+            "enqueued_count": len(queued_ids),
+            "task_ids": queued_ids,
+            "symbol_count": len(selected_symbols),
+            "selected_symbols": list(selected_symbols),
+            "session": session,
+            "scout": scout_meta,
+        }
 
     def _enqueue_blog_editorial_cycle(self, run_id: str) -> dict[str, Any]:
         remaining = blog_service.daily_quota_remaining(self._blog_editorial_target_per_day)
