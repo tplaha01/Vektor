@@ -283,8 +283,6 @@ export default function LiquidBackground() {
     return () => cleanup?.();
   }, [boot]);
 
-  if (!mounted) return null;
-
   return (
     <div
       style={{
@@ -293,6 +291,7 @@ export default function LiquidBackground() {
         zIndex: 0,
         pointerEvents: "none",
       }}
+      suppressHydrationWarning
     >
       <canvas
         ref={canvasRef}

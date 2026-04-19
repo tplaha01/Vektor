@@ -18,10 +18,16 @@ $OllamaPidFile = Join-Path $RunDir "ollama.pid"
 
 function Get-ListeningPids {
   param([int]$Port)
-  return @(
+  [array]$rows = @(
     Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue |
       Select-Object -ExpandProperty OwningProcess -Unique
   )
+  return $rows
+}
+
+function Test-Any {
+  param([object]$Value)
+  return (@($Value)).Length -gt 0
 }
 
 function Test-Endpoint {
@@ -38,8 +44,8 @@ function Test-Endpoint {
 }
 
 function Start-Backend {
-  $pids = Get-ListeningPids -Port 8000
-  if ($pids.Count -gt 0) {
+  $pids = @(Get-ListeningPids -Port 8000)
+  if (Test-Any $pids) {
     Write-Host "[backend] already listening on 8000 (pid: $($pids -join ','))"
     return
   }
@@ -69,8 +75,8 @@ function Stop-Backend {
 }
 
 function Start-Ollama {
-  $pids = Get-ListeningPids -Port 11434
-  if ($pids.Count -gt 0) {
+  $pids = @(Get-ListeningPids -Port 11434)
+  if (Test-Any $pids) {
     Write-Host "[ollama] already listening on 11434 (pid: $($pids -join ','))"
     return
   }
@@ -91,11 +97,27 @@ function Stop-Ollama {
 }
 
 function Start-OpenClaw {
+  & openclaw health *> $null
+  if ($LASTEXITCODE -eq 0) {
+    Write-Host "[openclaw] gateway already healthy"
+    return
+  }
+
   & openclaw gateway start | Out-Host
   if ($LASTEXITCODE -ne 0) {
     throw "[openclaw] failed to start gateway service"
   }
-  Write-Host "[openclaw] gateway start requested"
+
+  $deadline = (Get-Date).AddSeconds(25)
+  while ((Get-Date) -lt $deadline) {
+    & openclaw health *> $null
+    if ($LASTEXITCODE -eq 0) {
+      Write-Host "[openclaw] gateway start requested and is healthy"
+      return
+    }
+    Start-Sleep -Seconds 2
+  }
+  throw "[openclaw] gateway start requested, but health probe still failing"
 }
 
 function Stop-OpenClaw {
@@ -121,8 +143,8 @@ function Get-ServiceHealth {
 function Show-Status {
   $ports = @(8000, 11434, 18789)
   foreach ($port in $ports) {
-    $pids = Get-ListeningPids -Port $port
-    if ($pids.Count -gt 0) {
+    $pids = @(Get-ListeningPids -Port $port)
+    if (Test-Any $pids) {
       Write-Host ("port {0}: LISTEN (pid: {1})" -f $port, ($pids -join ","))
     } else {
       Write-Host ("port {0}: NOT LISTENING" -f $port)
