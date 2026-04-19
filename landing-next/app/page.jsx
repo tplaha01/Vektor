@@ -5,7 +5,6 @@ import Link from "next/link";
 import ThemeSwitcher from "./ThemeSwitcher";
 
 const productUrl = process.env.NEXT_PUBLIC_PRODUCT_APP_URL || "http://localhost:9000";
-const blogUrl = "http://localhost:3001";
 
 export default function Page() {
   useEffect(() => {
@@ -31,7 +30,7 @@ export default function Page() {
           <a href="/" className="brand">Viktor <em>Fund OS</em></a>
           <nav className="hero-actions" style={{ alignItems: 'center' }}>
             <Link className="btn ghost" href="/how-it-works">How It Works</Link>
-            <a className="btn ghost" href={blogUrl}>Blog</a>
+            <Link className="btn ghost" href="/blog">Blog</Link>
             <a className="btn ghost" href={productUrl}>Live PnL</a>
             <a className="btn primary" href={`${productUrl}/admin`}>Admin Console</a>
             <div style={{ width: '1px', height: '24px', background: 'var(--line)', margin: '0 8px' }} />
@@ -52,7 +51,7 @@ export default function Page() {
           <div className="hero-actions">
             <a className="btn primary" href={productUrl}>View Public PnL</a>
             <Link className="btn ghost" href="/how-it-works">See How It Works</Link>
-            <a className="btn ghost" href={blogUrl}>Read Our Research</a>
+            <Link className="btn ghost" href="/blog">Read Our Research</Link>
           </div>
           <div className="hero-stats">
             <span className="pill">Fully Traceable</span>
@@ -245,7 +244,7 @@ export default function Page() {
            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
               <span>Viktor Fund OS • Smart, Safe, Explainable</span>
               <div style={{display: 'flex', gap: '24px'}}>
-                 <a href={blogUrl}>Blog</a>
+                 <Link href="/blog">Blog</Link>
                  <a href={productUrl}>PnL</a>
                  <Link href="/how-it-works">Tech Specs</Link>
               </div>

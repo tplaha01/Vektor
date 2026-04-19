@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import ThemeSwitcher from "../ThemeSwitcher";
 
 const productUrl = process.env.NEXT_PUBLIC_PRODUCT_APP_URL || "http://localhost:9000";
-const blogUrl = "http://localhost:3001";
 
 export default function HowItWorksPage() {
   const [mounted, setMounted] = useState(false);
@@ -43,85 +42,151 @@ export default function HowItWorksPage() {
 
       <main className="container overflow-hidden" style={{ padding: '120px 24px' }}>
         <div className="cinematic-fade">
-          <h1 style={{ fontSize: 'clamp(40px, 7vw, 64px)', marginBottom: '24px', letterSpacing: '-0.03em' }}>Architecture & Mechanics</h1>
+          <h1 style={{ fontSize: 'clamp(40px, 7vw, 64px)', marginBottom: '24px', letterSpacing: '-0.03em' }}>How Viktor Works</h1>
           <p style={{ color: 'var(--muted)', fontSize: 'clamp(18px, 2.5vw, 22px)', maxWidth: '800px', marginBottom: '80px', lineHeight: '1.6' }}>
-            An under-the-hood look at how Viktor orchestrates specialized agents, manages risk limits, and executes trades with full cryptographic traceability.
+            Viktor is an AI-native hedge fund operating system. We orchestrate multiple specialized agents, enforce strict safety constraints, and log every decision for complete transparency. No black boxes. No hidden logic. Every trade is explainable.
           </p>
         </div>
 
         <div className="dark-card cinematic-fade" style={{ marginBottom: '60px' }}>
-          <h2>The Knowledge Graph (Memory Layer)</h2>
-          <p style={{ color: 'var(--muted)', marginBottom: '24px', lineHeight: '1.6' }}>
-            Viktor does not rely on short-term LLM context windows. Every event—whether it's an ingested news article, a computed RSI value, or a rejected trade—is written to a persistent, namespace-qualified graph database.
+          <h2 style={{ fontSize: '32px', marginBottom: '24px', color: 'var(--text)' }}>1. Data Ingestion & Analysis</h2>
+          <p style={{ color: 'var(--muted)', marginBottom: '20px', lineHeight: '1.8' }}>
+            Viktor continuously reads market data from multiple sources: news feeds, financial statements, technical indicators, and macro events. Our Research Agent processes thousands of data points to identify patterns humans might miss.
           </p>
-          <pre style={{ background: '#070a0f', padding: '24px', borderRadius: '8px', overflowX: 'auto', border: '1px solid var(--line)' }}>
-            <code style={{ color: 'var(--accent)' }}>
-{`// Example Graph Mutation Event
-{
-  "event_id": "evt_9x8f7a",
-  "namespace": "decision_ledger.intent",
-  "timestamp": "2026-04-19T14:32:01Z",
-  "actor": "fund_manager_agent",
-  "action": "PROPOSE_TRADE",
-  "payload": {
-    "symbol": "AAPL",
-    "direction": "LONG",
-    "confidence": 0.89,
-    "sources": ["doc_112", "doc_843"]
-  },
-  "parent_run_id": "run_alfa_99"
-}`}
+          <ul style={{ color: 'var(--muted)', paddingLeft: '24px', marginBottom: '0' }}>
+            <li style={{ marginBottom: '12px' }}>📰 News Analysis: Real-time financial news with sentiment scoring</li>
+            <li style={{ marginBottom: '12px' }}>📊 Technical Signals: Price action, volume, momentum indicators</li>
+            <li style={{ marginBottom: '12px' }}>💹 Macro Data: Interest rates, GDP, employment, inflation</li>
+            <li style={{ marginBottom: '12px' }}>📈 Company Fundamentals: Earnings, growth rates, valuations</li>
+          </ul>
+        </div>
+
+        <div className="dark-card cinematic-fade" style={{ marginBottom: '60px' }}>
+          <h2 style={{ fontSize: '32px', marginBottom: '24px', color: 'var(--text)' }}>2. Decision Making (The Fund Manager Agent)</h2>
+          <p style={{ color: 'var(--muted)', marginBottom: '20px', lineHeight: '1.8' }}>
+            The Fund Manager synthesizes all research into a clear trading thesis. It proposes specific trades with explicit reasoning: why BUY Apple, or why SELL Tesla. Every decision is tied to evidence and sources.
+          </p>
+          <pre style={{ background: '#070a0f', padding: '20px', borderRadius: '8px', border: '1px solid var(--line)', overflowX: 'auto', marginBottom: '20px' }}>
+            <code style={{ color: 'var(--accent)', fontSize: '13px' }}>
+{`DECISION PROPOSAL:
+Symbol: AAPL
+Action: BUY 500 shares
+Price Target: $185
+Rationale: Q2 earnings beat expectations (+12% revenue), 
+strong iPhone demand signals, services growing 20% YoY.
+Sources: SEC filing, analyst reports, earnings call.
+Confidence: 82%
+Risk Level: MODERATE`}
             </code>
           </pre>
         </div>
 
         <div className="dark-card cinematic-fade" style={{ marginBottom: '60px' }}>
-          <h2>Orchestration Flow</h2>
-          <p style={{ color: 'var(--muted)', marginBottom: '24px', lineHeight: '1.6' }}>
-            When a new signal is generated, OpenClaw routes it through a strict policy gate pipeline. No single agent can execute a trade without multi-signature approval from the Risk and Audit nodes.
+          <h2 style={{ fontSize: '32px', marginBottom: '24px', color: 'var(--text)' }}>3. Risk Assessment (The Auditor)</h2>
+          <p style={{ color: 'var(--muted)', marginBottom: '20px', lineHeight: '1.8' }}>
+            Before any trade executes, our Risk Auditor runs independent checks. This is a separate agent with its own logic—it doesn't blindly follow the Fund Manager. It validates:
           </p>
-          {mounted && (
-            <div style={{ background: '#070a0f', padding: '32px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--line)' }}>
-              {/* Note: In a real app, we'd use a mermaid component or render server side. 
-                  Here we render the raw mermaid text which a markdown/mermaid parser would normally handle. */}
-              <pre className="mermaid" style={{ color: 'var(--text)', margin: 0 }}>
-{`graph TD
-    A[Market Data API] --> B(Ingest Agent)
-    B --> C{OpenClaw Router}
-    C -->|Technical| D[Tech Analyst]
-    C -->|Sentiment| E[Sentiment Analyst]
-    D --> F[Fund Manager]
-    E --> F
-    F -->|Execution Intent| G{Risk Gate}
-    G -->|Approved| H[Paper Broker]
-    G -->|Rejected| I[Audit Log]
-    H --> I`}
-              </pre>
+          <ul style={{ color: 'var(--muted)', paddingLeft: '24px', marginBottom: '20px' }}>
+            <li style={{ marginBottom: '12px' }}>✓ Position sizing: Are we risking too much?</li>
+            <li style={{ marginBottom: '12px' }}>✓ Portfolio concentration: Too much in one sector?</li>
+            <li style={{ marginBottom: '12px' }}>✓ Volatility limits: Is this trade too risky right now?</li>
+            <li style={{ marginBottom: '12px' }}>✓ Regulatory compliance: Does this violate fund rules?</li>
+            <li style={{ marginBottom: '12px' }}>✓ Circuit breakers: Is the market in a stressed state?</li>
+          </ul>
+          <p style={{ color: 'var(--muted)', lineHeight: '1.8' }}>
+            If ANY check fails, the trade is REJECTED. No exceptions. No override without manual approval.
+          </p>
+        </div>
+
+        <div className="dark-card cinematic-fade" style={{ marginBottom: '60px' }}>
+          <h2 style={{ fontSize: '32px', marginBottom: '24px', color: 'var(--text)' }}>4. Paper Trading First (The Execution Layer)</h2>
+          <p style={{ color: 'var(--muted)', marginBottom: '20px', lineHeight: '1.8' }}>
+            All trades start in PAPER MODE—simulated execution with fake money. This lets us validate our strategies without real capital at risk. You can:
+          </p>
+          <ul style={{ color: 'var(--muted)', paddingLeft: '24px', marginBottom: '20px' }}>
+            <li style={{ marginBottom: '12px' }}>📊 Watch performance over time</li>
+            <li style={{ marginBottom: '12px' }}>🔍 Review decision logic in the admin console</li>
+            <li style={{ marginBottom: '12px' }}>⏸️ Pause or override any trade</li>
+            <li style={{ marginBottom: '12px' }}>🎓 Learn why each decision was made</li>
+          </ul>
+          <p style={{ color: 'var(--muted)', lineHeight: '1.8' }}>
+            Only after you're confident and have explicitly enabled live trading does real capital get deployed.
+          </p>
+        </div>
+
+        <div className="dark-card cinematic-fade" style={{ marginBottom: '60px' }}>
+          <h2 style={{ fontSize: '32px', marginBottom: '24px', color: 'var(--text)' }}>5. Complete Auditability (The Memory Layer)</h2>
+          <p style={{ color: 'var(--muted)', marginBottom: '20px', lineHeight: '1.8' }}>
+            Every decision is permanently recorded in our knowledge graph. You can query the entire history:
+          </p>
+          <pre style={{ background: '#070a0f', padding: '20px', borderRadius: '8px', border: '1px solid var(--line)', overflowX: 'auto', marginBottom: '20px' }}>
+            <code style={{ color: 'var(--accent)', fontSize: '13px' }}>
+{`EVENT LOG:
+2026-04-19 14:32:01 - Research Agent: Detected positive earnings
+2026-04-19 14:32:15 - Fund Manager: Proposed BUY signal
+2026-04-19 14:32:20 - Risk Auditor: Approved trade
+2026-04-19 14:32:21 - Execution Engine: Executed in paper mode
+2026-04-19 14:45:00 - User: Reviewed decision, clicked "I understand"
+2026-04-19 14:45:05 - System: Ready to execute in live mode`}
+            </code>
+          </pre>
+        </div>
+
+        <div className="dark-card cinematic-fade" style={{ marginBottom: '60px' }}>
+          <h2 style={{ fontSize: '32px', marginBottom: '24px', color: 'var(--text)' }}>Key Features</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', marginTop: '24px' }}>
+            <div style={{ padding: '20px', background: 'var(--surface)', borderRadius: '8px' }}>
+              <h3 style={{ margin: '0 0 12px', color: 'var(--text)', fontSize: '18px' }}>🔐 Cryptographic Signatures</h3>
+              <p style={{ margin: '0', color: 'var(--muted)', fontSize: '14px', lineHeight: '1.6' }}>Every event in the system is signed. No tampering possible. Complete audit trail.</p>
             </div>
-          )}
-          <p style={{ color: 'var(--muted)', marginTop: '24px', fontSize: '14px' }}>
-            * Note: Diagram shows standard routing. The graph memory continuously indexes states at every edge.
-          </p>
+            <div style={{ padding: '20px', background: 'var(--surface)', borderRadius: '8px' }}>
+              <h3 style={{ margin: '0 0 12px', color: 'var(--text)', fontSize: '18px' }}>🤖 Multi-Agent Orchestration</h3>
+              <p style={{ margin: '0', color: 'var(--muted)', fontSize: '14px', lineHeight: '1.6' }}>Independent agents with different objectives. No single point of failure.</p>
+            </div>
+            <div style={{ padding: '20px', background: 'var(--surface)', borderRadius: '8px' }}>
+              <h3 style={{ margin: '0 0 12px', color: 'var(--text)', fontSize: '18px' }}>📈 Live Performance Tracking</h3>
+              <p style={{ margin: '0', color: 'var(--muted)', fontSize: '14px', lineHeight: '1.6' }}>Public PnL page shows exactly how well we're doing. No hidden metrics.</p>
+            </div>
+            <div style={{ padding: '20px', background: 'var(--surface)', borderRadius: '8px' }}>
+              <h3 style={{ margin: '0 0 12px', color: 'var(--text)', fontSize: '18px' }}>🛑 Hard Safety Stops</h3>
+              <p style={{ margin: '0', color: 'var(--muted)', fontSize: '14px', lineHeight: '1.6' }}>Circuit breakers automatically pause trading during market stress.</p>
+            </div>
+            <div style={{ padding: '20px', background: 'var(--surface)', borderRadius: '8px' }}>
+              <h3 style={{ margin: '0 0 12px', color: 'var(--text)', fontSize: '18px' }}>👤 Manual Override</h3>
+              <p style={{ margin: '0', color: 'var(--muted)', fontSize: '14px', lineHeight: '1.6' }}>You can pause, review, or reject any trade at any time.</p>
+            </div>
+            <div style={{ padding: '20px', background: 'var(--surface)', borderRadius: '8px' }}>
+              <h3 style={{ margin: '0 0 12px', color: 'var(--text)', fontSize: '18px' }}>📚 Explainable AI</h3>
+              <p style={{ margin: '0', color: 'var(--muted)', fontSize: '14px', lineHeight: '1.6' }}>Every decision linked to sources and reasoning. No black boxes.</p>
+            </div>
+          </div>
         </div>
 
-        <div className="dark-card cinematic-fade" style={{ marginBottom: '60px' }}>
-          <h2>Safety Subsystem (Paper-First Constraints)</h2>
-          <p style={{ color: 'var(--muted)', marginBottom: '24px', lineHeight: '1.6' }}>
-            The system is hardcoded to reject live capital routing unless explicitly overridden by the `LIVE_TRADING_ENABLED` flag and a valid hardware-signed compliance token.
-          </p>
-          <pre style={{ background: '#070a0f', padding: '24px', borderRadius: '8px', overflowX: 'auto', border: '1px solid var(--line)' }}>
-            <code style={{ color: 'var(--danger)' }}>
-{`function enforceSafetyConstraints(intent) {
-  if (config.executionMode !== 'PAPER') {
-    if (!verifyComplianceToken(intent.approval_token)) {
-      throw new Error("HALT: Invalid compliance token for live execution");
-    }
-  }
-  return executeOrder(intent);
-}`}
-            </code>
-          </pre>
+        <div className="dark-card cinematic-fade" style={{ marginBottom: '60px', background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.1) 0%, rgba(249, 115, 22, 0.1) 100%)' }}>
+          <h2 style={{ fontSize: '32px', marginBottom: '24px', color: 'var(--text)' }}>Getting Started</h2>
+          <ol style={{ color: 'var(--muted)', paddingLeft: '24px' }}>
+            <li style={{ marginBottom: '16px', lineHeight: '1.8' }}>
+              <strong style={{ color: 'var(--text)' }}>Launch Admin Console</strong> - Connect to your broker and set up your strategy
+            </li>
+            <li style={{ marginBottom: '16px', lineHeight: '1.8' }}>
+              <strong style={{ color: 'var(--text)' }}>Start in Paper Mode</strong> - Viktor trades with fake money first so you can learn
+            </li>
+            <li style={{ marginBottom: '16px', lineHeight: '1.8' }}>
+              <strong style={{ color: 'var(--text)' }}>Review Decisions</strong> - Check the admin console to see why each trade was made
+            </li>
+            <li style={{ marginBottom: '16px', lineHeight: '1.8' }}>
+              <strong style={{ color: 'var(--text)' }}>Enable Live Trading</strong> - When you're confident, unlock real capital deployment
+            </li>
+            <li style={{ marginBottom: '0', lineHeight: '1.8' }}>
+              <strong style={{ color: 'var(--text)' }}>Monitor Performance</strong> - Check public PnL page for live results
+            </li>
+          </ol>
+          <div style={{ marginTop: '32px', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+            <a className="btn primary" href={productUrl} style={{ padding: '12px 32px' }}>Open Admin Console</a>
+            <Link className="btn ghost" href="/" style={{ padding: '12px 32px' }}>Back to Home</Link>
+          </div>
         </div>
+
       </main>
 
       <footer className="footer">
@@ -130,7 +195,7 @@ export default function HowItWorksPage() {
               <span>Viktor Fund OS • Technical Documentation</span>
               <div style={{display: 'flex', gap: '24px'}}>
                  <Link href="/">Back to Home</Link>
-                 <a href={blogUrl}>Blog</a>
+                 <Link href="/blog">Blog</Link>
                  <a href={productUrl}>PnL</a>
               </div>
            </div>
