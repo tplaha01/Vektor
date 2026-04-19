@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import ThemeSwitcher from "../ThemeSwitcher";
 
 const productUrl = process.env.NEXT_PUBLIC_PRODUCT_APP_URL || "http://localhost:9000";
 const blogUrl = "http://localhost:3001";
@@ -31,9 +32,11 @@ export default function HowItWorksPage() {
       <header className="topbar">
         <div className="container topbar-inner">
           <a href="/" className="brand">Viktor <em>Fund OS</em></a>
-          <nav className="hero-actions">
+          <nav className="hero-actions" style={{ alignItems: 'center' }}>
             <Link className="btn ghost" href="/">Back to Home</Link>
             <a className="btn primary" href={`${productUrl}/admin`}>Admin Console</a>
+            <div style={{ width: '1px', height: '24px', background: 'var(--line)', margin: '0 8px' }} />
+            <ThemeSwitcher />
           </nav>
         </div>
       </header>

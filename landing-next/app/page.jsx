@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import ThemeSwitcher from "./ThemeSwitcher";
 
 const productUrl = process.env.NEXT_PUBLIC_PRODUCT_APP_URL || "http://localhost:9000";
 const blogUrl = "http://localhost:3001";
@@ -28,11 +29,13 @@ export default function Page() {
       <header className="topbar">
         <div className="container topbar-inner">
           <a href="/" className="brand">Viktor <em>Fund OS</em></a>
-          <nav className="hero-actions">
+          <nav className="hero-actions" style={{ alignItems: 'center' }}>
             <Link className="btn ghost" href="/how-it-works">How It Works</Link>
             <a className="btn ghost" href={blogUrl}>Blog</a>
             <a className="btn ghost" href={productUrl}>Live PnL</a>
             <a className="btn primary" href={`${productUrl}/admin`}>Admin Console</a>
+            <div style={{ width: '1px', height: '24px', background: 'var(--line)', margin: '0 8px' }} />
+            <ThemeSwitcher />
           </nav>
         </div>
       </header>
@@ -96,13 +99,142 @@ export default function Page() {
           </article>
         </section>
 
-        <section className="section cinematic-fade">
-          <div className="dark-card" style={{ textAlign: "center" }}>
-             <h2 style={{ marginBottom: "16px" }}>Ready to see it in action?</h2>
-             <p style={{ margin: "0 auto 32px", maxWidth: "600px" }}>Explore the live Public PnL or dive into our detailed technical walkthrough.</p>
-             <div className="hero-actions" style={{ justifyContent: 'center' }}>
-                <a className="btn primary" href={productUrl}>Open Live PnL</a>
-                <Link className="btn ghost" href="/how-it-works">Technical Walkthrough</Link>
+        <section className="section cinematic-fade" id="agents">
+          <h2 className="section-title">Specialized Agents Working for You</h2>
+          <div className="agents-grid">
+            <article className="dark-card">
+              <div className="agent-icon">📰</div>
+              <h3>Research Director</h3>
+              <p>Scans thousands of sources daily. Market news, earnings reports, macroeconomic data. Synthesizes into clear, actionable insights.</p>
+            </article>
+            <article className="dark-card">
+              <div className="agent-icon">📊</div>
+              <h3>Trading Director</h3>
+              <p>Analyzes trends and patterns. Identifies opportunities that fit your strategy. Creates detailed trading plans with clear rationale.</p>
+            </article>
+            <article className="dark-card">
+              <div className="agent-icon">🛡️</div>
+              <h3>Risk Auditor</h3>
+              <p>Independent verification layer. Checks every trade against your rules and risk limits. Never lets bad decisions slip through.</p>
+            </article>
+            <article className="dark-card">
+              <div className="agent-icon">⚖️</div>
+              <h3>Compliance Officer</h3>
+              <p>Ensures regulatory requirements are met. Monitors fund policies. Maintains audit trail for every decision and trade.</p>
+            </article>
+          </div>
+        </section>
+
+        <section className="section cinematic-fade" id="features">
+          <h2 className="section-title">Built for Modern Investing</h2>
+          <div className="features-grid">
+            <div className="feature-item dark-card">
+              <h3>Real-Time Intelligence</h3>
+              <p>AI agents process market data 24/7. Get insights faster than traditional research teams. Stay ahead of market moves.</p>
+            </div>
+            <div className="feature-item dark-card">
+              <h3>Complete Transparency</h3>
+              <p>Every decision is logged and explained. No black boxes. Understand exactly why Viktor made each trade. Full audit trail included.</p>
+            </div>
+            <div className="feature-item dark-card">
+              <h3>Risk First Architecture</h3>
+              <p>Multiple independent risk checks before any trade executes. Paper trading by default. Live capital only when you're ready.</p>
+            </div>
+            <div className="feature-item dark-card">
+              <h3>Always Learning</h3>
+              <p>Reviews past decisions to improve. Adapts to changing market conditions. Continuously optimizes strategy performance.</p>
+            </div>
+            <div className="feature-item dark-card">
+              <h3>Your Control, Always</h3>
+              <p>Pause trades anytime. Override decisions manually. Adjust strategies on the fly. You remain in complete control.</p>
+            </div>
+            <div className="feature-item dark-card">
+              <h3>Production Ready</h3>
+              <p>Runs on professional infrastructure. High availability and reliability. API integrations with major brokerages.</p>
+            </div>
+          </div>
+        </section>
+
+        <section className="section cinematic-fade" id="comparison">
+          <h2 className="section-title">How Viktor Compares</h2>
+          <div className="comparison-table">
+            <div className="comparison-row dark-card">
+              <div className="comparison-header">Feature</div>
+              <div className="comparison-cell">Traditional Fund</div>
+              <div className="comparison-cell">Automated Bots</div>
+              <div className="comparison-cell" style={{ borderColor: 'var(--accent)' }}>Viktor</div>
+            </div>
+            <div className="comparison-row">
+              <div className="comparison-header">Transparent Decisions</div>
+              <div className="comparison-cell">❌</div>
+              <div className="comparison-cell">❌</div>
+              <div className="comparison-cell accent">✅</div>
+            </div>
+            <div className="comparison-row">
+              <div className="comparison-header">24/7 Monitoring</div>
+              <div className="comparison-cell">❌</div>
+              <div className="comparison-cell">✅</div>
+              <div className="comparison-cell accent">✅</div>
+            </div>
+            <div className="comparison-row">
+              <div className="comparison-header">Risk Management</div>
+              <div className="comparison-cell">Manual</div>
+              <div className="comparison-cell">Limited</div>
+              <div className="comparison-cell accent">Autonomous</div>
+            </div>
+            <div className="comparison-row">
+              <div className="comparison-header">Explainability</div>
+              <div className="comparison-cell">Low</div>
+              <div className="comparison-cell">None</div>
+              <div className="comparison-cell accent">Full</div>
+            </div>
+            <div className="comparison-row">
+              <div className="comparison-header">Access to Decisions</div>
+              <div className="comparison-cell">Quarterly Reports</div>
+              <div className="comparison-cell">Real-time API</div>
+              <div className="comparison-cell accent">Admin Console</div>
+            </div>
+          </div>
+        </section>
+
+        <section className="section cinematic-fade" id="faq">
+          <h2 className="section-title">Frequently Asked Questions</h2>
+          <div className="faq-grid">
+            <details className="dark-card faq-item">
+              <summary><strong>Is Viktor suitable for beginners?</strong></summary>
+              <p>Yes. Viktor starts in paper trading mode with detailed explanations of every decision. You can learn at your own pace before risking real capital.</p>
+            </details>
+            <details className="dark-card faq-item">
+              <summary><strong>How much capital is required to start?</strong></summary>
+              <p>You can start with paper trading for free. For live trading, check our Admin Console for minimum requirements and current offerings.</p>
+            </details>
+            <details className="dark-card faq-item">
+              <summary><strong>What exchanges does Viktor support?</strong></summary>
+              <p>Viktor integrates with major brokerages. See our Blog for current integrations or contact us via the Admin Console.</p>
+            </details>
+            <details className="dark-card faq-item">
+              <summary><strong>Can I customize Viktor's strategy?</strong></summary>
+              <p>Yes. You can adjust risk parameters, set custom constraints, and define your investment universe. Check the How It Works section for details.</p>
+            </details>
+            <details className="dark-card faq-item">
+              <summary><strong>What if I disagree with a trade decision?</strong></summary>
+              <p>You can pause or override any trade at any time. Every override is logged for analysis and learning.</p>
+            </details>
+            <details className="dark-card faq-item">
+              <summary><strong>How is Viktor different from robo-advisors?</strong></summary>
+              <p>Viktor uses multi-agent orchestration with transparent decision reasoning. We explain our logic, not just execute trades.</p>
+            </details>
+          </div>
+        </section>
+
+        <section className="section cinematic-fade" id="cta-final">
+          <div className="dark-card" style={{ textAlign: "center", padding: "80px 40px" }}>
+             <h2 style={{ marginBottom: "16px", fontSize: "clamp(28px, 5vw, 48px)" }}>Ready to Experience AI-Driven Investing?</h2>
+             <p style={{ margin: "0 auto 40px", maxWidth: "700px", color: "var(--muted)", fontSize: "18px" }}>Start with paper trading to see how Viktor works. Progress to live trading when you're confident. Always transparent, always in control.</p>
+             <div className="hero-actions" style={{ justifyContent: 'center', gap: "16px" }}>
+                <a className="btn primary" href={productUrl}>Launch Admin Console</a>
+                <Link className="btn ghost" href="/how-it-works">View Full Architecture</Link>
+                <a className="btn ghost" href={blogUrl}>Read Latest Research</a>
              </div>
           </div>
         </section>

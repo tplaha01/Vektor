@@ -4734,3 +4734,79 @@ files:
 - landing-next/app/how-it-works/page.jsx
 validation: done
 notes: Reverted radial gradients, removed 3D transforms, applied cinematic fade.
+
+[2026-04-19T20:08:00Z] [START]
+entry_id: devlog-ui-ux-theme-switcher-001
+actor_name: antigravity
+actor_platform: other
+actor_model: gemini-3.1-pro
+actor_provider: google
+run_id: run-viktor-ui-ux-003
+git_branch: master
+git_commit_start:
+git_commit_end:
+scope: Implemented completely dark theme default with a modern theme switcher in the top dock.
+files:
+- landing-next/package.json
+- landing-next/app/layout.jsx
+- landing-next/app/ThemeProvider.jsx
+- landing-next/app/ThemeSwitcher.jsx
+- landing-next/app/globals.css
+- landing-next/app/page.jsx
+- landing-next/app/how-it-works/page.jsx
+validation: npm installed next-themes and lucide-react; ThemeSwitcher added
+notes: Built a unified light/dark variable structure and client-side toggle matching modern aesthetics.
+
+[2026-04-19T20:08:00Z] [END]
+entry_id: devlog-ui-ux-theme-switcher-001
+actor_name: antigravity
+actor_platform: other
+actor_model: gemini-3.1-pro
+actor_provider: google
+run_id: run-viktor-ui-ux-003
+git_branch: master
+git_commit_start:
+git_commit_end:
+scope: Finished theme switcher implementation.
+files:
+- landing-next/package.json
+- landing-next/app/layout.jsx
+- landing-next/app/ThemeProvider.jsx
+- landing-next/app/ThemeSwitcher.jsx
+- landing-next/app/globals.css
+- landing-next/app/page.jsx
+- landing-next/app/how-it-works/page.jsx
+validation: done
+notes: Global theme context enabled with default dark, fully working topbar switch.
+
+[2026-04-19T20:10:00Z] [START]
+entry_id: devlog-ui-ux-match-admin-theme-001
+actor_name: antigravity
+actor_platform: other
+actor_model: gemini-3.1-pro
+actor_provider: google
+run_id: run-viktor-ui-ux-004
+git_branch: master
+git_commit_start:
+git_commit_end:
+scope: High-level UI pass to match landing page theme with admin console theme.
+files:
+- landing-next/app/globals.css
+validation: Confirmed hex values and font-family match frontend admin.css exactly.
+notes: Synchronized base backgrounds, surfaces, text, and primary/secondary button styles.
+
+[2026-04-19T20:10:00Z] [END]
+entry_id: devlog-ui-ux-match-admin-theme-001
+actor_name: antigravity
+actor_platform: other
+actor_model: gemini-3.1-pro
+actor_provider: google
+run_id: run-viktor-ui-ux-004
+git_branch: master
+git_commit_start:
+git_commit_end:
+scope: Finished admin theme alignment.
+files:
+- landing-next/app/globals.css
+validation: done
+notes: Landing page and Technical documentation now perfectly mirror the Vercel-inspired Inky-Black Admin theme.
