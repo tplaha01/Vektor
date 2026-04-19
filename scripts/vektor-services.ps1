@@ -1,0 +1,203 @@
+param(
+  [ValidateSet("up", "down", "restart", "status", "health", "watch")]
+  [string]$Action = "status",
+  [int]$WatchIntervalSeconds = 15
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+
+$RepoRoot = Split-Path -Parent $PSScriptRoot
+$RunDir = Join-Path $RepoRoot ".run"
+if (-not (Test-Path $RunDir)) {
+  New-Item -ItemType Directory -Force -Path $RunDir | Out-Null
+}
+
+$BackendPidFile = Join-Path $RunDir "backend.pid"
+$OllamaPidFile = Join-Path $RunDir "ollama.pid"
+
+function Get-ListeningPids {
+  param([int]$Port)
+  return @(
+    Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue |
+      Select-Object -ExpandProperty OwningProcess -Unique
+  )
+}
+
+function Test-Endpoint {
+  param(
+    [string]$Url,
+    [int]$TimeoutSec = 5
+  )
+  try {
+    Invoke-RestMethod -Uri $Url -TimeoutSec $TimeoutSec | Out-Null
+    return $true
+  } catch {
+    return $false
+  }
+}
+
+function Start-Backend {
+  $pids = Get-ListeningPids -Port 8000
+  if ($pids.Count -gt 0) {
+    Write-Host "[backend] already listening on 8000 (pid: $($pids -join ','))"
+    return
+  }
+
+  $venvPython = Join-Path $RepoRoot "backend\.venv\Scripts\python.exe"
+  $backendCwd = Join-Path $RepoRoot "backend"
+  $args = @("-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", "8000")
+
+  if (Test-Path $venvPython) {
+    $proc = Start-Process -FilePath $venvPython -ArgumentList $args -WorkingDirectory $backendCwd -PassThru -WindowStyle Hidden
+  } else {
+    $proc = Start-Process -FilePath "py" -ArgumentList @("-3") + $args -WorkingDirectory $backendCwd -PassThru -WindowStyle Hidden
+  }
+  Set-Content -Path $BackendPidFile -Value $proc.Id -NoNewline
+  Write-Host "[backend] started pid=$($proc.Id)"
+}
+
+function Stop-Backend {
+  if (Test-Path $BackendPidFile) {
+    $backendPid = [int](Get-Content $BackendPidFile -ErrorAction SilentlyContinue)
+    if ($backendPid -gt 0) {
+      Stop-Process -Id $backendPid -Force -ErrorAction SilentlyContinue
+      Write-Host "[backend] stopped pid=$backendPid"
+    }
+    Remove-Item $BackendPidFile -Force -ErrorAction SilentlyContinue
+  }
+}
+
+function Start-Ollama {
+  $pids = Get-ListeningPids -Port 11434
+  if ($pids.Count -gt 0) {
+    Write-Host "[ollama] already listening on 11434 (pid: $($pids -join ','))"
+    return
+  }
+  $proc = Start-Process -FilePath "ollama" -ArgumentList @("serve") -PassThru -WindowStyle Hidden
+  Set-Content -Path $OllamaPidFile -Value $proc.Id -NoNewline
+  Write-Host "[ollama] started pid=$($proc.Id)"
+}
+
+function Stop-Ollama {
+  if (Test-Path $OllamaPidFile) {
+    $ollamaPid = [int](Get-Content $OllamaPidFile -ErrorAction SilentlyContinue)
+    if ($ollamaPid -gt 0) {
+      Stop-Process -Id $ollamaPid -Force -ErrorAction SilentlyContinue
+      Write-Host "[ollama] stopped pid=$ollamaPid"
+    }
+    Remove-Item $OllamaPidFile -Force -ErrorAction SilentlyContinue
+  }
+}
+
+function Start-OpenClaw {
+  & openclaw gateway start | Out-Host
+  if ($LASTEXITCODE -ne 0) {
+    throw "[openclaw] failed to start gateway service"
+  }
+  Write-Host "[openclaw] gateway start requested"
+}
+
+function Stop-OpenClaw {
+  & openclaw gateway stop | Out-Host
+  if ($LASTEXITCODE -eq 0) {
+    Write-Host "[openclaw] gateway stop requested"
+  }
+}
+
+function Get-ServiceHealth {
+  $backendOk = Test-Endpoint -Url "http://127.0.0.1:8000/health" -TimeoutSec 5
+  $ollamaOk = Test-Endpoint -Url "http://127.0.0.1:11434/api/tags" -TimeoutSec 5
+  & openclaw health *> $null
+  $openclawOk = $LASTEXITCODE -eq 0
+
+  return [pscustomobject]@{
+    backend  = if ($backendOk) { "healthy" } else { "down" }
+    ollama   = if ($ollamaOk) { "healthy" } else { "down" }
+    openclaw = if ($openclawOk) { "healthy" } else { "down" }
+  }
+}
+
+function Show-Status {
+  $ports = @(8000, 11434, 18789)
+  foreach ($port in $ports) {
+    $pids = Get-ListeningPids -Port $port
+    if ($pids.Count -gt 0) {
+      Write-Host ("port {0}: LISTEN (pid: {1})" -f $port, ($pids -join ","))
+    } else {
+      Write-Host ("port {0}: NOT LISTENING" -f $port)
+    }
+  }
+  $health = Get-ServiceHealth
+  Write-Host ("health: backend={0} ollama={1} openclaw={2}" -f $health.backend, $health.ollama, $health.openclaw)
+}
+
+function Wait-Healthy {
+  param([int]$TimeoutSec = 45)
+  $deadline = (Get-Date).AddSeconds($TimeoutSec)
+  while ((Get-Date) -lt $deadline) {
+    $h = Get-ServiceHealth
+    if ($h.backend -eq "healthy" -and $h.ollama -eq "healthy" -and $h.openclaw -eq "healthy") {
+      Write-Host "All services healthy."
+      return
+    }
+    Start-Sleep -Seconds 2
+  }
+  throw "Timed out waiting for healthy backend/openclaw/ollama."
+}
+
+switch ($Action) {
+  "up" {
+    Start-Ollama
+    Start-OpenClaw
+    Start-Backend
+    Wait-Healthy
+    Show-Status
+    break
+  }
+  "down" {
+    Stop-Backend
+    Stop-OpenClaw
+    Stop-Ollama
+    Show-Status
+    break
+  }
+  "restart" {
+    Stop-Backend
+    Stop-OpenClaw
+    Stop-Ollama
+    Start-Sleep -Seconds 1
+    Start-Ollama
+    Start-OpenClaw
+    Start-Backend
+    Wait-Healthy
+    Show-Status
+    break
+  }
+  "status" {
+    Show-Status
+    break
+  }
+  "health" {
+    $h = Get-ServiceHealth
+    $line = ("backend={0} ollama={1} openclaw={2}" -f $h.backend, $h.ollama, $h.openclaw)
+    Write-Host $line
+    if ($h.backend -ne "healthy" -or $h.ollama -ne "healthy" -or $h.openclaw -ne "healthy") {
+      exit 1
+    }
+    break
+  }
+  "watch" {
+    while ($true) {
+      try {
+        $h = Get-ServiceHealth
+        if ($h.ollama -ne "healthy") { Start-Ollama }
+        if ($h.openclaw -ne "healthy") { Start-OpenClaw }
+        if ($h.backend -ne "healthy") { Start-Backend }
+      } catch {
+        Write-Host ("[watch] " + $_.Exception.Message)
+      }
+      Start-Sleep -Seconds ([Math]::Max(5, $WatchIntervalSeconds))
+    }
+  }
+}

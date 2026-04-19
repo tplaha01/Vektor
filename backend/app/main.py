@@ -21,12 +21,16 @@ from app.risk.engine import risk
 from app.backtest.router import router as backtest_router
 from app.config import get_settings
 from app.fund.agent_runtime import fund_agent_runtime
+from app.fund.audit_log import audit_log
+from app.fund.decision_ledger import decision_ledger
 from app.fund.knowledge_graph import knowledge_graph
 from app.fund.openclaw_command_adapter import openclaw_command_adapter
 from app.fund.router import router as fund_router
 from app.fund.orchestrator import firm_orchestrator
+from app.fund.research_memory import research_memory
 from app.fund.runtime_guard import data_integrity_guard
 from app.fund.realtime_stream import realtime_stream
+from app.fund.sentiment_ingest import sentiment_ingest
 from app.admin_research_routes import router as admin_router
 from app.admin_research_routes import research_router
 from app.admin_research_routes import blog_router
@@ -165,6 +169,65 @@ async def startup_event():
         monitor.log_component_status("Database", "ERROR", str(e))
         raise
 
+    # Enforce strict real-data mode outside dev.
+    try:
+        if settings.ENV.strip().lower() not in {"dev", "development"} and not data_integrity_guard.strict_mode_enabled():
+            data_integrity_guard.set_strict_mode(True, reason="enforced_non_dev_environment")
+            monitor.log_component_status(
+                "Data Integrity Guard",
+                "WARN",
+                "strict mode auto-enabled for non-dev runtime",
+            )
+        else:
+            monitor.log_component_status(
+                "Data Integrity Guard",
+                "OK",
+                f"strict_real_data_only={data_integrity_guard.strict_mode_enabled()}",
+            )
+    except Exception as e:
+        monitor.log_component_status("Data Integrity Guard", "WARN", str(e))
+
+    # Restore persisted fund state stores for restart continuity.
+    try:
+        restored_decisions = decision_ledger.restore_from_storage()
+        monitor.log_component_status(
+            "Decision Ledger",
+            "OK",
+            f"restored={restored_decisions.get('restored')} decisions={restored_decisions.get('decisions')} events={restored_decisions.get('events')}",
+        )
+    except Exception as e:
+        monitor.log_component_status("Decision Ledger", "WARN", str(e))
+
+    try:
+        restored_audit = audit_log.restore_from_storage()
+        monitor.log_component_status(
+            "Audit Log",
+            "OK",
+            f"restored={restored_audit.get('restored')} events={restored_audit.get('events')}",
+        )
+    except Exception as e:
+        monitor.log_component_status("Audit Log", "WARN", str(e))
+
+    try:
+        restored_research = research_memory.restore_from_storage()
+        monitor.log_component_status(
+            "Research Memory",
+            "OK",
+            f"restored={restored_research.get('restored')} reports={restored_research.get('reports')}",
+        )
+    except Exception as e:
+        monitor.log_component_status("Research Memory", "WARN", str(e))
+
+    try:
+        restored_sentiment = sentiment_ingest.restore_from_storage()
+        monitor.log_component_status(
+            "Sentiment Store",
+            "OK",
+            f"restored={restored_sentiment.get('restored')} snapshots={restored_sentiment.get('snapshots')}",
+        )
+    except Exception as e:
+        monitor.log_component_status("Sentiment Store", "WARN", str(e))
+
     # Restore persisted task history so lineage survives backend restarts.
     try:
         restored = task_bus.restore_from_storage()
@@ -175,6 +238,14 @@ async def startup_event():
         )
     except Exception as e:
         monitor.log_component_status("Task Bus", "WARN", str(e))
+
+    # Rebuild knowledge graph from restored stores.
+    try:
+        if hasattr(firm_orchestrator, "_backfill_knowledge_graph"):
+            firm_orchestrator._backfill_knowledge_graph()  # type: ignore[attr-defined]
+            monitor.log_component_status("Knowledge Graph", "OK", "backfilled from persisted state")
+    except Exception as e:
+        monitor.log_component_status("Knowledge Graph", "WARN", str(e))
     
     # Setup event capture
     try:

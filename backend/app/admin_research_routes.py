@@ -429,6 +429,49 @@ def _normalize_binary_status(value: str, *, default: str) -> str:
     return default
 
 
+def _halt_recovery_checklist(
+    *,
+    halt_reason: str | None,
+    runtime_started: bool,
+    strict_real_data_only: bool,
+) -> list[str]:
+    reason = str(halt_reason or "").strip().lower()
+    checklist: list[str] = [
+        "Confirm upstream providers are healthy and returning live data (Alpaca market data + news source).",
+        "Verify `REAL_DATA_STRICT_MODE=true` and paper-only execution mode are still enforced.",
+        "Clear halt from Admin: Settings -> Runtime Controls -> Clear Halt.",
+        "Resume runtime, then kick autopilot once to validate full orchestration recovery.",
+    ]
+
+    if not runtime_started:
+        checklist.insert(0, "Start agent runtime first; halted systems cannot recover while runtime is paused.")
+
+    if "missing_alpaca_api_key" in reason or "alpaca" in reason:
+        checklist.insert(1, "Set valid `ALPACA_API_KEY` and `ALPACA_SECRET_KEY`, then restart backend.")
+    if "missing_finnhub_key" in reason or "finnhub" in reason:
+        checklist.insert(1, "Set valid `FINNHUB_KEY` for news ingestion resilience, then restart backend.")
+    if "adapter_error" in reason or "ai_role_adapter" in reason:
+        checklist.insert(1, "Check AI role adapter provider/model health (Ollama or API provider) before resuming swarms.")
+    if "openclaw" in reason:
+        checklist.insert(1, "Restart OpenClaw gateway and verify Discord channel connectivity before issuing control commands.")
+
+    if not strict_real_data_only:
+        checklist.insert(
+            0,
+            "Strict real-data mode is disabled. Re-enable it before clearing halt to avoid unsafe fallback execution.",
+        )
+
+    # Preserve order, remove duplicates.
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for item in checklist:
+        if item in seen:
+            continue
+        seen.add(item)
+        deduped.append(item)
+    return deduped
+
+
 def _record_runtime_control_event(
     *,
     action: str,
@@ -704,6 +747,11 @@ async def get_system_status_badges():
             "System halted: strict real-data mode detected provider fallback/failure. "
             "Signal generation, task orchestration, and trade execution are blocked until resolved."
         )
+    recovery_checklist = _halt_recovery_checklist(
+        halt_reason=halt_reason,
+        runtime_started=runtime_started,
+        strict_real_data_only=bool(data_integrity.get("strict_real_data_only")),
+    )
 
     return {
         "timestamp": _utc_now().isoformat(),
@@ -735,6 +783,7 @@ async def get_system_status_badges():
             "reason": halt_reason,
             "halted_at": halted_at,
             "message": halt_message,
+            "recovery_checklist": recovery_checklist,
         },
     }
 
@@ -743,14 +792,22 @@ async def get_system_status_badges():
 async def get_runtime_control_status():
     runtime = fund_agent_runtime.status()
     halt = runtime.get("data_integrity") if isinstance(runtime.get("data_integrity"), dict) else data_integrity_guard.status()
+    halt_reason = str(halt.get("halt_reason") or "").strip() or None
+    runtime_started = bool(runtime.get("started"))
+    recovery_checklist = _halt_recovery_checklist(
+        halt_reason=halt_reason,
+        runtime_started=runtime_started,
+        strict_real_data_only=bool(halt.get("strict_real_data_only")),
+    )
     return {
-        "runtime_started": bool(runtime.get("started")),
+        "runtime_started": runtime_started,
         "active_task_count": len(firm_orchestrator.list_active_tasks()),
         "autopilot": runtime.get("autopilot", {}),
         "halted": bool(halt.get("halted")),
-        "halt_reason": str(halt.get("halt_reason") or "").strip() or None,
+        "halt_reason": halt_reason,
         "halted_at": halt.get("halted_at"),
         "strict_real_data_only": bool(halt.get("strict_real_data_only")),
+        "recovery_checklist": recovery_checklist,
     }
 
 

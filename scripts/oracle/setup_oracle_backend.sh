@@ -11,6 +11,17 @@ SERVICE_NAME="vektor-backend.service"
 BACKUP_SERVICE_NAME="vektor-backup.service"
 BACKUP_TIMER_NAME="vektor-backup.timer"
 
+set_or_append_env() {
+  local key="$1"
+  local value="$2"
+  local file="$3"
+  if grep -qE "^${key}=" "$file"; then
+    sed -i "s|^${key}=.*|${key}=${value}|" "$file"
+  else
+    printf "\n%s=%s\n" "$key" "$value" >> "$file"
+  fi
+}
+
 if [[ ! -d "$BACKEND_DIR" ]]; then
   echo "Backend directory not found: $BACKEND_DIR"
   echo "Clone the repo first or pass REPO_DIR explicitly."
@@ -42,6 +53,12 @@ if [[ ! -f "$BACKEND_DIR/.env" ]]; then
 else
   echo "[4/7] Existing backend/.env found"
 fi
+
+set_or_append_env "ENV" "prod" "$BACKEND_DIR/.env"
+set_or_append_env "BROKER" "paper" "$BACKEND_DIR/.env"
+set_or_append_env "AUTO_TRADING_ENABLED" "false" "$BACKEND_DIR/.env"
+set_or_append_env "REAL_DATA_STRICT_MODE" "true" "$BACKEND_DIR/.env"
+echo "Enforced production safety env keys in backend/.env"
 
 echo "[5/7] Installing backend systemd service..."
 sudo tee "/etc/systemd/system/$SERVICE_NAME" >/dev/null <<EOF

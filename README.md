@@ -25,26 +25,26 @@ Research + Sentiment Agents
 
 Run each service in its own terminal.
 
-### One-command local shell screen (Windows PowerShell)
+### Supervised local backend stack (Windows PowerShell)
 
-Use the service controller script:
+Use the supervisor script for `backend + openclaw + ollama`:
 
 ```powershell
-# Start required app services (backend + frontend)
-.\scripts\vektor-shell.ps1 up
+# start backend(8000), ollama(11434), openclaw gateway(18789)
+.\scripts\vektor-services.ps1 up
 
-# Start with optional SSR landing/blog services too
-.\scripts\vektor-shell.ps1 up -IncludeLanding -IncludeBlog
+# status + health snapshot
+.\scripts\vektor-services.ps1 status
+.\scripts\vektor-services.ps1 health
 
-# Show current service state
-.\scripts\vektor-shell.ps1 status
+# restart all three
+.\scripts\vektor-services.ps1 restart
 
-# Tail logs for one service
-.\scripts\vektor-shell.ps1 logs -Service backend -Follow
-
-# Stop all Vektor local services
-.\scripts\vektor-shell.ps1 down
+# stop all three
+.\scripts\vektor-services.ps1 down
 ```
+
+Frontend surfaces (`9000`, `3000`, `3001`) are started separately from their own package scripts.
 
 ### 1) Backend API
 

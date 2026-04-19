@@ -99,6 +99,11 @@ const Admin = () => {
               halted: true,
               reason: rejectedReasons[0] || 'strict_real_data_required',
               message: 'Strict real-data policy is active and blocked runtime actions until verified live data is available.',
+              recovery_checklist: [
+                'Verify live data providers are healthy and returning real-time data.',
+                'Clear halt from Runtime Controls once providers recover.',
+                'Resume runtime and kick autopilot to validate normal operations.',
+              ],
             },
           });
           setRuntimeControl({
@@ -158,6 +163,11 @@ const Admin = () => {
           halted: true,
           reason: err.message,
           message: 'Unable to verify runtime health. Activities are treated as halted until recovery.',
+          recovery_checklist: [
+            'Restore backend/API connectivity first.',
+            'Verify provider health and strict real-data mode status.',
+            'Clear halt and resume runtime when connectivity is stable.',
+          ],
         },
       });
       setRuntimeControl({
@@ -284,6 +294,9 @@ const Admin = () => {
     if (normalized === 'degraded' || normalized === 'fallback') return 'bad';
     return 'wait';
   };
+  const haltRecoveryChecklist = Array.isArray(systemStatus?.halt?.recovery_checklist)
+    ? systemStatus.halt.recovery_checklist
+    : [];
 
   return (
     <>
@@ -425,6 +438,13 @@ const Admin = () => {
                         <div className="system-halt-reason">
                           Reason: {systemStatus?.halt?.reason || 'unknown'}
                         </div>
+                        {haltRecoveryChecklist.length > 0 && (
+                          <ul className="system-halt-checklist">
+                            {haltRecoveryChecklist.map((item, idx) => (
+                              <li key={`halt-check-${idx}`}>{item}</li>
+                            ))}
+                          </ul>
+                        )}
                       </section>
                     )}
 
@@ -617,6 +637,16 @@ const Admin = () => {
                           </div>
                           {systemStatus?.halt?.reason && (
                             <p className="setting-runtime-hint">Current halt reason: {systemStatus.halt.reason}</p>
+                          )}
+                          {haltRecoveryChecklist.length > 0 && (
+                            <div className="setting-runtime-checklist">
+                              <h4 className="setting-control-history-title">Recovery Checklist</h4>
+                              <ul className="system-halt-checklist compact">
+                                {haltRecoveryChecklist.map((item, idx) => (
+                                  <li key={`runtime-check-${idx}`}>{item}</li>
+                                ))}
+                              </ul>
+                            </div>
                           )}
                           <div className="setting-control-history">
                             <h4 className="setting-control-history-title">Control History</h4>

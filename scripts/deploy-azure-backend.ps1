@@ -202,6 +202,7 @@ foreach ($key in $allowedKeys) {
 $settingsList.Add("ENV=prod")
 $settingsList.Add("BROKER=paper")
 $settingsList.Add("AUTO_TRADING_ENABLED=false")
+$settingsList.Add("REAL_DATA_STRICT_MODE=true")
 $settingsList.Add("WEBSITES_PORT=8000")
 
 if ($FrontendUrl) {

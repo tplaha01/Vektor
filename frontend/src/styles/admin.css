@@ -702,6 +702,25 @@
   font-family: var(--f-data);
 }
 
+.system-halt-checklist {
+  margin: 4px 0 0 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--txt);
+  font-size: 12px;
+}
+
+.system-halt-checklist.compact {
+  margin-top: 8px;
+  gap: 3px;
+}
+
+.setting-runtime-checklist {
+  margin-top: 10px;
+}
+
 .ops-badge-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
