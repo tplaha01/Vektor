@@ -43,6 +43,37 @@ function Test-Endpoint {
   }
 }
 
+function Invoke-OpenClaw {
+  param(
+    [string[]]$CliArgs,
+    [switch]$Quiet
+  )
+
+  $prev = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  try {
+    if ($Quiet) {
+      & openclaw @CliArgs 1>$null 2>$null
+    } else {
+      & openclaw @CliArgs | Out-Host
+    }
+    return $LASTEXITCODE
+  } catch {
+    return 1
+  } finally {
+    $ErrorActionPreference = $prev
+  }
+}
+
+function Test-OpenClawService {
+  $pids = @(Get-ListeningPids -Port 18789)
+  if (-not (Test-Any $pids)) {
+    return $false
+  }
+  $statusCode = Invoke-OpenClaw -CliArgs @("gateway", "status", "--no-probe") -Quiet
+  return $statusCode -eq 0
+}
+
 function Start-Backend {
   $pids = @(Get-ListeningPids -Port 8000)
   if (Test-Any $pids) {
@@ -97,21 +128,28 @@ function Stop-Ollama {
 }
 
 function Start-OpenClaw {
-  & openclaw health *> $null
-  if ($LASTEXITCODE -eq 0) {
+  if (Test-OpenClawService) {
     Write-Host "[openclaw] gateway already healthy"
     return
   }
 
-  & openclaw gateway start | Out-Host
-  if ($LASTEXITCODE -ne 0) {
-    throw "[openclaw] failed to start gateway service"
+  $existingListener = Test-Any @(Get-ListeningPids -Port 18789)
+  if ($existingListener) {
+    Write-Host "[openclaw] listener exists but service probe is unhealthy; requesting restart"
+    $restartCode = Invoke-OpenClaw -CliArgs @("gateway", "restart")
+    if ($restartCode -ne 0) {
+      throw "[openclaw] failed to restart gateway service"
+    }
+  } else {
+    $startCode = Invoke-OpenClaw -CliArgs @("gateway", "start")
+    if ($startCode -ne 0) {
+      throw "[openclaw] failed to start gateway service"
+    }
   }
 
-  $deadline = (Get-Date).AddSeconds(25)
+  $deadline = (Get-Date).AddSeconds(60)
   while ((Get-Date) -lt $deadline) {
-    & openclaw health *> $null
-    if ($LASTEXITCODE -eq 0) {
+    if (Test-OpenClawService) {
       Write-Host "[openclaw] gateway start requested and is healthy"
       return
     }
@@ -121,8 +159,8 @@ function Start-OpenClaw {
 }
 
 function Stop-OpenClaw {
-  & openclaw gateway stop | Out-Host
-  if ($LASTEXITCODE -eq 0) {
+  $stopCode = Invoke-OpenClaw -CliArgs @("gateway", "stop")
+  if ($stopCode -eq 0) {
     Write-Host "[openclaw] gateway stop requested"
   }
 }
@@ -130,8 +168,7 @@ function Stop-OpenClaw {
 function Get-ServiceHealth {
   $backendOk = Test-Endpoint -Url "http://127.0.0.1:8000/health" -TimeoutSec 5
   $ollamaOk = Test-Endpoint -Url "http://127.0.0.1:11434/api/tags" -TimeoutSec 5
-  & openclaw health *> $null
-  $openclawOk = $LASTEXITCODE -eq 0
+  $openclawOk = Test-OpenClawService
 
   return [pscustomobject]@{
     backend  = if ($backendOk) { "healthy" } else { "down" }

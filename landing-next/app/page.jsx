@@ -4,6 +4,8 @@ import { useEffect } from "react";
 import Link from "next/link";
 import ThemeSwitcher from "./ThemeSwitcher";
 import LiquidBackground from "../components/liquid-background";
+import { Typewriter } from "../components/typewriter";
+import { TextHighlighter } from "../components/text-highlighter";
 
 const productUrl = process.env.NEXT_PUBLIC_PRODUCT_APP_URL || "http://localhost:9000";
 
@@ -46,111 +48,115 @@ export default function Page() {
 
       <main className="container overflow-hidden">
         <section className="hero cinematic-fade">
-          <p className="eyebrow">The Future of Investing</p>
-          <h1>A smart, transparent trading assistant you can actually understand.</h1>
+          <p className="eyebrow">The World's First Agentic AI Native Hedge Fund</p>
+          <h1>
+            <Typewriter 
+              text="Intelligent capital management through autonomous AI agents."
+              speed={30}
+              delay={200}
+            />
+          </h1>
           <p>
-            Think of Vektor like a team of world-class specialists working together in one room. One reads the news,
-            one analyzes the market, one checks the risks, and one executes the trade. Every decision is clearly explained, 
-            so you never have to guess why a trade was made.
+            Vektor is a hedge fund powered by specialized AI agents that work in concert. Our research team identifies opportunities. Our analysts create strategies. Our risk auditors verify safety. Our compliance team ensures adherence. Every decision is transparent, every trade is explainable, and every investment is managed with institutional-grade rigor.
           </p>
           <div className="hero-actions">
-            <a className="btn primary" href={productUrl}>View Public PnL</a>
-            <Link className="btn ghost" href="/how-it-works">See How It Works</Link>
-            <Link className="btn ghost" href="/blog">Read Our Research</Link>
+            <a className="btn primary" href={productUrl}>View Fund Performance</a>
+            <Link className="btn ghost" href="/blog">Read Research</Link>
+            <a className="btn ghost" href="/how-it-works">How We Invest</a>
           </div>
           <div className="hero-stats">
-            <span className="pill">Fully Traceable</span>
-            <span className="pill">Human-Readable Decisions</span>
-            <span className="pill">Safe & Controlled</span>
+            <span className="pill">Institutional Transparency</span>
+            <span className="pill">Autonomous AI Agents</span>
+            <span className="pill">Explainable Decisions</span>
           </div>
         </section>
 
         <section className="grid cinematic-fade" id="how">
           <article className="dark-card">
-            <h3>1. Read & Research</h3>
-            <p>Our specialists read thousands of news articles, earnings reports, and market charts instantly. They find the most important information for you.</p>
+            <h3>Research & Analysis</h3>
+            <p>Our research agent processes market data, earnings reports, and economic indicators continuously. Identifies investment opportunities aligned with fund strategy and market conditions.</p>
           </article>
           <article className="dark-card">
-            <h3>2. Make a Plan</h3>
-            <p>The system creates a clear, easy-to-understand plan. It explains exactly what it wants to buy or sell, and points out the exact reasons why.</p>
+            <h3>Strategy Development</h3>
+            <p>The trading agent develops detailed investment strategies with clear entry/exit points, position sizing, and expected outcomes. Each strategy is thoroughly documented and explained.</p>
           </article>
           <article className="dark-card">
-            <h3>3. Check for Safety</h3>
-            <p>Before doing anything, independent risk checkers review the plan. If it's too risky or breaks the rules, it's stopped immediately.</p>
+            <h3>Risk Verification</h3>
+            <p>Independent risk agents audit every proposed position against fund parameters, market conditions, and regulatory requirements. Only compliant trades proceed to execution.</p>
           </article>
           <article className="dark-card">
-            <h3>4. Act & Record</h3>
-            <p>Once approved, the action is taken. Everything is written down permanently, so you can always go back and review the exact decision process.</p>
+            <h3>Execution & Recording</h3>
+            <p>Verified trades are executed and permanently recorded. Full transaction history, rationale, and outcomes are tracked in our immutable audit trail.</p>
           </article>
         </section>
 
         <section className="section split cinematic-fade" id="safety">
           <article className="dark-card">
-            <h2>Safety You Can Trust</h2>
+            <h2>Institutional Risk Management</h2>
             <ul>
-              <li><strong>Practice Mode First:</strong> Vektor practices with fake money by default until you are perfectly comfortable.</li>
-              <li><strong>Automatic Brakes:</strong> If the market gets too crazy, Vektor automatically pauses to keep your investments safe.</li>
-              <li><strong>You Are the Boss:</strong> You can pause, review, or stop any action with the click of a button.</li>
+              <li><strong>Multi-Layer Risk Review:</strong> Every position passes through independent risk auditors before execution.</li>
+              <li><strong>Circuit Breakers:</strong> Automated safeguards halt trading during extreme market conditions to protect capital.</li>
+              <li><strong>Investor Control:</strong> Monitor and adjust fund settings in real-time through your dashboard.</li>
             </ul>
           </article>
           <article className="dark-card">
-            <h2>No Black Boxes</h2>
+            <h2>Complete Transparency</h2>
             <ul>
-              <li><strong>Public Scoreboard:</strong> See exactly how well Vektor is doing on our Public PnL page.</li>
-              <li><strong>Full Access:</strong> The Admin Console lets you look under the hood whenever you want.</li>
-              <li><strong>Plain English:</strong> We explain our strategies in our Blog, not in complicated math equations.</li>
+              <li><strong>Live Performance Tracking:</strong> View real-time fund performance, positions, and P&L on our public dashboard.</li>
+              <li><strong>Decision Audit Trail:</strong> Access detailed logs of every trade with full rationale and supporting analysis.</li>
+              <li><strong>Research Publication:</strong> Read detailed research reports from our team on market trends and strategy decisions.</li>
             </ul>
           </article>
         </section>
 
         <section className="section cinematic-fade" id="agents">
-          <h2 className="section-title">Specialized Agents Working for You</h2>
+          <h2 className="section-title">Our Autonomous Agent Team</h2>
           <div className="agents-grid">
             <article className="dark-card">
-              <div className="agent-icon">📰</div>
-              <h3>Research Director</h3>
-              <p>Scans thousands of sources daily. Market news, earnings reports, macroeconomic data. Synthesizes into clear, actionable insights.</p>
+              <div className="agent-icon agent-label">Research</div>
+              <h3>Research Agent</h3>
+              <p>Continuously monitors market data, economic indicators, and news sources. Synthesizes information into actionable investment theses.</p>
             </article>
             <article className="dark-card">
-              <div className="agent-icon">📊</div>
-              <h3>Trading Director</h3>
-              <p>Analyzes trends and patterns. Identifies opportunities that fit your strategy. Creates detailed trading plans with clear rationale.</p>
+              <div className="agent-icon agent-label">Strategy</div>
+              <h3>Trading Agent</h3>
+              <p>Develops position strategies based on research findings. Creates entry/exit plans with detailed position architecture and expected outcomes.</p>
             </article>
             <article className="dark-card">
-              <div className="agent-icon">🛡️</div>
+              <div className="agent-icon agent-label">Risk</div>
               <h3>Risk Auditor</h3>
-              <p>Independent verification layer. Checks every trade against your rules and risk limits. Never lets bad decisions slip through.</p>
+              <p>Independently verifies all proposed positions. Ensures compliance with fund parameters and risk limits before execution.</p>
             </article>
             <article className="dark-card">
-              <div className="agent-icon">⚖️</div>
+              <div className="agent-icon agent-label">Compliance</div>
               <h3>Compliance Officer</h3>
-              <p>Ensures regulatory requirements are met. Monitors fund policies. Maintains audit trail for every decision and trade.</p>
+              <p>Maintains regulatory adherence. Monitors fund operations against policy requirements and creates immutable decision audit trails.</p>
             </article>
           </div>
         </section>
 
         <section className="section cinematic-fade" id="features">
-          <h2 className="section-title">Built for Modern Investing</h2>
+          <h2 className="section-title">Built for Institutional-Grade Management</h2>
           <div className="features-grid">
             <div className="feature-item dark-card">
-              <h3>Real-Time Intelligence</h3>
-              <p>AI agents process market data 24/7. Get insights faster than traditional research teams. Stay ahead of market moves.</p>
+              <h3>24/7 Market Surveillance</h3>
+              <p>Our agents continuously monitor markets and execute trades. Response times unmatched by traditional hedge funds.</p>
             </div>
             <div className="feature-item dark-card">
-              <h3>Complete Transparency</h3>
-              <p>Every decision is logged and explained. No black boxes. Understand exactly why Vektor made each trade. Full audit trail included.</p>
+              <h3>Transparent Decision Making</h3>
+              <p>Every trade, every decision, every rationale is logged and documented. Investors understand exactly what we're doing and why.</p>
             </div>
             <div className="feature-item dark-card">
-              <h3>Risk First Architecture</h3>
-              <p>Multiple independent risk checks before any trade executes. Paper trading by default. Live capital only when you're ready.</p>
+              <h3>Risk-Driven Architecture</h3>
+              <p>Multi-layer risk verification before execution. Independent agents review position sizing, correlation, and scenario analysis.</p>
             </div>
             <div className="feature-item dark-card">
-              <h3>Always Learning</h3>
-              <p>Reviews past decisions to improve. Adapts to changing market conditions. Continuously optimizes strategy performance.</p>
+              <h3>Continuous Optimization</h3>
+              <p>Our strategies adapt to market regimes while maintaining core investment thesis. Performance is continuously reviewed and refined.</p>
             </div>
             <div className="feature-item dark-card">
-              <h3>Your Control, Always</h3>
-              <p>Pause trades anytime. Override decisions manually. Adjust strategies on the fly. You remain in complete control.</p>
+              <h3>Investor Dashboard</h3>
+              <p>Real-time view of fund performance, positions, P&L, and decision history. Monitor your investment anytime, anywhere.</p>
             </div>
             <div className="feature-item dark-card">
               <h3>Production Ready</h3>
@@ -163,40 +169,40 @@ export default function Page() {
           <h2 className="section-title">How Vektor Compares</h2>
           <div className="comparison-table">
             <div className="comparison-row dark-card">
-              <div className="comparison-header">Feature</div>
-              <div className="comparison-cell">Traditional Fund</div>
-              <div className="comparison-cell">Automated Bots</div>
+              <div className="comparison-header">Capability</div>
+              <div className="comparison-cell">Traditional Hedge Fund</div>
+              <div className="comparison-cell">Algorithmic Trading Bot</div>
               <div className="comparison-cell" style={{ borderColor: 'var(--accent)' }}>Vektor</div>
             </div>
             <div className="comparison-row">
-              <div className="comparison-header">Transparent Decisions</div>
-              <div className="comparison-cell">❌</div>
-              <div className="comparison-cell">❌</div>
-              <div className="comparison-cell accent">✅</div>
+              <div className="comparison-header">Decision Transparency</div>
+              <div className="comparison-cell">Quarterly Letters</div>
+              <div className="comparison-cell">Black Box</div>
+              <div className="comparison-cell accent">Full Audit Trail</div>
             </div>
             <div className="comparison-row">
-              <div className="comparison-header">24/7 Monitoring</div>
-              <div className="comparison-cell">❌</div>
-              <div className="comparison-cell">✅</div>
-              <div className="comparison-cell accent">✅</div>
+              <div className="comparison-header">Trading Frequency</div>
+              <div className="comparison-cell">Manual</div>
+              <div className="comparison-cell">High-Frequency</div>
+              <div className="comparison-cell accent">Adaptive</div>
             </div>
             <div className="comparison-row">
               <div className="comparison-header">Risk Management</div>
-              <div className="comparison-cell">Manual</div>
-              <div className="comparison-cell">Limited</div>
-              <div className="comparison-cell accent">Autonomous</div>
+              <div className="comparison-cell">Human Review</div>
+              <div className="comparison-cell">Rule-Based</div>
+              <div className="comparison-cell accent">Multi-Agent Verification</div>
             </div>
             <div className="comparison-row">
-              <div className="comparison-header">Explainability</div>
-              <div className="comparison-cell">Low</div>
+              <div className="comparison-header">Strategy Explainability</div>
+              <div className="comparison-cell">Narrative</div>
               <div className="comparison-cell">None</div>
-              <div className="comparison-cell accent">Full</div>
+              <div className="comparison-cell accent">Autonomous Reasoning</div>
             </div>
             <div className="comparison-row">
-              <div className="comparison-header">Access to Decisions</div>
-              <div className="comparison-cell">Quarterly Reports</div>
-              <div className="comparison-cell">Real-time API</div>
-              <div className="comparison-cell accent">Admin Console</div>
+              <div className="comparison-header">Investor Access</div>
+              <div className="comparison-cell">Annual Reports</div>
+              <div className="comparison-cell">API Only</div>
+              <div className="comparison-cell accent">Real-Time Dashboard</div>
             </div>
           </div>
         </section>
@@ -205,28 +211,28 @@ export default function Page() {
           <h2 className="section-title">Frequently Asked Questions</h2>
           <div className="faq-grid">
             <details className="dark-card faq-item">
-              <summary><strong>Is Vektor suitable for beginners?</strong></summary>
-              <p>Yes. Vektor starts in paper trading mode with detailed explanations of every decision. You can learn at your own pace before risking real capital.</p>
+              <summary><strong>How does Vektor invest my capital?</strong></summary>
+              <p>Vektor employs our proprietary multi-agent AI system to identify, analyze, and execute trades. Your capital is invested according to our fund strategy while maintaining strict risk controls.</p>
             </details>
             <details className="dark-card faq-item">
-              <summary><strong>How much capital is required to start?</strong></summary>
-              <p>You can start with paper trading for free. For live trading, check our Admin Console for minimum requirements and current offerings.</p>
+              <summary><strong>What is the minimum investment?</strong></summary>
+              <p>Check our Admin Console for current minimums. Paper trading is free for all users to understand our process before committing capital.</p>
             </details>
             <details className="dark-card faq-item">
-              <summary><strong>What exchanges does Vektor support?</strong></summary>
-              <p>Vektor integrates with major brokerages. See our Blog for current integrations or contact us via the Admin Console.</p>
+              <summary><strong>Can I withdraw my investment?</strong></summary>
+              <p>Yes. Withdrawals follow standard hedge fund practices with specified windows. Check our documentation for details.</p>
             </details>
             <details className="dark-card faq-item">
-              <summary><strong>Can I customize Vektor's strategy?</strong></summary>
-              <p>Yes. You can adjust risk parameters, set custom constraints, and define your investment universe. Check the How It Works section for details.</p>
+              <summary><strong>How are fees structured?</strong></summary>
+              <p>Vektor follows a standard hedge fund model: management fee on AUM and performance fee on gains. See Admin Console for details.</p>
             </details>
             <details className="dark-card faq-item">
-              <summary><strong>What if I disagree with a trade decision?</strong></summary>
-              <p>You can pause or override any trade at any time. Every override is logged for analysis and learning.</p>
+              <summary><strong>Can I customize the fund strategy?</strong></summary>
+              <p>Vektor runs as a unified fund strategy. You can set risk parameters and constraints within the framework in your investor dashboard.</p>
             </details>
             <details className="dark-card faq-item">
-              <summary><strong>How is Vektor different from robo-advisors?</strong></summary>
-              <p>Vektor uses multi-agent orchestration with transparent decision reasoning. We explain our logic, not just execute trades.</p>
+              <summary><strong>How is Vektor regulated?</strong></summary>
+              <p>Vektor operates as a registered investment fund with appropriate regulatory oversight. See our documentation for regulatory details.</p>
             </details>
           </div>
         </section>

@@ -113,19 +113,18 @@ void main(){
   swirl = swirl * 0.5 + 0.5;
   swirl = smoothstep(0.15, 0.85, swirl);
 
-  // Mix glow colors onto the background - EXTREMELY AGGRESSIVE
+  // Mix glow colors onto the background - dimmed version
   float intensity = lum * swirl;
   vec3 glow = mix(u_color1, u_color2, swirl);
-  // Boost colors massively
-  glow = glow * 2.0;  // Double the glow color intensity
-  
-  // Very strong glow with additive blending
-  vec3 col = u_bg;
-  col = col + glow * intensity * 2.0;  // Add glow additively
-  col = mix(col, glow, intensity * 0.8);  // Also blend for richness
-  
-  // No vignette - show effect everywhere
-  col = clamp(col, 0.0, 1.0);
+  // Reduced intensity for dimmer effect: 1.5x instead of 3.5x
+  vec3 col = mix(u_bg, glow, clamp(intensity * 1.5, 0.0, 1.0));
+  // Reduced highlight intensity from 2.0x to 1.0x
+  col += glow * intensity * 1.0;
+
+  // Soft vignette falloff (much lighter)
+  vec2 vuv = gl_FragCoord.xy / u_resolution.xy;
+  float vig = 1.0 - smoothstep(0.0, 1.5, length(vuv - 0.5) * 1.0);
+  col = mix(col * 0.3, col, vig);
 
   gl_FragColor = vec4(col, 1.0);
 }
