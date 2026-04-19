@@ -1,0 +1,149 @@
+---
+title: Risk Management - Our Multi-Layer Approach
+description: How Viktor protects your capital through automated and manual risk controls at every layer.
+date: 2026-04-01
+tags: ["Technical", "Risk Management", "Safety"]
+featured: false
+readTime: 7
+author: Viktor Team
+thumbnail: /images/risk-management.png
+---
+
+# Risk Management: Our Multi-Layer Approach
+
+Risk management isn't an afterthought in Viktor—it's built into every layer. We implement multiple independent checks so no single decision can put your capital at risk.
+
+## Four Layers of Risk Control
+
+### Layer 1: Proposal Constraints
+Before the Trading Director can even propose a trade, hard limits are enforced:
+
+- **Position size limits** - Can't risk more than X% of portfolio per trade
+- **Stock concentration limits** - Can't hold more than Y% in any single stock
+- **Sector allocation limits** - Can't overweight any sector beyond Z%
+- **Leverage caps** - Maximum leverage ratio (typically 1.5x or less)
+- **Daily trading limits** - Maximum number of trades per day
+
+These are hard stops—the system literally cannot propose a trade that violates them.
+
+### Layer 2: Risk Auditor Gate
+Every trade must pass independent verification before execution:
+
+**Volatility Assessment**
+- Is the market in a stressed state?
+- Reject if VIX > threshold or unusual price movements
+
+**Correlation Analysis**  
+- Will this add concentration risk?
+- Check that positions don't move together
+
+**Stress Testing**
+- Model worst-case scenarios
+- "What if the market drops 10% tomorrow?"
+- Ensure portfolio survives stress
+
+**Regulatory Compliance**
+- Does trade violate fund policies?
+- Are we meeting regulatory requirements?
+- Check against all known compliance rules
+
+If ANY check fails → **REJECTED** (no override possible)
+
+### Layer 3: Circuit Breakers
+Automatic trading halts trigger if:
+
+- Portfolio down more than 5% in one day
+- Volatility spikes beyond historical norms
+- Liquidity dries up in key markets (bid-ask spreads widen)
+- Unusual market conditions detected
+- Regulatory violations detected
+
+When circuit breakers engage:
+1. All pending trades are cancelled
+2. Portfolio goes to defensive allocation (reduce positions)
+3. Notification sent to you
+4. Manual review required before trading resumes
+
+This prevents panic selling in market stress.
+
+### Layer 4: Manual Intervention
+You maintain final control:
+
+- **Pause all trading** - Stop everything immediately
+- **Reject specific trades** - Don't like a particular decision? Block it.
+- **Adjust risk parameters** - Tighten or loosen limits on the fly
+- **Enable/disable live mode** - Switch between paper and live instantly
+
+## Real Risk Management Example
+
+### Scenario: Market Crash
+
+**Time 8:30 AM ET** - Market opens, S&P 500 down 8% overnight (rare event)
+
+**Circuit Breaker Triggers:**
+```
+✓ Portfolio impact: -6.2%
+✓ VIX spike: 35 → 48
+✓ Trading halted automatically
+✓ All pending trades cancelled
+✓ Email notification sent
+```
+
+**System Response:**
+```
+1. Reduce position sizes to lower risk
+2. Move to defensive allocation (more cash)
+3. Log event with timestamp and severity
+4. Await manual review from you
+```
+
+**Your Options:**
+```
+Option A: "I'm panicking, let's sell everything"
+         → You approve, system executes at market prices
+         
+Option B: "Hold steady, this is temporary"
+         → Circuit breaker remains, no action taken
+         
+Option C: "I don't trust this, pause trading"
+         → Everything stops, you review manually
+```
+
+The circuit breaker prevented automatic liquidation during panic. Smart risk management, not mechanical reactions.
+
+## Risk Metrics We Monitor
+
+### Per-Trade Metrics
+- Max loss per trade (stop loss)
+- Max position size (Kelly Criterion)
+- Time-weighted position duration
+
+### Per-Portfolio Metrics
+- Value at Risk (VaR) - 95% confidence
+- Expected Shortfall - tail risk
+- Sharpe ratio - risk-adjusted returns
+- Correlation matrix - position relationships
+- Concentration index - diversification level
+
+### Market-Level Metrics
+- Liquidity scores - can we exit if needed?
+- Volatility regime - normal vs stress
+- Correlation breakdown - do hedges work?
+- Systemic risk indicators
+
+## Three Principles
+
+**1. Layered Defense**  
+No single point of failure. Multiple independent systems catch issues.
+
+**2. Automatic Response**  
+Circuits breakers and constraints act without human delay.
+
+**3. Manual Override**  
+You always have the final say. Even the best system needs human judgment sometimes.
+
+## The Bottom Line
+
+Viktor's risk management is paranoid by design. We assume things can go wrong and build safeguards at every level. Your capital is protected not by luck, but by architecture.
+
+[Learn more about how Viktor works →](/how-it-works)

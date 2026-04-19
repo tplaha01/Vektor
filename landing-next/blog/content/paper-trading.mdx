@@ -1,0 +1,105 @@
+---
+title: Why We Start with Paper Trading
+description: The safety-first approach - learn and validate strategies with fake money before risking capital.
+date: 2026-04-08
+tags: ["Best Practices", "Safety", "Paper Trading"]
+featured: false
+readTime: 5
+author: Viktor Team
+thumbnail: /images/paper-trading.png
+---
+
+# Why We Start with Paper Trading
+
+All trades in Viktor start in paper mode. This isn't optional—it's our default. Here's why.
+
+## The Paper Trading Philosophy
+
+Paper (simulated) trading lets you validate that Viktor works the way you expect before any real capital is at risk. You can:
+
+- Watch how Viktor makes decisions
+- Understand the reasoning behind each trade
+- See performance in real market conditions
+- Learn the system without financial risk
+- Adjust parameters before going live
+
+## Why This Matters
+
+### For You
+
+- **Learn the system** without risk
+- **Validate** that the strategy matches your goals
+- **Understand** why each trade was made
+- **Build confidence** before committing capital
+- **Test parameters** before live trading
+
+### For Us
+
+- **Prove** the strategy works before taking capital
+- **Identify** edge cases and failure modes
+- **Tune parameters** without consequences
+- **Build trust** through transparency
+- **Catch bugs** before they cost money
+
+## The Workflow
+
+1. **Configure your strategy** in the admin console
+2. **Viktor begins trading** in paper mode with simulated capital
+3. **Watch trades execute** with realistic market data
+4. **Review decision explanations** after each trade
+5. **When satisfied**, explicitly enable live trading
+6. **First real trade** executes only after your confirmation
+
+## Transitioning to Live Trading
+
+You control when the system goes live. We recommend:
+
+- **Watch paper mode for at least 30 days** - See how the strategy performs over time
+- **Understand at least 10 trades** - Review the reasoning behind decisions
+- **Review the audit log thoroughly** - Check that every decision makes sense
+- **Start with small live position size** - Maybe 10-20% of intended size
+- **Gradually increase over time** - Scale up as you gain confidence
+
+## Real Example
+
+Let's say you configure Viktor to trade tech stocks:
+
+```
+Week 1: Paper trading starts
+- Viktor makes 8 trades in simulation
+- You review each one: "I understand why AAPL was bought"
+- System shows: 8/8 profitable, +3.2% return
+- You think: "This looks legit"
+
+Week 2-3: Continue paper trading
+- Another 12 trades across 3 weeks
+- Mixed results: 7 winners, 5 losers
+- But overall +2.1% - strategy is working
+- You're getting comfortable with the decisions
+
+Week 4: Enable live trading
+- First real trade: 100 shares of MSFT
+- You clicked "I understand this decision" first
+- Trade executes at limit price
+- System records everything in audit log
+- Result: +$150 gain
+
+Weeks 5-8: Scale up gradually
+- Live portfolio now 3-4 positions
+- Still reviewing every decision
+- Increasing confidence in the system
+- Finally at full intended position size
+```
+
+## What Happens After Paper Trading
+
+Once you enable live trading, your capital flows through the same multi-agent approval process. Nothing changes except:
+
+- Real money is deployed
+- Results are reflected in your actual account
+- Everything is still logged and auditable
+- You can still pause or reject trades
+
+**Paper trading isn't a training wheels phase—it's the foundation of informed investment.**
+
+[Start with paper trading →](/admin)
