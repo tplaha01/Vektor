@@ -116,15 +116,15 @@ void main(){
   // Mix glow colors onto the background
   float intensity = lum * swirl;
   vec3 glow = mix(u_color1, u_color2, swirl);
-  vec3 col = mix(u_bg, glow, intensity * 0.55);
+  vec3 col = mix(u_bg, glow, intensity * 1.2);
 
   // Soft highlight in brightest areas
   float highlight = smoothstep(0.55, 1.0, intensity);
-  col += glow * highlight * 0.2;
+  col += glow * highlight * 0.4;
 
   // Vignette
   vec2 vuv = gl_FragCoord.xy / u_resolution.xy;
-  float vig = 1.0 - smoothstep(0.3, 1.5, length(vuv - 0.5) * 1.6);
+  float vig = 1.0 - smoothstep(0.2, 1.8, length(vuv - 0.5) * 1.2);
   col = mix(u_bg, col, vig);
 
   gl_FragColor = vec4(col, 1.0);
@@ -296,7 +296,8 @@ export default function LiquidBackground() {
           width: "100%",
           height: "100%",
           display: "block",
-          filter: "blur(80px)",
+          filter: "blur(40px)",
+          opacity: 0.8,
         }}
       />
       {/* Subtle noise grain */}
