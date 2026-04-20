@@ -110,7 +110,10 @@ export default function Page() {
         </section>
 
         <section className="section cinematic-fade" id="agents">
-          <h2 className="section-title">Our Autonomous Agent Team</h2>
+          <div className="section-intro">
+            <h2 className="section-title">Our Autonomous Agent Team</h2>
+            <p className="section-subtitle">A specialized team of AI agents working in concert to manage investments with transparency, rigor, and institutional-grade oversight.</p>
+          </div>
           <div className="agents-grid">
             <article className="dark-card">
               <div className="agent-icon agent-label">Research</div>

@@ -448,7 +448,7 @@ main {
 /* Section Titles */
 .section-title {
   text-align: center;
-  margin: 0 auto 64px;
+  margin: 0 auto 24px;
   max-width: 900px;
   font-size: clamp(28px, 5.5vw, 48px);
   font-weight: 600;
@@ -458,6 +458,23 @@ main {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+/* Section Intro */
+.section-intro {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.section-subtitle {
+  text-align: center;
+  font-size: 18px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  max-width: 700px;
+  margin: 0 auto;
+  font-weight: 400;
+  letter-spacing: 0.3px;
 }
 
 /* Agents Grid */
