@@ -115,9 +115,25 @@ Recommended:
 - avoid exposing local Ollama publicly
 - use secure private networking/tunnel for any laptop-to-cloud link
 
+## 8) One-command Deploy From Local Windows Machine
+
+You can deploy/update backend on the Oracle VM directly from this repo using:
+
+```powershell
+.\scripts\oracle\deploy_oracle_backend.ps1 `
+  -VmHost "<oracle-vm-public-ip>" `
+  -User "ubuntu" `
+  -KeyPath "C:\path\to\oracle-key.pem" `
+  -UploadEnv
+```
+
+Notes:
+- `-UploadEnv` copies local `backend/.env` to VM (`~/Vektor/backend/.env`) before restart.
+- Script expects passwordless `sudo` for service restart (typical on Oracle Ubuntu cloud image).
+- Post-deploy health is checked on VM via `http://127.0.0.1:8000/health`.
+
 ## Ops Notes
 
 - Oracle Always Free capacity can fluctuate by region.
 - Always Free instances can be reclaimed if considered idle.
 - Keep a redeploy script and backups so recovery is quick.
-
