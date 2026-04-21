@@ -21,12 +21,14 @@ from app.risk.engine import risk
 from app.backtest.router import router as backtest_router
 from app.config import get_settings
 from app.fund.agent_runtime import fund_agent_runtime
+from app.fund.ai_role_adapter import ai_role_adapter
 from app.fund.audit_log import audit_log
 from app.fund.decision_ledger import decision_ledger
 from app.fund.knowledge_graph import knowledge_graph
 from app.fund.openclaw_command_adapter import openclaw_command_adapter
 from app.fund.router import router as fund_router
 from app.fund.orchestrator import firm_orchestrator
+from app.fund.performance_tracker import performance_tracker
 from app.fund.research_memory import research_memory
 from app.fund.runtime_guard import data_integrity_guard
 from app.fund.realtime_stream import realtime_stream
@@ -169,6 +171,16 @@ async def startup_event():
         monitor.log_component_status("Database", "ERROR", str(e))
         raise
 
+    try:
+        restored_knowledge = knowledge_graph.restore_from_storage()
+        monitor.log_component_status(
+            "Knowledge Graph",
+            "OK",
+            f"source={restored_knowledge.get('source')} events={restored_knowledge.get('event_count')} migrated={restored_knowledge.get('migrated_to_sqlite', 0)}",
+        )
+    except Exception as e:
+        monitor.log_component_status("Knowledge Graph", "WARN", str(e))
+
     # Enforce strict real-data mode outside dev.
     try:
         if settings.ENV.strip().lower() not in {"dev", "development"} and not data_integrity_guard.strict_mode_enabled():
@@ -227,6 +239,16 @@ async def startup_event():
         )
     except Exception as e:
         monitor.log_component_status("Sentiment Store", "WARN", str(e))
+
+    try:
+        restored_performance = performance_tracker.restore_from_storage()
+        monitor.log_component_status(
+            "Performance Tracker",
+            "OK",
+            f"restored snapshots={restored_performance.get('snapshot_count')} baselines={restored_performance.get('baseline_count')}",
+        )
+    except Exception as e:
+        monitor.log_component_status("Performance Tracker", "WARN", str(e))
 
     # Restore persisted task history so lineage survives backend restarts.
     try:
@@ -292,6 +314,15 @@ async def startup_event():
             monitor.log_component_status("Agent Runtime", "ERROR", str(e))
     else:
         monitor.log_component_status("Agent Runtime", "OK", "Disabled")
+
+    if settings.PERFORMANCE_TRACKER_ENABLED:
+        try:
+            await performance_tracker.start()
+            monitor.log_component_status("Performance Tracker", "OK", "capture loop started")
+        except Exception as e:
+            monitor.log_component_status("Performance Tracker", "ERROR", str(e))
+    else:
+        monitor.log_component_status("Performance Tracker", "OK", "Disabled")
     
     # ML Models
     try:
@@ -354,12 +385,14 @@ async def shutdown_event():
     
     if fund_agent_runtime.is_started():
         await fund_agent_runtime.stop()
+    await performance_tracker.stop()
 
 
 @app.get("/health")
 async def health():
     from app.ml.alpha_model import model_status
     from app.utils.sentiment import sentiment_model_name, sentiment_model_status
+    ai_health = ai_role_adapter.health()
     return {
         "status": "ok", "version": "5.1.0",
         "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
@@ -374,6 +407,8 @@ async def health():
             "pending_decisions": len(firm_orchestrator.list_pending_decisions()),
             "knowledge_events": firm_orchestrator.knowledge_stats().get("event_count", 0),
             "agent_runtime_started": fund_agent_runtime.is_started(),
+            "performance_tracker": performance_tracker.summary(),
+            "ai_role_adapter": ai_health,
         },
     }
 

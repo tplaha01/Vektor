@@ -4874,3 +4874,596 @@ files:
 - backend/app/admin_research_routes.py
 validation: in_progress
 notes: Automated session start on server boot
+
+[2026-04-20T11:45:55.825572Z] [START]
+entry_id: devlog-20260420-0c880cfb
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-be1dab386983
+git_branch: main
+git_commit_start: 57101f827ef9e72af3cc61256b337c6a48697f24
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-20T11:49:39.408911Z] [START]
+entry_id: devlog-20260420-46222576
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-281c11502948
+git_branch: main
+git_commit_start: 57101f827ef9e72af3cc61256b337c6a48697f24
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-20T11:49:49.351030Z] [START]
+entry_id: devlog-20260420-a6c9e8a8
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-6222a75e4bdb
+git_branch: main
+git_commit_start: 57101f827ef9e72af3cc61256b337c6a48697f24
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-20T11:49:49.351030Z] [END]
+entry_id: devlog-20260420-a6c9e8a8
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-6222a75e4bdb
+git_branch: main
+git_commit_start: 57101f827ef9e72af3cc61256b337c6a48697f24
+git_commit_end: 57101f827ef9e72af3cc61256b337c6a48697f24
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: completed
+notes: Server shutdown - session ended normally
+
+[2026-04-20T18:08:13.213685Z] [START]
+entry_id: devlog-20260420-abf7f0cc
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-a38eb6c86627
+git_branch: main
+git_commit_start: 57101f827ef9e72af3cc61256b337c6a48697f24
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-20T18:08:25.636477Z] [START]
+entry_id: devlog-20260420-d8e52600
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-e66458848bcf
+git_branch: main
+git_commit_start: 57101f827ef9e72af3cc61256b337c6a48697f24
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-20T18:08:25.636477Z] [END]
+entry_id: devlog-20260420-d8e52600
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-e66458848bcf
+git_branch: main
+git_commit_start: 57101f827ef9e72af3cc61256b337c6a48697f24
+git_commit_end: 57101f827ef9e72af3cc61256b337c6a48697f24
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: completed
+notes: Server shutdown - session ended normally
+
+[2026-04-20T20:53:26.9327103Z] [END]
+entry_id: devlog-20260420-codex-warroom-cleanup
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5.4
+actor_provider: openai
+run_id: run-codex-20260420-warroom-cleanup
+git_branch: main
+git_commit_start: 57101f827ef9e72af3cc61256b337c6a48697f24
+git_commit_end: 57101f827ef9e72af3cc61256b337c6a48697f24
+scope: Admin war-room redesign, live agent surfaces, public PnL alignment, research/blog UX cleanup, static junk blog removal, runtime blog purge, and KB reset
+files:
+- frontend/src/pages/Admin.jsx
+- frontend/src/styles/admin.css
+- frontend/src/pages/PublicPnlPage.jsx
+- frontend/src/pages/Research.jsx
+- frontend/src/components/research/ResearchGrid.jsx
+- frontend/src/components/research/ResearchDetail.jsx
+- frontend/src/pages/Blog.jsx
+- backend/app/fund/blog_service.py
+- blog-next/blog/content/21-best-free-react-components.mdx
+- blog-next/blog/content/nextjs-portfolio-templates.mdx
+- blog-next/blog/content/react-animation-libraries.mdx
+- blog-next/blog/content/react-landing-page-templates.mdx
+- blog-next/blog/content/react-native-libraries.mdx
+- blog-next/blog/content/react-portfolio-templates.mdx
+- knowledge_graph/events.jsonl
+validation: completed
+notes: Frontend build passed. Backend tests passed (69 passed). Backend blog feed purged to 0 posts. Knowledge base reset from 1385 events to a single development.kb_reset seed event. blog-next sample junk content removed, leaving only the Vektor-specific article.
+
+[2026-04-20T21:16:47.651104Z] [START]
+entry_id: devlog-20260420-948e4b3a
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-93d7856d4334
+git_branch: main
+git_commit_start: 57101f827ef9e72af3cc61256b337c6a48697f24
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-20T21:17:05.888253Z] [START]
+entry_id: devlog-20260420-c56eb52b
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-705c0b0ef067
+git_branch: main
+git_commit_start: 57101f827ef9e72af3cc61256b337c6a48697f24
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-20T21:17:05.888253Z] [END]
+entry_id: devlog-20260420-c56eb52b
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-705c0b0ef067
+git_branch: main
+git_commit_start: 57101f827ef9e72af3cc61256b337c6a48697f24
+git_commit_end: 57101f827ef9e72af3cc61256b337c6a48697f24
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: completed
+notes: Server shutdown - session ended normally
+
+[2026-04-20T21:19:02.889677Z] [START]
+entry_id: devlog-20260420-f498704f
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-172677b05e8d
+git_branch: main
+git_commit_start: 57101f827ef9e72af3cc61256b337c6a48697f24
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-20T21:19:09.911475Z] [START]
+entry_id: devlog-20260420-052a32ad
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-6424af3d87b5
+git_branch: main
+git_commit_start: 57101f827ef9e72af3cc61256b337c6a48697f24
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-20T21:19:09.911475Z] [END]
+entry_id: devlog-20260420-052a32ad
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-6424af3d87b5
+git_branch: main
+git_commit_start: 57101f827ef9e72af3cc61256b337c6a48697f24
+git_commit_end: 57101f827ef9e72af3cc61256b337c6a48697f24
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: completed
+notes: Server shutdown - session ended normally
+
+[2026-04-21T00:03:30Z] [END]
+entry_id: devlog-20260420-codex-local-first-ops
+actor_name: codex
+actor_platform: other
+actor_model: gpt-5.4
+actor_provider: openai
+run_id: run-codex-20260420-local-first-ops
+git_branch: main
+git_commit_start:
+git_commit_end:
+scope: Local-first ops hardening for auditable months-scale paper-track-record collection
+files:
+- backend/app/config.py
+- backend/app/main.py
+- backend/app/fund/performance_tracker.py
+- backend/app/fund/router.py
+- backend/app/storage/db.py
+- backend/app/storage/schema_sql.py
+- backend/tests/test_performance_tracker.py
+- scripts/export-track-record.ps1
+- scripts/local-backup.ps1
+- docs/LOCAL_FIRST_OPERATIONS_RUNBOOK.md
+validation: backend tests passed; performance endpoints live; export and backup scripts smoke-tested
+notes: Added persistent performance snapshots, benchmark baselines, automatic capture loop, performance APIs, export tooling, local backup tooling, and clean-inception runbook guidance.
+
+[2026-04-21T00:01:01.470099Z] [START]
+entry_id: devlog-20260421-b3a25858
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-f39942b16f21
+git_branch: main
+git_commit_start: 57101f827ef9e72af3cc61256b337c6a48697f24
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-21T08:15:23.180872Z] [START]
+entry_id: devlog-20260421-d8f0f277
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-5e7e66c1664e
+git_branch: main
+git_commit_start: 57101f827ef9e72af3cc61256b337c6a48697f24
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+## 2026-04-21 - Codex - clean inception + performance ops
+- Actor: codex
+- Model: GPT-5 Codex
+- Scope: clean paper-broker inception reset flow, dedicated admin performance tab, nightly export/backup maintenance
+- Files:
+  - backend/app/admin_research_routes.py
+  - backend/app/storage/db.py
+  - backend/app/risk/engine.py
+  - frontend/src/pages/Admin.jsx
+  - frontend/src/api/adminAPI.js
+  - frontend/src/styles/admin.css
+  - scripts/nightly-maintenance.ps1
+  - scripts/register-nightly-maintenance.ps1
+  - docs/LOCAL_FIRST_OPERATIONS_RUNBOOK.md
+  - backend/tests/test_admin_metrics_summary.py
+- Validation:
+  - py -3 -m pytest backend/tests -q -> 70 passed
+  - npm run build (frontend) -> passed
+  - clean inception reset executed on local backend
+  - admin metrics summary verified at 100000 equity / 0 pnl / 0 positions / 1 snapshot
+- Notes:
+  - restarted backend on port 8000 with the verified Python environment after the old process failed to reload the new route
+
+[2026-04-21T10:02:15Z] [START]
+entry_id: devlog-20260421-llm-phase-start
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-viktor-phase-contract-20260421
+git_branch: main
+git_commit_start: 57101f827ef9e72af3cc61256b337c6a48697f24
+git_commit_end:
+scope: Audit current agent-provider architecture, research hosted multi-vendor LLM options, and define a hard phased execution contract so Vektor development stays backend-first and phase-gated.
+active_phase: Phase Alpha
+files:
+- docs/VEKTOR_PHASED_EXECUTION_PLAN.md
+- DevViktor.md
+validation: repo audit completed; official provider docs reviewed
+notes: Local Ollama is no longer considered the primary runtime path for specialist agents.
+
+[2026-04-21T10:03:02Z] [END]
+entry_id: devlog-20260421-llm-phase-end
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-viktor-phase-contract-20260421
+git_branch: main
+git_commit_start: 57101f827ef9e72af3cc61256b337c6a48697f24
+git_commit_end: 57101f827ef9e72af3cc61256b337c6a48697f24
+scope: Defined Vektor's hard phase-gated execution model, locked hosted multi-vendor LLM direction, and updated engineering governance so future sessions declare the active phase before doing work.
+active_phase: Phase Alpha
+files:
+- docs/VEKTOR_PHASED_EXECUTION_PLAN.md
+- DevViktor.md
+validation: documentation patch applied successfully; official provider docs reviewed; repo KB fallback event written locally
+notes: Recommended runtime architecture is Gemini Flash-Lite/Flash plus Groq fallback, with Copilot/OpenClaw kept in the operator layer rather than the main backend inference budget.
+
+[2026-04-21T17:29:47.010725Z] [START]
+entry_id: devlog-20260421-30cd6ae0
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-a29f570fbe54
+git_branch: main
+git_commit_start: 57101f827ef9e72af3cc61256b337c6a48697f24
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-21T17:29:47.010725Z] [END]
+entry_id: devlog-20260421-30cd6ae0
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-a29f570fbe54
+git_branch: main
+git_commit_start: 57101f827ef9e72af3cc61256b337c6a48697f24
+git_commit_end: 57101f827ef9e72af3cc61256b337c6a48697f24
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: completed
+notes: Server shutdown - session ended normally
+
+[2026-04-21T17:30:36Z] [START]
+entry_id: devlog-20260421-hosted-router-start
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-viktor-hosted-router-20260421
+git_branch: main
+git_commit_start: 57101f827ef9e72af3cc61256b337c6a48697f24
+git_commit_end:
+scope: Rewire the AI role adapter from a single-provider local-model design into a hosted multi-vendor router with explicit role routes, fallback tracking, and operator-visible provider health.
+active_phase: Phase Alpha
+files:
+- backend/app/fund/ai_role_adapter.py
+- backend/app/config.py
+- backend/app/main.py
+- backend/app/admin_research_routes.py
+- backend/tests/test_ai_role_adapter.py
+- backend/tests/test_admin_status_badges.py
+- backend/.env.hosted.example
+validation: in_progress
+notes: Kept live backend env unchanged because hosted provider keys are not configured yet.
+
+[2026-04-21T17:31:10Z] [END]
+entry_id: devlog-20260421-hosted-router-end
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-viktor-hosted-router-20260421
+git_branch: main
+git_commit_start: 57101f827ef9e72af3cc61256b337c6a48697f24
+git_commit_end: 57101f827ef9e72af3cc61256b337c6a48697f24
+scope: Completed the hosted multi-vendor AI routing layer, added explicit per-role provider policy, exposed provider/failover/quota health through backend surfaces, and added a safe hosted env template without flipping the live secrets file.
+active_phase: Phase Alpha
+files:
+- backend/app/fund/ai_role_adapter.py
+- backend/app/config.py
+- backend/app/main.py
+- backend/app/admin_research_routes.py
+- backend/tests/test_ai_role_adapter.py
+- backend/tests/test_admin_status_badges.py
+- backend/.env.hosted.example
+validation: py -3 -m pytest backend/tests -q -> 71 passed; py -3 -m py_compile backend/app/fund/ai_role_adapter.py backend/app/config.py backend/app/main.py backend/app/admin_research_routes.py -> passed; in-process FastAPI smoke verified /health and /api/admin/system/status-badges emit multi-vendor routing metadata
+notes: Live backend was offline during this pass; hosted routing code is ready, but real Gemini/Groq keys are still required before changing backend/.env from local Ollama to hosted vendors.
+
+[2026-04-21T18:29:29.541893Z] [START]
+entry_id: devlog-20260421-b0d32cca
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-48c1dee571e7
+git_branch: main
+git_commit_start: 57101f827ef9e72af3cc61256b337c6a48697f24
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-21T18:30:19Z] [END]
+entry_id: devlog-20260421-hosted-router-activate-end
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-viktor-hosted-router-activate-20260421
+git_branch: main
+git_commit_start: 57101f827ef9e72af3cc61256b337c6a48697f24
+git_commit_end: 57101f827ef9e72af3cc61256b337c6a48697f24
+scope: Enabled hosted multi-vendor AI routing in the live backend env, restarted the backend on port 8000, and verified that /health and /api/admin/system/status-badges now expose Gemini/Groq router policy and provider runtime state.
+active_phase: Phase Alpha
+files:
+- backend/.env
+- .run/backend.pid
+validation: live /health returned mode=multi_vendor_router; live /api/admin/system/status-badges returned router routes, provider states, and healthy paper/data/orchestration badges
+notes: Provider quota states are still unknown until the first routed model call; next verification step should be a real analyst task.
+
+
+[2026-04-21T18:30:48Z] [START]
+entry_id: devlog-20260421-hosted-router-activate-start
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-viktor-hosted-router-activate-20260421
+git_branch: main
+git_commit_start: 57101f827ef9e72af3cc61256b337c6a48697f24
+git_commit_end:
+scope: Activate hosted multi-vendor routing in backend/.env, align role-model metadata with the router policy, restart the backend on port 8000, and verify live health surfaces report the new router state.
+active_phase: Phase Alpha
+files:
+- backend/.env
+- .run/backend.pid
+validation: in_progress
+notes: User supplied Gemini and Groq keys; activation performed without changing unrelated runtime settings.
+
+
+[2026-04-21T18:30:48Z] [END]
+entry_id: devlog-20260421-hosted-router-activate-end
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-viktor-hosted-router-activate-20260421
+git_branch: main
+git_commit_start: 57101f827ef9e72af3cc61256b337c6a48697f24
+git_commit_end: 57101f827ef9e72af3cc61256b337c6a48697f24
+scope: Enabled hosted multi-vendor AI routing in the live backend env, restarted the backend on port 8000, and verified that /health and /api/admin/system/status-badges now expose Gemini/Groq router policy and provider runtime state.
+active_phase: Phase Alpha
+files:
+- backend/.env
+- .run/backend.pid
+validation: live /health returned mode=multi_vendor_router; live /api/admin/system/status-badges returned router routes, provider states, and healthy paper/data/orchestration badges
+notes: Provider quota states are still unknown until the first routed model call; next verification step should be a real analyst task.

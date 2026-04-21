@@ -364,6 +364,16 @@ class RiskEngine:
             "open_stops":       self.stop_manager.all_levels(),
         }
 
+    def reset(self, *, starting_equity: float | None = None) -> dict:
+        equity = float(starting_equity if starting_equity is not None else self.INITIAL_EQUITY)
+        self.dd_breaker = DrawdownBreaker(max_drawdown=self.dd_breaker.max_drawdown)
+        self.stop_manager = ATRStopManager(
+            atr_stop_mult=self.stop_manager.atr_stop_mult,
+            atr_tp_mult=self.stop_manager.atr_tp_mult,
+        )
+        self._equity = equity
+        return self.status()
+
 
 # Singleton shared across the app
 risk = RiskEngine()

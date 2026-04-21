@@ -48,10 +48,38 @@ def _build_runtime_payload(*, halted: bool, halt_reason: str | None = None) -> d
         "workers": workers,
         "ai_role_adapter": {
             "enabled": True,
-            "provider": "ollama",
-            "default_model": "llama3.1",
+            "provider": "router",
+            "mode": "multi_vendor_router",
+            "default_model": "gemini-2.5-flash-lite",
             "role_models": {},
             "last_error": None,
+            "default_route": ["gemini_flash_lite", "groq"],
+            "role_routes": {
+                "technical_analyst": ["gemini_flash_lite", "groq"],
+            },
+            "providers": {
+                "gemini_flash_lite": {
+                    "quota_state": "available",
+                    "default_model": "gemini-2.5-flash-lite",
+                },
+                "groq": {
+                    "quota_state": "available",
+                    "default_model": "gpt-oss-20b",
+                },
+            },
+            "role_runtime": {
+                "technical_analyst": {
+                    "route": ["gemini_flash_lite", "groq"],
+                    "last_provider": "gemini_flash_lite",
+                    "last_model": "gemini-2.5-flash-lite",
+                    "fallback_used": False,
+                    "failover_count": 0,
+                }
+            },
+            "gateway": {
+                "enabled": False,
+                "base_url": None,
+            },
         },
         "data_integrity": {
             "strict_real_data_only": True,
@@ -82,6 +110,8 @@ def test_status_badges_endpoint_reports_healthy(monkeypatch):
     assert body["execution_mode"]["status"] == "Paper Only"
     assert body["llm_agent_health"]["status"] == "Healthy"
     assert len(body["llm_agent_health"]["by_role"]) == 6
+    assert body["llm_agent_health"]["mode"] == "multi_vendor_router"
+    assert body["llm_agent_health"]["default_route"] == ["gemini_flash_lite", "groq"]
 
 
 def test_status_badges_endpoint_reports_degraded_when_halted(monkeypatch):

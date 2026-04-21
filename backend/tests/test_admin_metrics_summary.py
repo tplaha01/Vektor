@@ -1,75 +1,61 @@
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-
-import app.admin_research_routes as admin_routes
+from app import admin_research_routes as admin_routes
+from app.risk.engine import RiskEngine
 
 
-class _BrokerStub:
-    def list_positions(self, _price_lookup):
-        return [
-            {
-                "symbol": "SPY",
-                "qty": 100,
-                "avg_price": 500.0,
-                "market_price": 600.0997,
-                "market_value": 60009.97,
-                "unrealized_pnl": 10009.97,
-            }
-        ]
-
-
-class _RiskStub:
-    INITIAL_EQUITY = 100_000.0
-
-    def update_equity(self, _positions, _realized):
-        return 206_117.11
-
-    def status(self):
-        return {
+def test_metrics_summary_uses_performance_tracker(monkeypatch):
+    monkeypatch.setattr(
+        admin_routes.performance_tracker,
+        "summary",
+        lambda: {
+            "latest_snapshot": {
+                "equity": 125000.0,
+                "realized_pnl": 12000.0,
+                "unrealized_pnl": 3000.0,
+                "positions": [{"symbol": "NVDA"}, {"symbol": "MSFT"}],
+                "win_rate": 62.5,
+            },
+            "inception_snapshot": {
+                "equity": 100000.0,
+                "recorded_at": "2026-04-20T00:00:00Z",
+            },
+            "track_record": {
+                "total_return_pct": 25.0,
+                "max_drawdown_pct": 4.75,
+                "sharpe_ratio": 1.82,
+            },
+        },
+    )
+    monkeypatch.setattr(admin_routes.broker, "get_portfolio_value", lambda _: 125000.0)
+    monkeypatch.setattr(
+        admin_routes.risk,
+        "status",
+        lambda: {
             "drawdown_breaker": {
-                "current_drawdown": 0.01,
+                "current_drawdown": 0.013,
                 "max_drawdown_threshold": 0.10,
             }
-        }
-
-
-def test_metrics_summary_uses_strategy_adjusted_equity_when_capital_flows_exist(monkeypatch):
-    monkeypatch.setattr(admin_routes, "broker", _BrokerStub())
-    monkeypatch.setattr(admin_routes, "risk", _RiskStub())
-    monkeypatch.setattr(
-        admin_routes,
-        "build_metrics_from_broker",
-        lambda _broker: {
-            "realized_pnl": -3560.95,
-            "max_drawdown": -3600.0,
-            "win_rate": 48.5,
-            "recent_trades": [],  # sharpe should be 0 for low sample
         },
     )
 
-    app = FastAPI()
-    app.include_router(admin_routes.router)
-    client = TestClient(app)
+    summary = admin_routes._metrics_summary_from_performance()
 
-    response = client.get("/api/admin/metrics/summary")
-    assert response.status_code == 200
-    payload = response.json()
-
-    # Account equity includes historical external capital injections.
-    assert payload["account_equity"] == 206117.11
-    # Dashboard equity is strategy-adjusted against baseline capital.
-    assert payload["total_equity"] == 106449.02
-    assert payload["equity_change"] == 6.45
-    assert payload["external_capital_flow_usd"] == 99668.09
-    assert payload["sharpe_ratio"] == 0.0
+    assert summary is not None
+    assert summary.total_equity == 125000.0
+    assert summary.equity_change == 25.0
+    assert summary.baseline_equity == 100000.0
+    assert summary.active_positions == 2
+    assert summary.sharpe_ratio == 1.82
 
 
-def test_sharpe_from_recent_trades_is_guarded_and_clamped():
-    trades = []
-    for i in range(20):
-        pnl = 30.0 if i % 2 == 0 else -1.0
-        trades.append({"qty": 1.0, "buy": 100.0, "pnl": pnl})
+def test_risk_engine_reset_clears_breakers_and_stops():
+    engine = RiskEngine()
+    engine._equity = 150000.0
+    engine.dd_breaker._halted = True
+    engine.dd_breaker._halt_equity = 120000.0
+    engine.stop_manager.register("NVDA", 100.0, 4.0, "long")
 
-    value = admin_routes._estimate_sharpe_from_recent_trades({"recent_trades": trades})
-    assert isinstance(value, float)
-    assert -10.0 <= value <= 10.0
+    status = engine.reset(starting_equity=100000.0)
+
+    assert status["equity"] == 100000.0
+    assert status["drawdown_breaker"]["halted"] is False
+    assert status["open_stops"] == []

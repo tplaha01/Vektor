@@ -36,7 +36,10 @@ class TaskBus:
 
         with self._lock:
             self._history = [dict(row) for row in rows]
-            self._tasks = self._rebuild_tasks_from_history(self._history)
+            # Persisted history must survive restarts, but restoring queued/running/blocked
+            # tasks as "live" causes stale demo and old halted work to reappear in the UI.
+            # Live task state is rebuilt only from the current runtime after startup.
+            self._tasks = {}
 
         return {"restored": True, "event_count": len(self._history), "task_count": len(self._tasks)}
 

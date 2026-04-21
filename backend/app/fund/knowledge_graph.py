@@ -319,6 +319,8 @@ class KnowledgeGraph:
                 namespace_counts[event.namespace] = namespace_counts.get(event.namespace, 0) + 1
         return {
             "enabled": self.enabled,
+            "canonical_store": "sqlite",
+            "projection_store": "filesystem_notes",
             "event_count": event_count,
             "source_count": source_count,
             "namespace_counts": dict(sorted(namespace_counts.items(), key=lambda item: item[0])),
@@ -334,7 +336,39 @@ class KnowledgeGraph:
             "graphify_sync_running": self._graphify_sync_running,
         }
 
+    def restore_from_storage(self) -> dict[str, Any]:
+        with self._lock:
+            in_memory_events = [self._events[eid] for eid in self._ordered_ids if eid in self._events]
+
+        loaded_from_db = self._load_sqlite_events(reset_existing=True)
+        if loaded_from_db > 0:
+            self._prune_locked()
+            return {
+                "restored": 1,
+                "source": "sqlite",
+                "event_count": loaded_from_db,
+            }
+
+        migrated = 0
+        for event in in_memory_events:
+            try:
+                from app.storage import db as storage_db
+
+                storage_db.save_knowledge_event(event.to_dict())
+                migrated += 1
+            except Exception as exc:  # pragma: no cover
+                logger.warning("knowledge_graph.migrate_to_db_failed: %s", exc)
+                break
+
+        return {
+            "restored": 1 if in_memory_events else 0,
+            "source": "memory_projection" if in_memory_events else "empty",
+            "event_count": len(in_memory_events),
+            "migrated_to_sqlite": migrated,
+        }
+
     def reset(self, *, clear_storage: bool = True) -> dict[str, Any]:
+        cleared_db_events = 0
         with self._lock:
             previous_event_count = len(self._events)
             previous_seq = self._seq
@@ -351,6 +385,12 @@ class KnowledgeGraph:
 
         if self.persist and clear_storage:
             try:
+                from app.storage import db as storage_db
+
+                cleared_db_events = int(storage_db.clear_knowledge_events())
+            except Exception as exc:  # pragma: no cover
+                logger.warning("knowledge_graph.reset_db_failed: %s", exc)
+            try:
                 if self._events_file.exists():
                     self._events_file.unlink(missing_ok=True)
                 if self._events_notes_dir.exists():
@@ -366,6 +406,33 @@ class KnowledgeGraph:
             "clear_storage": bool(clear_storage),
             "previous_event_count": previous_event_count,
             "previous_seq": previous_seq,
+            "cleared_db_events": cleared_db_events,
+            "storage_dir": str(self._storage_dir),
+        }
+
+    def rebuild_projection(self) -> dict[str, Any]:
+        with self._lock:
+            events = [self._events[eid] for eid in self._ordered_ids if eid in self._events]
+
+        if self.persist:
+            try:
+                if self._events_file.exists():
+                    self._events_file.unlink(missing_ok=True)
+                if self._events_notes_dir.exists():
+                    shutil.rmtree(self._events_notes_dir, ignore_errors=True)
+                if self._entities_dir.exists():
+                    shutil.rmtree(self._entities_dir, ignore_errors=True)
+                self._bootstrap_storage()
+            except Exception as exc:  # pragma: no cover
+                logger.warning("knowledge_graph.rebuild_projection_storage_failed: %s", exc)
+
+        rebuilt = 0
+        for event in events:
+            self._persist_projection_only(event)
+            rebuilt += 1
+        return {
+            "rebuilt": True,
+            "rebuilt_event_count": rebuilt,
             "storage_dir": str(self._storage_dir),
         }
 
@@ -377,6 +444,10 @@ class KnowledgeGraph:
             self._events_file.touch()
 
     def _load_persisted_events(self) -> None:
+        loaded_from_db = self._load_sqlite_events()
+        if loaded_from_db > 0:
+            self._prune_locked()
+            return
         if not self._events_file.exists():
             return
         loaded = 0
@@ -430,12 +501,78 @@ class KnowledgeGraph:
         if not self.persist:
             return
         try:
+            from app.storage import db as storage_db
+
+            storage_db.save_knowledge_event(event.to_dict())
+        except Exception as exc:  # pragma: no cover
+            logger.warning("knowledge_graph.persist_db_failed: %s", exc)
+        self._persist_projection_only(event)
+
+    def _persist_projection_only(self, event: KnowledgeEvent) -> None:
+        if not self.persist:
+            return
+        try:
             self._bootstrap_storage()
             with self._events_file.open("a", encoding="utf-8") as handle:
                 handle.write(json.dumps(event.to_dict(), sort_keys=True, default=str) + "\n")
             self._write_event_note(event)
         except Exception as exc:  # pragma: no cover
-            logger.warning("knowledge_graph.persist_failed: %s", exc)
+            logger.warning("knowledge_graph.persist_projection_failed: %s", exc)
+
+    def _load_sqlite_events(self, *, reset_existing: bool = False) -> int:
+        try:
+            from app.storage import db as storage_db
+
+            rows = storage_db.load_knowledge_events()
+        except Exception as exc:  # pragma: no cover
+            if "Database not initialized" in str(exc):
+                logger.debug("knowledge_graph.load_db_skipped_until_init")
+            else:
+                logger.warning("knowledge_graph.load_db_failed: %s", exc)
+            return 0
+
+        if reset_existing:
+            with self._lock:
+                self._seq = 0
+                self._events.clear()
+                self._ordered_ids.clear()
+                self._source_dedupe.clear()
+
+        loaded = 0
+        for payload in rows:
+            event_id = str(payload.get("event_id") or f"kge-{loaded + 1:08d}")
+            normalized_event_type, derived_namespace = _normalize_event_type(
+                str(payload.get("source") or "unknown"),
+                str(payload.get("event_type") or "unknown"),
+            )
+            event = KnowledgeEvent(
+                event_id=event_id,
+                source=str(payload.get("source") or "unknown"),
+                namespace=str(payload.get("namespace") or derived_namespace),
+                source_event_id=payload.get("source_event_id"),
+                event_type=normalized_event_type,
+                occurred_at=_normalize_ts(payload.get("occurred_at")),
+                run_id=payload.get("run_id"),
+                agent_id=payload.get("agent_id"),
+                decision_id=payload.get("decision_id"),
+                order_id=payload.get("order_id"),
+                entities=dict(payload.get("entities") or {}),
+                payload=dict(payload.get("payload") or {}),
+            )
+            self._events[event.event_id] = event
+            self._ordered_ids.append(event.event_id)
+            if event.source_event_id:
+                key = f"{event.source}:{event.source_event_id}:{event.occurred_at}"
+                self._source_dedupe[key] = event.event_id
+            loaded += 1
+
+            if event.event_id.startswith("kge-"):
+                try:
+                    suffix = int(event.event_id.split("kge-")[1])
+                    self._seq = max(self._seq, suffix)
+                except ValueError:
+                    pass
+        return loaded
 
     def _write_event_note(self, event: KnowledgeEvent) -> None:
         links = self._event_links(event)

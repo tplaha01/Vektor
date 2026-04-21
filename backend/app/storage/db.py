@@ -105,6 +105,34 @@ def load_latest_cash(default: float = 100_000.0) -> float:
         return row["cash"] if row else default
 
 
+def clear_paper_broker_state(starting_cash: float = 100_000.0) -> Dict[str, Any]:
+    target_cash = float(starting_cash)
+    now = datetime.utcnow().isoformat()
+    with get_db() as db:
+        orders_row = db.execute("SELECT COUNT(*) AS c FROM orders").fetchone()
+        positions_row = db.execute("SELECT COUNT(*) AS c FROM positions").fetchone()
+        cash_row = db.execute("SELECT COUNT(*) AS c FROM cash_snapshots").fetchone()
+        deleted_orders = int(orders_row["c"] if orders_row else 0)
+        deleted_positions = int(positions_row["c"] if positions_row else 0)
+        deleted_cash_snapshots = int(cash_row["c"] if cash_row else 0)
+
+        db.execute("DELETE FROM orders")
+        db.execute("DELETE FROM positions")
+        db.execute("DELETE FROM cash_snapshots")
+        db.execute(
+            "INSERT INTO cash_snapshots (cash, recorded_at) VALUES (?, ?)",
+            (target_cash, now),
+        )
+
+    return {
+        "deleted_orders": deleted_orders,
+        "deleted_positions": deleted_positions,
+        "deleted_cash_snapshots": deleted_cash_snapshots,
+        "starting_cash": target_cash,
+        "recorded_at": now,
+    }
+
+
 # Blog posts
 def save_blog_post(post: Dict[str, Any]) -> None:
     now = datetime.utcnow().isoformat()
@@ -699,3 +727,320 @@ def load_sentiment_snapshots(limit: int | None = None) -> List[Dict[str, Any]]:
             }
         )
     return out
+
+
+# Benchmark baseline persistence
+def save_benchmark_baseline(symbol: str, baseline_price: float, baseline_at: str, metadata: Dict[str, Any] | None = None) -> None:
+    key = str(symbol or "").strip().upper()
+    if not key:
+        return
+    with get_db() as db:
+        db.execute(
+            """
+            INSERT INTO fund_benchmark_baselines (symbol, baseline_price, baseline_at, metadata_json)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(symbol) DO UPDATE SET
+                baseline_price=excluded.baseline_price,
+                baseline_at=excluded.baseline_at,
+                metadata_json=excluded.metadata_json
+            """,
+            (
+                key,
+                float(baseline_price),
+                str(baseline_at or datetime.utcnow().isoformat()),
+                json.dumps(dict(metadata or {}), ensure_ascii=False),
+            ),
+        )
+
+
+def load_benchmark_baselines() -> Dict[str, Dict[str, Any]]:
+    with get_db() as db:
+        rows = db.execute(
+            "SELECT symbol, baseline_price, baseline_at, metadata_json FROM fund_benchmark_baselines ORDER BY symbol ASC"
+        ).fetchall()
+    out: Dict[str, Dict[str, Any]] = {}
+    for raw in rows:
+        row = dict(raw)
+        try:
+            metadata = json.loads(row.get("metadata_json") or "{}")
+            if not isinstance(metadata, dict):
+                metadata = {}
+        except Exception:
+            metadata = {}
+        out[str(row.get("symbol") or "").upper()] = {
+            "symbol": str(row.get("symbol") or "").upper(),
+            "baseline_price": float(row.get("baseline_price") or 0.0),
+            "baseline_at": row.get("baseline_at"),
+            "metadata": metadata,
+        }
+    return out
+
+
+# Performance snapshot persistence
+def save_performance_snapshot(snapshot: Dict[str, Any]) -> None:
+    row = dict(snapshot or {})
+    snapshot_id = str(row.get("snapshot_id") or "").strip()
+    if not snapshot_id:
+        return
+    with get_db() as db:
+        db.execute(
+            """
+            INSERT INTO fund_performance_snapshots (
+                snapshot_id, snapshot_kind, recorded_at, broker_mode, equity, cash, market_value,
+                realized_pnl, unrealized_pnl, total_pnl, total_trades, closed_trades, wins, losses,
+                win_rate, max_drawdown, positions_json, benchmarks_json, metadata_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(snapshot_id) DO UPDATE SET
+                snapshot_kind=excluded.snapshot_kind,
+                recorded_at=excluded.recorded_at,
+                broker_mode=excluded.broker_mode,
+                equity=excluded.equity,
+                cash=excluded.cash,
+                market_value=excluded.market_value,
+                realized_pnl=excluded.realized_pnl,
+                unrealized_pnl=excluded.unrealized_pnl,
+                total_pnl=excluded.total_pnl,
+                total_trades=excluded.total_trades,
+                closed_trades=excluded.closed_trades,
+                wins=excluded.wins,
+                losses=excluded.losses,
+                win_rate=excluded.win_rate,
+                max_drawdown=excluded.max_drawdown,
+                positions_json=excluded.positions_json,
+                benchmarks_json=excluded.benchmarks_json,
+                metadata_json=excluded.metadata_json
+            """,
+            (
+                snapshot_id,
+                str(row.get("snapshot_kind") or "manual"),
+                str(row.get("recorded_at") or datetime.utcnow().isoformat()),
+                str(row.get("broker_mode") or "paper"),
+                float(row.get("equity") or 0.0),
+                float(row.get("cash") or 0.0),
+                float(row.get("market_value") or 0.0),
+                float(row.get("realized_pnl") or 0.0),
+                float(row.get("unrealized_pnl") or 0.0),
+                float(row.get("total_pnl") or 0.0),
+                int(row.get("total_trades") or 0),
+                int(row.get("closed_trades") or 0),
+                int(row.get("wins") or 0),
+                int(row.get("losses") or 0),
+                float(row.get("win_rate") or 0.0),
+                float(row.get("max_drawdown") or 0.0),
+                json.dumps(list(row.get("positions") or []), ensure_ascii=False),
+                json.dumps(list(row.get("benchmarks") or []), ensure_ascii=False),
+                json.dumps(dict(row.get("metadata") or {}), ensure_ascii=False),
+            ),
+        )
+
+
+def load_performance_snapshots(
+    *,
+    limit: int | None = None,
+    snapshot_kind: str | None = None,
+    start_at: str | None = None,
+    end_at: str | None = None,
+) -> List[Dict[str, Any]]:
+    query = (
+        "SELECT snapshot_id, snapshot_kind, recorded_at, broker_mode, equity, cash, market_value, "
+        "realized_pnl, unrealized_pnl, total_pnl, total_trades, closed_trades, wins, losses, "
+        "win_rate, max_drawdown, positions_json, benchmarks_json, metadata_json "
+        "FROM fund_performance_snapshots"
+    )
+    where: list[str] = []
+    params: list[Any] = []
+    if snapshot_kind:
+        where.append("snapshot_kind = ?")
+        params.append(str(snapshot_kind))
+    if start_at:
+        where.append("recorded_at >= ?")
+        params.append(str(start_at))
+    if end_at:
+        where.append("recorded_at <= ?")
+        params.append(str(end_at))
+    if where:
+        query += " WHERE " + " AND ".join(where)
+    query += " ORDER BY recorded_at ASC"
+    if limit is not None and limit >= 0:
+        query = f"SELECT * FROM ({query[:-len(' ORDER BY recorded_at ASC')]} ORDER BY recorded_at DESC LIMIT ?) ORDER BY recorded_at ASC"
+        params.append(int(limit))
+    with get_db() as db:
+        rows = db.execute(query, params).fetchall()
+    out: List[Dict[str, Any]] = []
+    for raw in rows:
+        row = dict(raw)
+        try:
+            positions = json.loads(row.get("positions_json") or "[]")
+            if not isinstance(positions, list):
+                positions = []
+        except Exception:
+            positions = []
+        try:
+            benchmarks = json.loads(row.get("benchmarks_json") or "[]")
+            if not isinstance(benchmarks, list):
+                benchmarks = []
+        except Exception:
+            benchmarks = []
+        try:
+            metadata = json.loads(row.get("metadata_json") or "{}")
+            if not isinstance(metadata, dict):
+                metadata = {}
+        except Exception:
+            metadata = {}
+        out.append(
+            {
+                "snapshot_id": row.get("snapshot_id"),
+                "snapshot_kind": row.get("snapshot_kind"),
+                "recorded_at": row.get("recorded_at"),
+                "broker_mode": row.get("broker_mode"),
+                "equity": float(row.get("equity") or 0.0),
+                "cash": float(row.get("cash") or 0.0),
+                "market_value": float(row.get("market_value") or 0.0),
+                "realized_pnl": float(row.get("realized_pnl") or 0.0),
+                "unrealized_pnl": float(row.get("unrealized_pnl") or 0.0),
+                "total_pnl": float(row.get("total_pnl") or 0.0),
+                "total_trades": int(row.get("total_trades") or 0),
+                "closed_trades": int(row.get("closed_trades") or 0),
+                "wins": int(row.get("wins") or 0),
+                "losses": int(row.get("losses") or 0),
+                "win_rate": float(row.get("win_rate") or 0.0),
+                "max_drawdown": float(row.get("max_drawdown") or 0.0),
+                "positions": positions,
+                "benchmarks": benchmarks,
+                "metadata": metadata,
+            }
+        )
+    return out
+
+
+def load_latest_performance_snapshot(snapshot_kind: str | None = None) -> Dict[str, Any] | None:
+    rows = load_performance_snapshots(limit=1, snapshot_kind=snapshot_kind)
+    return rows[-1] if rows else None
+
+
+def count_performance_snapshots(snapshot_kind: str | None = None) -> int:
+    query = "SELECT COUNT(*) AS c FROM fund_performance_snapshots"
+    params: list[Any] = []
+    if snapshot_kind:
+        query += " WHERE snapshot_kind = ?"
+        params.append(str(snapshot_kind))
+    with get_db() as db:
+        row = db.execute(query, params).fetchone()
+    return int(row["c"] if row else 0)
+
+
+def clear_performance_history() -> Dict[str, int]:
+    with get_db() as db:
+        perf = db.execute("SELECT COUNT(*) AS c FROM fund_performance_snapshots").fetchone()
+        bases = db.execute("SELECT COUNT(*) AS c FROM fund_benchmark_baselines").fetchone()
+        deleted_snapshots = int(perf["c"] if perf else 0)
+        deleted_baselines = int(bases["c"] if bases else 0)
+        db.execute("DELETE FROM fund_performance_snapshots")
+        db.execute("DELETE FROM fund_benchmark_baselines")
+    return {
+        "deleted_snapshots": deleted_snapshots,
+        "deleted_baselines": deleted_baselines,
+    }
+
+
+# Knowledge event persistence
+def save_knowledge_event(event: Dict[str, Any]) -> None:
+    row = dict(event or {})
+    event_id = str(row.get("event_id") or "").strip()
+    if not event_id:
+        return
+    with get_db() as db:
+        db.execute(
+            """
+            INSERT INTO knowledge_events (
+                event_id, source, namespace, source_event_id, event_type, occurred_at,
+                run_id, agent_id, decision_id, order_id, entities_json, payload_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(event_id) DO UPDATE SET
+                source=excluded.source,
+                namespace=excluded.namespace,
+                source_event_id=excluded.source_event_id,
+                event_type=excluded.event_type,
+                occurred_at=excluded.occurred_at,
+                run_id=excluded.run_id,
+                agent_id=excluded.agent_id,
+                decision_id=excluded.decision_id,
+                order_id=excluded.order_id,
+                entities_json=excluded.entities_json,
+                payload_json=excluded.payload_json
+            """,
+            (
+                event_id,
+                str(row.get("source") or "unknown"),
+                str(row.get("namespace") or "system"),
+                row.get("source_event_id"),
+                str(row.get("event_type") or "unknown"),
+                str(row.get("occurred_at") or datetime.utcnow().isoformat()),
+                row.get("run_id"),
+                row.get("agent_id"),
+                row.get("decision_id"),
+                row.get("order_id"),
+                json.dumps(dict(row.get("entities") or {}), ensure_ascii=False),
+                json.dumps(dict(row.get("payload") or {}), ensure_ascii=False),
+            ),
+        )
+
+
+def load_knowledge_events(limit: int | None = None) -> List[Dict[str, Any]]:
+    query = (
+        "SELECT event_id, source, namespace, source_event_id, event_type, occurred_at, "
+        "run_id, agent_id, decision_id, order_id, entities_json, payload_json "
+        "FROM knowledge_events ORDER BY occurred_at ASC, event_id ASC"
+    )
+    params: list[Any] = []
+    if limit is not None and limit >= 0:
+        query = (
+            "SELECT * FROM ("
+            "SELECT event_id, source, namespace, source_event_id, event_type, occurred_at, "
+            "run_id, agent_id, decision_id, order_id, entities_json, payload_json "
+            "FROM knowledge_events ORDER BY occurred_at DESC, event_id DESC LIMIT ?"
+            ") ORDER BY occurred_at ASC, event_id ASC"
+        )
+        params.append(int(limit))
+    with get_db() as db:
+        rows = db.execute(query, params).fetchall()
+    out: list[Dict[str, Any]] = []
+    for raw in rows:
+        row = dict(raw)
+        try:
+            entities = json.loads(row.get("entities_json") or "{}")
+            if not isinstance(entities, dict):
+                entities = {}
+        except Exception:
+            entities = {}
+        try:
+            payload = json.loads(row.get("payload_json") or "{}")
+            if not isinstance(payload, dict):
+                payload = {}
+        except Exception:
+            payload = {}
+        out.append(
+            {
+                "event_id": row.get("event_id"),
+                "source": row.get("source"),
+                "namespace": row.get("namespace"),
+                "source_event_id": row.get("source_event_id"),
+                "event_type": row.get("event_type"),
+                "occurred_at": row.get("occurred_at"),
+                "run_id": row.get("run_id"),
+                "agent_id": row.get("agent_id"),
+                "decision_id": row.get("decision_id"),
+                "order_id": row.get("order_id"),
+                "entities": entities,
+                "payload": payload,
+            }
+        )
+    return out
+
+
+def clear_knowledge_events() -> int:
+    with get_db() as db:
+        row = db.execute("SELECT COUNT(*) AS c FROM knowledge_events").fetchone()
+        deleted = int(row["c"] if row else 0)
+        db.execute("DELETE FROM knowledge_events")
+    return deleted

@@ -88,7 +88,11 @@ def _first_sentence(text: str, fallback: str) -> str:
 
 def _topic_bundle(summary: str, findings: list[str], assets: list[str]) -> dict[str, Any]:
     blob = " ".join([summary, *findings]).lower()
-    if any(token in blob for token in ("liquidity", "order book", "spread", "volatility regime", "volatility")):
+    if "high-grade multi-signal report" in blob or "specialist analyst swarm" in blob:
+        topic = "Cross-Signal Case Study and Trade Construction"
+        image_query = "hedge fund research desk multi factor analysis"
+        tags = ("case study", "signal fusion", "trade construction")
+    elif any(token in blob for token in ("liquidity", "order book", "spread", "volatility regime", "volatility")):
         topic = "Liquidity Regime and Volatility Structure"
         image_query = "trading desk market volatility chart"
         tags = ("market microstructure", "liquidity", "volatility")
@@ -119,50 +123,57 @@ def _build_fallback_content(
     topic: str,
     summary: str,
     findings: list[str],
+    thesis: str = "",
+    confidence: float = 0.0,
 ) -> str:
-    bullet_rows = [f"- {item}" for item in findings[:10]]
-    if not bullet_rows:
-        bullet_rows = ["- No structured findings available; confidence is reduced until additional reports arrive."]
+    cleaned_findings = [str(item).strip() for item in findings if str(item).strip()]
+    key_findings = cleaned_findings[:6]
+    evidence_rows = [f"- {item}" for item in key_findings]
+    if not evidence_rows:
+        evidence_rows = ["- No structured findings were available, so conviction remains constrained."]
+
+    scenario_anchor = key_findings[0] if key_findings else summary or thesis or f"{symbol} setup is still under review."
+    invalidation_anchor = key_findings[1] if len(key_findings) > 1 else "signal deterioration or adverse macro repricing"
+    watch_items = key_findings[2:5] if len(key_findings) > 2 else [
+        "price and volume confirmation",
+        "estimate revisions and guidance drift",
+        "execution quality versus expected slippage",
+    ]
+    watch_rows = [f"- {item}" for item in watch_items]
+    thesis_line = thesis.strip() or summary.strip() or f"{symbol} is under active review inside Vektor's research stack."
+    confidence_pct = max(0, min(100, int(round(float(confidence or 0.0) * 100))))
 
     return "\n".join(
         [
             "## Executive Brief",
-            summary or f"{symbol} research package updated under {topic}.",
+            thesis_line,
             "",
             "## Why This Matters Now",
             (
-                f"{symbol} is showing a transition point in the current market regime. "
-                "For a paper-first hedge fund workflow, this matters because position sizing and sleeve-level allocations "
-                "must adjust before execution, not after slippage and volatility expansion."
+                f"{symbol} sits inside the current {topic.lower()} discussion with an assessed confidence of {confidence_pct}%. "
+                "For an AI-native hedge fund, that only matters if the evidence can be translated into sleeve-aware sizing, "
+                "clear invalidation conditions, and a disciplined decision path before any order is staged."
             ),
             "",
             "## Evidence and Context",
-            *bullet_rows,
+            *evidence_rows,
             "",
             "## Execution Scenarios (30/90 day)",
             (
-                "Base case (30d): controlled continuation with moderate dispersion. "
-                "Upside case (90d): thesis reinforcement through catalyst confirmation and sustained breadth. "
-                "Downside case (90d): thesis invalidation via liquidity deterioration and adverse macro repricing."
+                f"Base case (30d): {scenario_anchor}. "
+                "If that evidence persists, the setup can graduate from observation to tactical allocation. "
+                f"Downside case (90d): the thesis fails if {invalidation_anchor.lower()} becomes the dominant condition."
             ),
             "",
             "## Risk Controls and Failure Modes",
             (
-                "Use pre-trade risk gates, sleeve budgets, and concentration caps as hard constraints. "
-                "Failure modes include narrative overfitting, stale data latency, and structural breaks in volatility regimes."
+                "Use hard risk gates: sleeve budgets, concentration caps, and explicit invalidation triggers. "
+                "Failure modes here are evidence drift, stale narrative anchoring, liquidity deterioration, and overconfident sizing "
+                "relative to what the underlying report actually supports."
             ),
             "",
             "## What to Track Next",
-            (
-                "Track signal persistence, estimate error drift, cross-asset correlation shifts, and execution quality "
-                "versus expected slippage. Promote or demote conviction only on evidence."
-            ),
-            "",
-            "## Reader Takeaway",
-            (
-                "Treat this as a decision-support memo, not a prediction. "
-                "The advantage comes from disciplined iteration, provenance-backed evidence, and strict risk enforcement."
-            ),
+            *watch_rows,
         ]
     ).strip()
 
@@ -177,6 +188,55 @@ def _markdown_to_excerpt(markdown: str, fallback: str) -> str:
 def _hero_image_url(image_query: str) -> str:
     query = quote_plus(str(image_query or "ai fintech market analysis"))
     return f"https://source.unsplash.com/1600x900/?{query}"
+
+
+def _inline_image_urls(symbol: str, topic: str, image_query: str) -> tuple[str, str]:
+    primary = _hero_image_url(f"{image_query} {symbol} trading desk")
+    secondary = _hero_image_url(f"{topic} institutional research charts")
+    return primary, secondary
+
+
+def _inject_inline_images(*, markdown: str, symbol: str, topic: str, image_query: str) -> str:
+    content = str(markdown or "").strip()
+    if not content:
+        return content
+    if re.search(r"!\[[^\]]*\]\(([^)]+)\)", content):
+        return content
+
+    primary_url, secondary_url = _inline_image_urls(symbol, topic, image_query)
+    figure_one = "\n".join(
+        [
+            f"![{symbol} market structure and operating context]({primary_url})",
+            f"*Figure 1. {symbol} setup framing across market structure, narrative pressure, and execution context.*",
+        ]
+    )
+    figure_two = "\n".join(
+        [
+            f"![{topic} evidence map and execution discipline]({secondary_url})",
+            "*Figure 2. Evidence map, execution scenarios, and risk discipline for the live thesis.*",
+        ]
+    )
+
+    def insert_before_heading(markdown_text: str, heading: str, block: str) -> str:
+        anchor = f"## {heading}"
+        idx = markdown_text.find(anchor)
+        if idx == -1:
+            return markdown_text + "\n\n" + block
+        return markdown_text[:idx].rstrip() + "\n\n" + block + "\n\n" + markdown_text[idx:].lstrip()
+
+    def insert_after_section(markdown_text: str, heading: str, block: str) -> str:
+        anchor = f"## {heading}"
+        start = markdown_text.find(anchor)
+        if start == -1:
+            return markdown_text + "\n\n" + block
+        next_heading = markdown_text.find("\n## ", start + len(anchor))
+        if next_heading == -1:
+            return markdown_text.rstrip() + "\n\n" + block
+        return markdown_text[:next_heading].rstrip() + "\n\n" + block + "\n\n" + markdown_text[next_heading:].lstrip()
+
+    content = insert_after_section(content, "Why This Matters Now", figure_one)
+    content = insert_before_heading(content, "Execution Scenarios (30/90 day)", figure_two)
+    return content.strip()
 
 
 class BlogService:
@@ -208,6 +268,12 @@ class BlogService:
             confidence = float(row.get("confidence") or 0.0)
             if confidence < float(min_confidence):
                 continue
+            agent_role = str(row.get("agent_role") or "").strip().lower()
+            agent_id = str(row.get("agent_id") or "").strip().lower()
+            is_composite = agent_role == "researcher" or "signal_committee" in agent_id
+            if not is_composite:
+                # Editorial should default to composite/institutional outputs, not isolated analyst notes.
+                continue
             candidates.append(row)
         candidates.sort(
             key=lambda item: (
@@ -234,6 +300,7 @@ class BlogService:
         summary = str(report_row.get("summary") or "").strip()
         findings = [str(item).strip() for item in (report_row.get("findings") or []) if str(item).strip()]
         confidence = float(report_row.get("confidence") or 0.5)
+        thesis = str(report_row.get("thesis") or "").strip()
 
         existing = storage_db.load_blog_post_by_source_report(report_id) if report_id else None
         if existing:
@@ -246,10 +313,18 @@ class BlogService:
             topic=str(topic_bundle["topic"]),
             summary=summary,
             findings=findings,
+            thesis=thesis,
+            confidence=confidence,
         )
         fallback_excerpt = _first_sentence(summary, f"Research update on {symbol} for AI-native hedge-fund operators.")
         fallback_tags = tuple(topic_bundle["tags"])
         fallback_image_query = str(topic_bundle["image_query"])
+        fallback_content = _inject_inline_images(
+            markdown=fallback_content,
+            symbol=symbol,
+            topic=str(topic_bundle["topic"]),
+            image_query=fallback_image_query,
+        )
 
         ai_metadata: dict[str, Any] = {"used": False}
         ai_draft = None
@@ -275,7 +350,14 @@ class BlogService:
             ai_metadata = {"used": False, "error": ai_role_adapter.health().get("last_error")}
 
         final_title = str(ai_draft.title if ai_draft else fallback_title)[:120].strip() or fallback_title
+        image_query = str(ai_draft.image_query if ai_draft else fallback_image_query).strip() or fallback_image_query
         final_content = str(ai_draft.content_markdown if ai_draft else fallback_content).strip() or fallback_content
+        final_content = _inject_inline_images(
+            markdown=final_content,
+            symbol=symbol,
+            topic=str(topic_bundle["topic"]),
+            image_query=image_query,
+        )
         final_excerpt = str(ai_draft.excerpt if ai_draft else _markdown_to_excerpt(final_content, fallback_excerpt)).strip()
         final_excerpt = final_excerpt[:240] if final_excerpt else fallback_excerpt
         final_tags = list(
@@ -289,7 +371,6 @@ class BlogService:
                 ]
             )
         )[:12]
-        image_query = str(ai_draft.image_query if ai_draft else fallback_image_query).strip() or fallback_image_query
         hero_url = _hero_image_url(image_query)
 
         read_time = max(4, min(20, int(math.ceil(len(final_content.split()) / 220.0))))

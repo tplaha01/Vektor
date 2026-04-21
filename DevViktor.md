@@ -5,6 +5,7 @@ Product vision, business goals, and role architecture live in `Viktor.md`.
 
 ## 1) Boot Sequence (Mandatory)
 1. Read `Viktor.md`.
+2. Read `docs/VEKTOR_PHASED_EXECUTION_PLAN.md`.
 2. Read `Dev_Logs.md`.
 3. Append `START` entry in `Dev_Logs.md`.
 4. Capture baseline state:
@@ -39,9 +40,14 @@ Minimum required fields per entry:
 - `git_commit_end` (for END)
 - `run_id`
 - `scope`
+- `active_phase`
 - `files`
 - `validation`
 - `notes`
+
+Hard requirement:
+- Every session must explicitly state which execution phase it advances.
+- If the work does not materially advance the active phase defined in `docs/VEKTOR_PHASED_EXECUTION_PLAN.md`, it should not be done in that session.
 
 ## 5) Graphify Requirement (Mandatory)
 Every `START` and `END` dev-log entry must also be sent to the KB:

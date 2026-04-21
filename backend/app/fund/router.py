@@ -16,6 +16,7 @@ from app.fund.contracts import (
 from app.fund.agent_runtime import FundAgentRuntime, fund_agent_runtime
 from app.fund.openclaw_command_adapter import OpenClawCommandAdapter, openclaw_command_adapter
 from app.fund.orchestrator import FirmOrchestrator, firm_orchestrator
+from app.fund.performance_tracker import performance_tracker
 from app.fund.realtime_stream import realtime_stream
 
 router = APIRouter(prefix="/fund", tags=["fund"])
@@ -166,6 +167,11 @@ class DevelopmentLogIn(BaseModel):
     validation: str = Field(default="", max_length=4000)
     notes: str = Field(default="", max_length=4000)
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class PerformanceCaptureIn(BaseModel):
+    snapshot_kind: Literal["manual", "intraday", "daily", "startup"] = "manual"
+    reason: str = Field(default="manual", min_length=1, max_length=256)
 
 
 @router.post("/allocator/allocate")
@@ -503,6 +509,39 @@ async def knowledge_reset(
         agent_id=body.agent_id,
         seed_event=body.seed_event,
     )
+
+
+@router.post("/performance/capture")
+async def performance_capture(body: PerformanceCaptureIn):
+    return await performance_tracker.capture_snapshot(
+        snapshot_kind=body.snapshot_kind,
+        reason=body.reason,
+    )
+
+
+@router.get("/performance/snapshots")
+async def performance_snapshots(
+    limit: int = Query(default=500, ge=1, le=5000),
+    snapshot_kind: Literal["manual", "intraday", "daily", "startup"] | None = None,
+    start_at: str | None = None,
+    end_at: str | None = None,
+):
+    return performance_tracker.list_snapshots(
+        limit=limit,
+        snapshot_kind=snapshot_kind,
+        start_at=start_at,
+        end_at=end_at,
+    )
+
+
+@router.get("/performance/summary")
+async def performance_summary():
+    return performance_tracker.summary()
+
+
+@router.post("/performance/reset")
+async def performance_reset():
+    return performance_tracker.reset()
 
 
 @router.get("/stream/status")

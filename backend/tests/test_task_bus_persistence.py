@@ -39,7 +39,7 @@ def test_task_bus_persists_events_and_propagates_symbol_reason(monkeypatch):
     assert persisted_rows[1]["event"] == "status_update"
 
 
-def test_task_bus_restore_rebuilds_latest_task_state(monkeypatch):
+def test_task_bus_restore_preserves_history_without_reviving_live_tasks(monkeypatch):
     rows = [
         {
             "task_id": "task-1",
@@ -79,12 +79,13 @@ def test_task_bus_restore_rebuilds_latest_task_state(monkeypatch):
     restored = bus.restore_from_storage()
     assert restored["restored"] is True
     assert restored["event_count"] == 3
-    assert restored["task_count"] == 1
+    assert restored["task_count"] == 0
 
     task = bus.get_task("task-1")
-    assert task is not None
-    assert task.status == "completed"
-    assert task.payload["symbol"] == "MSFT"
+    assert task is None
+    history = bus.history(limit=-1)
+    assert history[-1]["status"] == "completed"
+    assert history[0]["payload"]["symbol"] == "MSFT"
     assert bus.active_tasks() == []
 
 

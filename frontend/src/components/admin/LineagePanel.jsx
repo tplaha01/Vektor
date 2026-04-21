@@ -18,6 +18,14 @@ function shortId(value, size = 16) {
   return `${text.slice(0, size)}...`;
 }
 
+function reportHref(id) {
+  return `/research?report=${encodeURIComponent(id)}`;
+}
+
+function blogHref(id) {
+  return `/blog?id=${encodeURIComponent(id)}`;
+}
+
 const LineagePanel = ({ limit = 20 }) => {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -204,7 +212,9 @@ const LineagePanel = ({ limit = 20 }) => {
                     <span>Research Reports</span>
                     <div className="lineage-pill-list">
                       {(detail.related_research_report_ids || []).slice(0, 15).map((id) => (
-                        <code key={id} className="lineage-pill">{shortId(id, 20)}</code>
+                        <a key={id} className="lineage-pill lineage-pill-link" href={reportHref(id)} target="_blank" rel="noreferrer">
+                          {shortId(id, 20)}
+                        </a>
                       ))}
                     </div>
                   </div>
@@ -212,7 +222,9 @@ const LineagePanel = ({ limit = 20 }) => {
                     <span>Blog Posts</span>
                     <div className="lineage-pill-list">
                       {(detail.related_blog_post_ids || []).slice(0, 15).map((id) => (
-                        <code key={id} className="lineage-pill">{shortId(id, 20)}</code>
+                        <a key={id} className="lineage-pill lineage-pill-link" href={blogHref(id)} target="_blank" rel="noreferrer">
+                          {shortId(id, 20)}
+                        </a>
                       ))}
                     </div>
                   </div>

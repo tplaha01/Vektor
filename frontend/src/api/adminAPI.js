@@ -94,6 +94,16 @@ export const adminAPI = {
       body: JSON.stringify({ run_id: runId || null }),
     });
   },
+  resetCleanInception: async (payload = {}) => {
+    return fetchJson(`${API_BASE}/admin/system/inception/reset`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        starting_cash_usd: payload.startingCashUsd ?? 100000,
+        reason: payload.reason || "clean_inception_reset",
+      }),
+    });
+  },
 
   /**
    * Get agent worker pool status
@@ -178,8 +188,51 @@ export const adminAPI = {
     fetchJson(
       `${FUND_BASE}/knowledge/events?limit=${encodeURIComponent(limit)}&namespace=${encodeURIComponent(namespace)}`
     ),
+  getPerformanceSummary: async () => fetchJson(`${FUND_BASE}/performance/summary`),
+  getPerformanceSnapshots: async ({ limit = 180, snapshotKind = "", startAt = "", endAt = "" } = {}) => {
+    const params = new URLSearchParams();
+    params.set("limit", String(limit));
+    if (snapshotKind) params.set("snapshot_kind", snapshotKind);
+    if (startAt) params.set("start_at", startAt);
+    if (endAt) params.set("end_at", endAt);
+    return fetchJson(`${FUND_BASE}/performance/snapshots?${params.toString()}`);
+  },
+  capturePerformanceSnapshot: async (payload = {}) =>
+    fetchJson(`${FUND_BASE}/performance/capture`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        snapshot_kind: payload.snapshotKind || "manual",
+        reason: payload.reason || "manual_admin_checkpoint",
+      }),
+    }),
+  resetPerformanceHistory: async () =>
+    fetchJson(`${FUND_BASE}/performance/reset`, {
+      method: "POST",
+    }),
   getFundOrderAuditTimeline: async (orderId) =>
     fetchJson(`${FUND_BASE}/audit/orders/${encodeURIComponent(orderId)}/timeline`),
+  getKnowledgeStats: async () => fetchJson(`${API_BASE}/knowledge/stats`),
+  resetKnowledgeBase: async (payload = {}) =>
+    fetchJson(`${API_BASE}/knowledge/reset`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        run_id: payload.run_id || null,
+        agent_id: payload.agent_id || "ceo",
+        seed_event: payload.seed_event ?? false,
+      }),
+    }),
+  rebuildKnowledgeProjection: async (payload = {}) =>
+    fetchJson(`${API_BASE}/knowledge/rebuild`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        run_id: payload.run_id || null,
+        agent_id: payload.agent_id || "ceo",
+        seed_event: payload.seed_event ?? false,
+      }),
+    }),
   
   // Agent Hierarchy & Orchestration
   getAgentHierarchy: async () =>

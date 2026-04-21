@@ -37,6 +37,18 @@ class DevelopmentLogIn(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class KnowledgeResetIn(BaseModel):
+    run_id: str | None = Field(default=None, min_length=3, max_length=128)
+    agent_id: str = Field(default="ceo", min_length=2, max_length=128)
+    seed_event: bool = False
+
+
+class KnowledgeProjectionRebuildIn(BaseModel):
+    run_id: str | None = Field(default=None, min_length=3, max_length=128)
+    agent_id: str = Field(default="ceo", min_length=2, max_length=128)
+    seed_event: bool = False
+
+
 @router.get("/stats")
 async def get_knowledge_stats(orchestrator: FirmOrchestrator = Depends(get_orchestrator)):
     return orchestrator.knowledge_stats()
@@ -107,4 +119,28 @@ async def ingest_development_log(
         validation=body.validation,
         notes=body.notes,
         metadata=body.metadata,
+    )
+
+
+@router.post("/reset")
+async def reset_knowledge_base(
+    body: KnowledgeResetIn,
+    orchestrator: FirmOrchestrator = Depends(get_orchestrator),
+):
+    return orchestrator.reset_knowledge_graph(
+        run_id=body.run_id,
+        agent_id=body.agent_id,
+        seed_event=body.seed_event,
+    )
+
+
+@router.post("/rebuild")
+async def rebuild_knowledge_projection(
+    body: KnowledgeProjectionRebuildIn,
+    orchestrator: FirmOrchestrator = Depends(get_orchestrator),
+):
+    return orchestrator.rebuild_knowledge_projection(
+        run_id=body.run_id,
+        agent_id=body.agent_id,
+        seed_event=body.seed_event,
     )

@@ -800,6 +800,30 @@ class FirmOrchestrator:
             "stats": self._knowledge_graph.stats(),
         }
 
+    def rebuild_knowledge_projection(
+        self,
+        *,
+        run_id: str | None = None,
+        agent_id: str = "ceo",
+        seed_event: bool = True,
+    ) -> dict[str, Any]:
+        rebuild_result = self._knowledge_graph.rebuild_projection()
+        seeded_event = None
+        if seed_event:
+            seeded_event = self._knowledge_graph.ingest(
+                source="development",
+                event_type="development.kb_projection_rebuilt",
+                run_id=run_id,
+                agent_id=agent_id,
+                payload={"rebuild_result": rebuild_result},
+            )
+            self._publish_realtime("development", seeded_event)
+        return {
+            "rebuild_result": rebuild_result,
+            "seeded_event": seeded_event,
+            "stats": self._knowledge_graph.stats(),
+        }
+
     def sleeve_budget_status(self, run_id: str | None = None) -> dict[str, Any]:
         with self._lock:
             run_ids = [run_id] if run_id else list(self._run_sleeve_allocations.keys())

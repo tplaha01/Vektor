@@ -28,6 +28,7 @@ from app.fund.contracts import ProvenanceRef, ResearchReport as ContractResearch
 from app.fund.decision_ledger import decision_ledger
 from app.fund.knowledge_graph import knowledge_graph
 from app.fund.orchestrator import firm_orchestrator
+from app.fund.performance_tracker import performance_tracker
 from app.fund.runtime_guard import data_integrity_guard
 from app.fund.sentiment_ingest import sentiment_ingest
 from app.risk.engine import risk
@@ -198,6 +199,11 @@ class PaperBrokerCapitalIn(BaseModel):
     reason: str = Field(default="manual_paper_capital_update", min_length=1, max_length=256)
 
 
+class InceptionResetIn(BaseModel):
+    starting_cash_usd: float = Field(default=100000.0, gt=0)
+    reason: str = Field(default="clean_inception_reset", min_length=1, max_length=256)
+
+
 class AutopilotKickIn(BaseModel):
     run_id: Optional[str] = Field(default=None, min_length=3, max_length=128)
 
@@ -338,6 +344,46 @@ def _infer_baseline_equity(
     return inferred
 
 
+def _metrics_summary_from_performance() -> MetricsSummary | None:
+    performance = performance_tracker.summary()
+    latest = performance.get("latest_snapshot") if isinstance(performance, dict) else None
+    inception = performance.get("inception_snapshot") if isinstance(performance, dict) else None
+    track_record = performance.get("track_record") if isinstance(performance, dict) else None
+    if not isinstance(latest, dict) or not isinstance(track_record, dict):
+        return None
+
+    latest_positions = latest.get("positions") if isinstance(latest.get("positions"), list) else []
+    latest_equity = _safe_float(latest.get("equity"), 0.0)
+    baseline_equity = _safe_float(
+        inception.get("equity") if isinstance(inception, dict) else None,
+        latest_equity or _safe_float(getattr(risk, "INITIAL_EQUITY", 100000.0), 100000.0),
+    )
+    account_equity = _safe_float(broker.get_portfolio_value(lambda s: FEED.price(s)), latest_equity)
+    external_capital_flow = account_equity - latest_equity
+    risk_state = risk.status()
+    dd = risk_state.get("drawdown_breaker") if isinstance(risk_state.get("drawdown_breaker"), dict) else {}
+
+    return MetricsSummary(
+        total_equity=round(latest_equity, 2),
+        equity_change=round(_safe_float(track_record.get("total_return_pct"), 0.0), 2),
+        account_equity=round(account_equity, 2),
+        external_capital_flow_usd=round(external_capital_flow, 2),
+        baseline_equity=round(baseline_equity, 2),
+        realized_pnl=round(_safe_float(latest.get("realized_pnl"), 0.0), 2),
+        pnl_change=0.0,
+        unrealized_pnl=round(_safe_float(latest.get("unrealized_pnl"), 0.0), 2),
+        current_drawdown=round(_safe_float(dd.get("current_drawdown"), 0.0) * 100.0, 2),
+        drawdown_change=0.0,
+        max_drawdown_ytd=round(_safe_float(track_record.get("max_drawdown_pct"), 0.0), 2),
+        max_drawdown_threshold=round(_safe_float(dd.get("max_drawdown_threshold"), 0.10) * 100.0, 2),
+        active_positions=len(latest_positions),
+        win_rate=round(_safe_float(latest.get("win_rate"), 0.0), 2),
+        win_rate_change=0.0,
+        sharpe_ratio=round(_safe_float(track_record.get("sharpe_ratio"), 0.0), 2),
+        sharpe_change=0.0,
+    )
+
+
 def _normalize_provenance(raw_provenance: Any) -> dict:
     refs = raw_provenance if isinstance(raw_provenance, list) else []
     data_sources: list[str] = []
@@ -451,7 +497,7 @@ def _halt_recovery_checklist(
     if "missing_finnhub_key" in reason or "finnhub" in reason:
         checklist.insert(1, "Set valid `FINNHUB_KEY` for news ingestion resilience, then restart backend.")
     if "adapter_error" in reason or "ai_role_adapter" in reason:
-        checklist.insert(1, "Check AI role adapter provider/model health (Ollama or API provider) before resuming swarms.")
+        checklist.insert(1, "Check AI role adapter routing, provider quota state, and failover health before resuming swarms.")
     if "openclaw" in reason:
         checklist.insert(1, "Restart OpenClaw gateway and verify Discord channel connectivity before issuing control commands.")
 
@@ -605,6 +651,10 @@ def _collect_functional_snapshot(history: list[dict[str, Any]], *, default_symbo
 
 @router.get("/metrics/summary", response_model=MetricsSummary)
 async def get_metrics_summary():
+    performance_metrics = _metrics_summary_from_performance()
+    if performance_metrics is not None:
+        return performance_metrics
+
     positions = broker.list_positions(lambda s: FEED.price(s))
     analytics = build_metrics_from_broker(broker)
     equity = risk.update_equity(positions, analytics.get("realized_pnl", 0.0))
@@ -703,16 +753,24 @@ async def get_system_status_badges():
         ai_health = ai_role_adapter.health()
     ai_enabled = bool(ai_health.get("enabled"))
     ai_provider = str(ai_health.get("provider") or "unknown")
+    ai_mode = str(ai_health.get("mode") or "single_provider")
     role_models = ai_health.get("role_models") if isinstance(ai_health.get("role_models"), dict) else {}
     default_model = str(ai_health.get("default_model") or "").strip()
     adapter_last_error = str(ai_health.get("last_error") or "").strip()
+    provider_runtime = ai_health.get("providers") if isinstance(ai_health.get("providers"), dict) else {}
+    role_runtime = ai_health.get("role_runtime") if isinstance(ai_health.get("role_runtime"), dict) else {}
 
     role_health: list[dict[str, Any]] = []
     for role in sorted(ANALYST_ROLE_SET):
         worker = worker_by_role.get(role, {})
         worker_last_error = str(worker.get("last_error") or "").strip()
         worker_running = bool(worker.get("running"))
-        model = str(role_models.get(role) or default_model or "").strip()
+        runtime_state = role_runtime.get(role) if isinstance(role_runtime.get(role), dict) else {}
+        model = str(runtime_state.get("last_model") or role_models.get(role) or default_model or "").strip()
+        role_provider = str(runtime_state.get("last_provider") or ai_provider or "unknown").strip()
+        route = runtime_state.get("route") if isinstance(runtime_state.get("route"), list) else []
+        fallback_used = bool(runtime_state.get("fallback_used"))
+        failover_count = _safe_int(runtime_state.get("failover_count"), 0)
 
         degraded_reasons: list[str] = []
         if halted:
@@ -721,8 +779,6 @@ async def get_system_status_badges():
             degraded_reasons.append("ai_role_adapter_disabled")
         if not model:
             degraded_reasons.append("model_unconfigured")
-        if adapter_last_error:
-            degraded_reasons.append(f"adapter_error:{adapter_last_error}")
         if worker_last_error:
             degraded_reasons.append(f"worker_error:{worker_last_error}")
         if not worker_running and runtime_started and not worker_last_error:
@@ -733,13 +789,18 @@ async def get_system_status_badges():
             {
                 "role": role,
                 "status": status,
-                "provider": ai_provider,
+                "provider": role_provider,
                 "model": model or None,
                 "reason": degraded_reasons[0] if degraded_reasons else "ok",
+                "route": route,
+                "fallback_used": fallback_used,
+                "failover_count": failover_count,
             }
         )
 
     llm_overall = "Degraded" if any(item["status"] == "Degraded" for item in role_health) else "Healthy"
+    if llm_overall == "Healthy" and adapter_last_error:
+        llm_overall = "Healthy"
 
     halt_message = None
     if halted:
@@ -777,6 +838,12 @@ async def get_system_status_badges():
             "label": "LLM Agent Health",
             "status": llm_overall,
             "by_role": role_health,
+            "adapter_warning": adapter_last_error or None,
+            "mode": ai_mode,
+            "default_route": ai_health.get("default_route") if isinstance(ai_health.get("default_route"), list) else [],
+            "role_routes": ai_health.get("role_routes") if isinstance(ai_health.get("role_routes"), dict) else {},
+            "providers": provider_runtime,
+            "gateway": ai_health.get("gateway") if isinstance(ai_health.get("gateway"), dict) else {},
         },
         "halt": {
             "halted": halted,
@@ -1061,6 +1128,76 @@ async def update_paper_broker_capital(body: PaperBrokerCapitalIn):
             "after_cash_usd": round(after_cash, 2),
             "clear_positions": bool(body.clear_positions),
             "clear_orders": bool(body.clear_orders),
+        },
+    )
+    return response
+
+
+@router.post("/system/inception/reset", response_model=dict)
+async def reset_clean_inception(body: InceptionResetIn):
+    settings = get_settings()
+    broker_mode = str(settings.BROKER or "").strip().lower()
+    if broker_mode != "paper":
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "paper_only_endpoint",
+                "message": "Clean inception reset is available only in paper mode.",
+            },
+        )
+
+    before_cash = float(getattr(broker, "cash", 0.0))
+    before_positions = len(getattr(broker, "positions", {}) or {})
+    before_orders = len(getattr(broker, "order_history", []) or [])
+    before_performance = performance_tracker.summary()
+
+    broker_reset = storage_db.clear_paper_broker_state(body.starting_cash_usd)
+    broker.cash = float(body.starting_cash_usd)
+    broker.positions = {}
+    broker.order_history = []
+    broker._order_counter = 0  # noqa: SLF001
+
+    risk_state = risk.reset(starting_equity=body.starting_cash_usd)
+    performance_reset = performance_tracker.reset()
+    inception_snapshot = await performance_tracker.capture_snapshot(
+        snapshot_kind="manual",
+        reason=body.reason,
+    )
+
+    response = {
+        "ok": True,
+        "action": "clean_inception_reset",
+        "mode": "paper",
+        "reason": body.reason,
+        "before": {
+            "cash_usd": round(before_cash, 2),
+            "positions_count": before_positions,
+            "orders_count": before_orders,
+            "performance_snapshot_count": int(before_performance.get("snapshot_count") or 0),
+        },
+        "after": {
+            "cash_usd": round(float(body.starting_cash_usd), 2),
+            "positions_count": 0,
+            "orders_count": 0,
+            "performance_snapshot_count": 1,
+            "inception_snapshot_id": inception_snapshot.get("snapshot_id"),
+        },
+        "broker_reset": broker_reset,
+        "performance_reset": performance_reset,
+        "risk_state": risk_state,
+    }
+    _record_runtime_control_event(
+        action="clean_inception_reset",
+        status="completed",
+        reason=body.reason,
+        payload={
+            "starting_cash_usd": round(float(body.starting_cash_usd), 2),
+            "deleted_orders": broker_reset.get("deleted_orders", 0),
+            "deleted_positions": broker_reset.get("deleted_positions", 0),
+            "deleted_cash_snapshots": broker_reset.get("deleted_cash_snapshots", 0),
+            "deleted_performance_snapshots": performance_reset.get("deleted_snapshots", 0),
+            "deleted_benchmark_baselines": performance_reset.get("deleted_baselines", 0),
+            "inception_snapshot_id": inception_snapshot.get("snapshot_id"),
         },
     )
     return response

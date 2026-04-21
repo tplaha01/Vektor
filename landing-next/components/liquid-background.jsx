@@ -160,8 +160,8 @@ const PALETTES = {
   },
   light: {
     bg: "#f8fafc",
-    color1: "#C4A0F0",  // soft lavender
-    color2: "#9B7FE8",  // gentle purple
+    color1: "#7c3800",  // soft lavender
+    color2: "#570600",  // gentle purple
   },
 };
 

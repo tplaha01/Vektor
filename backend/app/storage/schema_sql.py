@@ -134,4 +134,59 @@ CREATE TABLE IF NOT EXISTS fund_sentiment_snapshots (
 );
 
 CREATE INDEX IF NOT EXISTS idx_fund_sentiment_asset_created ON fund_sentiment_snapshots (asset, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS fund_benchmark_baselines (
+    symbol          TEXT PRIMARY KEY,
+    baseline_price  REAL NOT NULL,
+    baseline_at     TEXT NOT NULL,
+    metadata_json   TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS fund_performance_snapshots (
+    snapshot_id        TEXT PRIMARY KEY,
+    snapshot_kind      TEXT NOT NULL,
+    recorded_at        TEXT NOT NULL,
+    broker_mode        TEXT NOT NULL,
+    equity             REAL NOT NULL,
+    cash               REAL NOT NULL,
+    market_value       REAL NOT NULL,
+    realized_pnl       REAL NOT NULL,
+    unrealized_pnl     REAL NOT NULL,
+    total_pnl          REAL NOT NULL,
+    total_trades       INTEGER NOT NULL,
+    closed_trades      INTEGER NOT NULL,
+    wins               INTEGER NOT NULL,
+    losses             INTEGER NOT NULL,
+    win_rate           REAL NOT NULL,
+    max_drawdown       REAL NOT NULL,
+    positions_json     TEXT NOT NULL,
+    benchmarks_json    TEXT NOT NULL,
+    metadata_json      TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_fund_performance_snapshots_recorded_at
+ON fund_performance_snapshots (recorded_at DESC);
+CREATE INDEX IF NOT EXISTS idx_fund_performance_snapshots_kind_recorded_at
+ON fund_performance_snapshots (snapshot_kind, recorded_at DESC);
+
+CREATE TABLE IF NOT EXISTS knowledge_events (
+    event_id         TEXT PRIMARY KEY,
+    source           TEXT NOT NULL,
+    namespace        TEXT NOT NULL,
+    source_event_id  TEXT,
+    event_type       TEXT NOT NULL,
+    occurred_at      TEXT NOT NULL,
+    run_id           TEXT,
+    agent_id         TEXT,
+    decision_id      TEXT,
+    order_id         TEXT,
+    entities_json    TEXT NOT NULL,
+    payload_json     TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_events_occurred_at ON knowledge_events (occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_knowledge_events_namespace_ts ON knowledge_events (namespace, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_knowledge_events_run_ts ON knowledge_events (run_id, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_knowledge_events_decision_ts ON knowledge_events (decision_id, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_knowledge_events_order_ts ON knowledge_events (order_id, occurred_at DESC);
 """

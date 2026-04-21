@@ -49,7 +49,23 @@ function renderMarkdownSimple(content) {
     return <span dangerouslySetInnerHTML={{ __html: text }} />;
   };
 
-  for (const rawLine of rows) {
+  const parseImage = (text) => {
+    const match = String(text || "").trim().match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+    if (!match) return null;
+    return {
+      alt: match[1] || "Blog illustration",
+      src: match[2],
+    };
+  };
+
+  const parseCaption = (text) => {
+    const trimmed = String(text || "").trim();
+    const match = trimmed.match(/^\*(.+)\*$/);
+    return match ? match[1].trim() : "";
+  };
+
+  for (let index = 0; index < rows.length; index += 1) {
+    const rawLine = rows[index];
     const line = rawLine.trim();
 
     // Handle code blocks
@@ -70,6 +86,27 @@ function renderMarkdownSimple(content) {
 
     if (!line) {
       flushBullets();
+      continue;
+    }
+
+    const markdownImage = parseImage(line);
+    if (markdownImage) {
+      flushBullets();
+      const caption = parseCaption(rows[index + 1]);
+      if (caption) {
+        index += 1;
+      }
+      rendered.push(
+        <figure key={`img-${key++}`} className="blog-inline-figure">
+          <img
+            src={markdownImage.src}
+            alt={markdownImage.alt}
+            className="blog-inline-image"
+            loading="lazy"
+          />
+          {caption ? <figcaption className="blog-inline-caption">{caption}</figcaption> : null}
+        </figure>
+      );
       continue;
     }
 
@@ -131,7 +168,7 @@ function BlogGrid({ blogs, onBlogClick, onAuthorFilter }) {
         </div>
       ) : (
         blogs.map((blog) => (
-          <article key={blog.id} className="blog-card" onClick={() => onBlogClick(blog)}>
+          <article key={blog.id} className="blog-card" style={{ viewTransitionName: `blog-card-${blog.id}` }} onClick={() => onBlogClick(blog)}>
             {blog.heroImageUrl ? (
               <div className="blog-card-image-wrap">
                 <img src={blog.heroImageUrl} alt={blog.title} className="blog-card-image" loading="lazy" />
@@ -216,7 +253,7 @@ function BlogDetail({ blog, onBack, blogs, onBlogClick }) {
   };
 
   return (
-    <div className="blog-detail">
+    <div className="blog-detail" style={{ viewTransitionName: `blog-card-${blog.id}` }}>
       <button className="btn-back" onClick={onBack}>
         <ArrowLeft size={16} />
         Back to blogs
@@ -301,6 +338,7 @@ function BlogDetail({ blog, onBack, blogs, onBlogClick }) {
 }
 
 export default function Blog() {
+  const requestedBlogId = useRef(new URLSearchParams(window.location.search).get('id'));
   const [blogs, setBlogs] = useState([]);
   const [selectedBlog, setSelectedBlog] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -329,9 +367,24 @@ export default function Blog() {
         const data = await Promise.race([blogAPI.getPosts({ limit: 50 }), timeoutPromise]);
         if (!isMounted.current) return;
 
-        setBlogs(data.blogs || []);
+        const nextBlogs = data.blogs || [];
+        setBlogs(nextBlogs);
         setConnectionStatus("connected");
         setLastUpdate(new Date());
+        if (requestedBlogId.current && !selectedBlog) {
+          try {
+            const detail = await blogAPI.getPostDetail(requestedBlogId.current);
+            if (isMounted.current && detail) {
+              setSelectedBlog(detail);
+            }
+          } catch (detailErr) {
+            console.warn("Failed to hydrate requested blog:", detailErr);
+            const fallback = nextBlogs.find((blog) => String(blog.id) === String(requestedBlogId.current));
+            if (isMounted.current && fallback) {
+              setSelectedBlog(fallback);
+            }
+          }
+        }
         setLoading(false);
       } catch (err) {
         if (!isMounted.current) return;
@@ -362,11 +415,21 @@ export default function Blog() {
     }
     try {
       const detail = await blogAPI.getPostDetail(blog.id);
-      setSelectedBlog(detail || blog);
+      transition(() => {
+        setSelectedBlog(detail || blog);
+        const url = new URL(window.location.href);
+        url.searchParams.set('id', blog.id);
+        window.history.replaceState({}, '', url.toString());
+      });
       success("Blog loaded successfully");
     } catch (error) {
       console.warn("Error fetching blog detail:", error);
-      setSelectedBlog(blog);
+      transition(() => {
+        setSelectedBlog(blog);
+        const url = new URL(window.location.href);
+        url.searchParams.set('id', blog.id);
+        window.history.replaceState({}, '', url.toString());
+      });
       showError(`Failed to load blog: ${error.message}`);
     }
   };
@@ -393,7 +456,19 @@ export default function Blog() {
     return (
       <>
         <ToastContainer />
-        <BlogDetail blog={selectedBlog} onBack={() => setSelectedBlog(null)} blogs={blogs} onBlogClick={handleBlogClick} />
+        <BlogDetail
+          blog={selectedBlog}
+          onBack={() => {
+            transition(() => {
+              setSelectedBlog(null);
+              const url = new URL(window.location.href);
+              url.searchParams.delete('id');
+              window.history.replaceState({}, '', url.toString());
+            });
+          }}
+          blogs={blogs}
+          onBlogClick={handleBlogClick}
+        />
       </>
     );
   }
@@ -510,3 +585,10 @@ function isThisMonth(dateStr) {
   const now = new Date();
   return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
 }
+  const transition = (fn) => {
+    if (document.startViewTransition) {
+      document.startViewTransition(fn);
+      return;
+    }
+    fn();
+  };
