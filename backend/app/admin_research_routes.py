@@ -13,7 +13,7 @@ from decimal import Decimal
 from time import monotonic
 from typing import Any, List, Literal, Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.analytics import build_metrics_from_broker
@@ -104,6 +104,8 @@ class ResearchReport(BaseModel):
     report_id: str
     agent_id: str
     agent_role: str
+    surface: str = "kb"
+    run_id: Optional[str] = None
     title: str
     summary: str
     findings: List[str]
@@ -113,6 +115,9 @@ class ResearchReport(BaseModel):
     published_at: datetime
     status: str
     views: Optional[int] = 0
+    provider_used: Optional[str] = None
+    model_used: Optional[str] = None
+    ai_trace: dict = Field(default_factory=dict)
     provenance: dict
 
 
@@ -120,6 +125,7 @@ class ResearchReportCreateIn(BaseModel):
     run_id: Optional[str] = Field(default=None, min_length=3, max_length=128)
     agent_id: str = Field(..., min_length=2, max_length=128)
     agent_role: Optional[str] = None
+    surface: Literal["public", "kb"] = "public"
     title: str = Field(..., min_length=1, max_length=300)
     summary: str = Field(..., min_length=1, max_length=6000)
     findings: List[str] = Field(default_factory=list)
@@ -414,8 +420,88 @@ def _normalize_provenance(raw_provenance: Any) -> dict:
     }
 
 
-def _map_live_report(row: dict[str, Any]) -> ResearchReport:
+def _resolve_report_ai_trace(
+    *,
+    report_id: str,
+    run_id: str | None,
+    agent_id: str,
+    agent_role: str,
+    task_history_cache: dict[str, list[dict[str, Any]]] | None = None,
+) -> dict[str, Any]:
+    run_key = str(run_id or "").strip()
+    if not run_key:
+        return {}
+
+    if task_history_cache is not None and run_key in task_history_cache:
+        history = task_history_cache[run_key]
+    else:
+        history = firm_orchestrator.list_task_history(limit=1600, run_id=run_key)
+        if task_history_cache is not None:
+            task_history_cache[run_key] = history
+    best_trace: dict[str, Any] = {}
+    normalized_agent_id = str(agent_id or "").strip().lower()
+    normalized_role = str(agent_role or "").strip().lower()
+
+    for row in history:
+        details = row.get("details") if isinstance(row.get("details"), dict) else {}
+        payload = row.get("payload") if isinstance(row.get("payload"), dict) else {}
+        trace = details.get("ai_role_adapter") if isinstance(details.get("ai_role_adapter"), dict) else {}
+        candidate_report_id = str(
+            details.get("report_id")
+            or payload.get("report_id")
+            or payload.get("research_id")
+            or ""
+        ).strip()
+        if candidate_report_id != report_id or not trace:
+            continue
+
+        row_agent_id = str(row.get("agent_id") or "").strip().lower()
+        row_role = str(row.get("role") or "").strip().lower()
+        role_matches = row_role == normalized_role or row_agent_id == normalized_agent_id
+        if role_matches:
+            return dict(trace)
+        if not best_trace:
+            best_trace = dict(trace)
+
+    return best_trace
+
+
+def _infer_report_surface(
+    *,
+    row: dict[str, Any],
+    agent_id: str,
+    agent_role: str,
+    title: str,
+    summary: str,
+) -> str:
+    metadata = row.get("metadata") if isinstance(row.get("metadata"), dict) else {}
+    explicit = str(metadata.get("surface") or row.get("surface") or "").strip().lower()
+    if explicit in {"public", "kb"}:
+        return explicit
+
+    title_l = title.lower()
+    summary_l = summary.lower()
+    agent_id_l = str(agent_id or "").strip().lower()
+    agent_role_l = str(agent_role or "").strip().lower()
+
+    if agent_id_l in {"signal_committee_agent", "fund_manager_agent", "trader_agent", "risk_auditor_agent"}:
+        return "kb"
+    if agent_role_l in ANALYST_ROLE_SET or agent_role_l in {"fund_manager", "trader", "risk_auditor"}:
+        return "kb"
+    if any(keyword in title_l or keyword in summary_l for keyword in ("proposal", "discovery", "case study", "research paper")):
+        return "public"
+    if agent_role_l == "researcher" and "signal" not in title_l and "brief" not in title_l:
+        return "public"
+    return "kb"
+
+
+def _map_live_report(
+    row: dict[str, Any],
+    *,
+    task_history_cache: dict[str, list[dict[str, Any]]] | None = None,
+) -> ResearchReport:
     report_id = str(row.get("report_id") or uuid.uuid4().hex)
+    run_id = str(row.get("run_id") or "").strip() or None
     created_at = _to_datetime(row.get("created_at"))
     summary = str(row.get("summary") or "")
     findings = row.get("findings") if isinstance(row.get("findings"), list) else [summary]
@@ -424,11 +510,27 @@ def _map_live_report(row: dict[str, Any]) -> ResearchReport:
     agent_role = _infer_agent_role(agent_id)
     title = str(row.get("title") or f"Research Report {report_id[:8]}")
     provenance = _normalize_provenance(row.get("provenance"))
+    ai_trace = _resolve_report_ai_trace(
+        report_id=report_id,
+        run_id=run_id,
+        agent_id=agent_id,
+        agent_role=agent_role,
+        task_history_cache=task_history_cache,
+    )
+    surface = _infer_report_surface(
+        row=row,
+        agent_id=agent_id,
+        agent_role=agent_role,
+        title=title,
+        summary=summary,
+    )
 
     return ResearchReport(
         report_id=report_id,
         agent_id=agent_id,
         agent_role=agent_role,
+        surface=surface,
+        run_id=run_id,
         title=title,
         summary=summary,
         findings=[str(item) for item in findings if str(item).strip()] or [summary],
@@ -438,6 +540,9 @@ def _map_live_report(row: dict[str, Any]) -> ResearchReport:
         published_at=created_at,
         status="published",
         views=_safe_int(row.get("views"), 0),
+        provider_used=str(ai_trace.get("provider") or "").strip() or None,
+        model_used=str(ai_trace.get("model") or "").strip() or None,
+        ai_trace=ai_trace,
         provenance=provenance,
     )
 
@@ -808,6 +913,9 @@ async def get_system_status_badges():
             "System halted: strict real-data mode detected provider fallback/failure. "
             "Signal generation, task orchestration, and trade execution are blocked until resolved."
         )
+    allocation_status = firm_orchestrator.allocation_policy_status()
+    discovery_rows = firm_orchestrator.list_discovery_opportunities(limit=8)
+    active_contexts = runtime.get("active_contexts") if isinstance(runtime.get("active_contexts"), list) else []
     recovery_checklist = _halt_recovery_checklist(
         halt_reason=halt_reason,
         runtime_started=runtime_started,
@@ -844,6 +952,15 @@ async def get_system_status_badges():
             "role_routes": ai_health.get("role_routes") if isinstance(ai_health.get("role_routes"), dict) else {},
             "providers": provider_runtime,
             "gateway": ai_health.get("gateway") if isinstance(ai_health.get("gateway"), dict) else {},
+        },
+        "allocation_policy": allocation_status,
+        "discovery": {
+            "count": len(discovery_rows),
+            "top": discovery_rows,
+        },
+        "swarm_snapshot": {
+            "active_contexts": active_contexts,
+            "signal_packs": runtime.get("signal_packs") if isinstance(runtime.get("signal_packs"), list) else [],
         },
         "halt": {
             "halted": halted,
@@ -1204,8 +1321,21 @@ async def reset_clean_inception(body: InceptionResetIn):
 
 
 @router.post("/system/autopilot/kick", response_model=dict)
-async def kick_autopilot(body: AutopilotKickIn):
-    result = fund_agent_runtime.kick_autopilot(run_id=body.run_id)
+async def kick_autopilot(body: AutopilotKickIn, background_tasks: BackgroundTasks):
+    if not fund_agent_runtime.is_started():
+        result = {"accepted": False, "reason": "runtime_not_started"}
+    elif data_integrity_guard.halted():
+        result = {"accepted": False, "reason": data_integrity_guard.halt_reason() or "system_halted"}
+    else:
+        run_id = str(body.run_id or f"run-autopilot-{uuid.uuid4().hex[:12]}")
+        background_tasks.add_task(fund_agent_runtime.kick_autopilot, run_id)
+        result = {
+            "accepted": True,
+            "manual": True,
+            "queued": True,
+            "run_id": run_id,
+            "message": "Autopilot cycle scheduled in background.",
+        }
     if not result.get("accepted"):
         _record_runtime_control_event(
             action="kick_autopilot",
@@ -1556,6 +1686,75 @@ async def get_sleeve_budgets():
             )
 
     return {"sleeves": sleeves}
+
+
+@router.get("/allocation/policy", response_model=dict)
+async def get_allocation_policy(run_id: str | None = Query(default=None, min_length=3, max_length=128)):
+    return firm_orchestrator.allocation_policy_status(run_id=run_id)
+
+
+@router.post("/allocation/policy", response_model=dict)
+async def update_allocation_policy(body: dict[str, Any]):
+    run_id = str(body.get("run_id") or "").strip()
+    if not run_id:
+        raise HTTPException(status_code=400, detail="run_id_required")
+    agent_id = str(body.get("agent_id") or "ceo").strip() or "ceo"
+    return firm_orchestrator.set_allocation_policy(
+        run_id=run_id,
+        agent_id=agent_id,
+        total_capital_usd=body.get("total_capital_usd"),
+        reserve_cash_usd=body.get("reserve_cash_usd"),
+        asset_weights=body.get("asset_weights") if isinstance(body.get("asset_weights"), dict) else None,
+        sleeve_weights=body.get("sleeve_weights") if isinstance(body.get("sleeve_weights"), dict) else None,
+        constraints=body.get("constraints") if isinstance(body.get("constraints"), dict) else None,
+        metadata=body.get("metadata") if isinstance(body.get("metadata"), dict) else None,
+    )
+
+
+@router.get("/discovery/opportunities", response_model=dict)
+async def get_discovery_opportunities(
+    limit: int = Query(default=100, ge=1, le=2000),
+    run_id: str | None = Query(default=None, min_length=3, max_length=128),
+    status: str | None = Query(default=None, min_length=2, max_length=64),
+    asset_class: str | None = Query(default=None, min_length=2, max_length=64),
+):
+    rows = firm_orchestrator.list_discovery_opportunities(
+        limit=limit,
+        run_id=run_id,
+        status=status,
+        asset_class=asset_class,
+    )
+    return {"opportunities": rows}
+
+
+@router.get("/operator/crm", response_model=dict)
+async def get_operator_crm(
+    task_limit: int = Query(default=60, ge=10, le=500),
+    opportunity_limit: int = Query(default=40, ge=5, le=500),
+):
+    runtime = fund_agent_runtime.status()
+    return {
+        "status_badges": await get_system_status_badges(),
+        "metrics": await get_metrics_summary(),
+        "runtime_control": await get_runtime_control_status(),
+        "allocation_policy": firm_orchestrator.allocation_policy_status(),
+        "discovery": {
+            "opportunities": firm_orchestrator.list_discovery_opportunities(limit=opportunity_limit),
+        },
+        "swarm_snapshot": {
+            "active_contexts": runtime.get("active_contexts") if isinstance(runtime.get("active_contexts"), list) else [],
+            "signal_packs": runtime.get("signal_packs") if isinstance(runtime.get("signal_packs"), list) else [],
+            "workers": runtime.get("workers") if isinstance(runtime.get("workers"), list) else [],
+        },
+        "tasks": {
+            "active": firm_orchestrator.list_active_tasks(),
+            "history": firm_orchestrator.list_task_history(limit=task_limit),
+        },
+        "decisions": {
+            "pending": firm_orchestrator.list_pending_decisions(),
+            "blocked": firm_orchestrator.list_blocked_trades(limit=task_limit),
+        },
+    }
 
 
 @router.get("/audit/orders/{order_id}/timeline", response_model=dict)
@@ -1955,6 +2154,7 @@ async def get_research_reports(
     status: Optional[str] = Query(None, description="Filter by status: draft, published, archived"),
     agent_role: Optional[str] = Query(None, description="Filter by agent role"),
     asset: Optional[str] = Query(None, description="Filter by asset symbol"),
+    surface: Optional[str] = Query(None, description="Filter by surface: public, kb, all"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ):
@@ -1962,7 +2162,12 @@ async def get_research_reports(
         return {"reports": [], "total": 0, "limit": limit, "offset": offset}
 
     raw = firm_orchestrator.list_recent_research_reports(limit=max(limit + offset, limit), symbol=asset)
-    mapped = [_map_live_report(item).model_dump(mode="json") for item in raw]
+    task_history_cache: dict[str, list[dict[str, Any]]] = {}
+    mapped = [_map_live_report(item, task_history_cache=task_history_cache).model_dump(mode="json") for item in raw]
+
+    if surface and surface.lower() not in {"all"}:
+        surface_l = surface.lower()
+        mapped = [item for item in mapped if str(item.get("surface") or "").lower() == surface_l]
 
     if agent_role:
         agent_role_l = agent_role.lower()

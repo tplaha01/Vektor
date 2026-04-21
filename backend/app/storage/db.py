@@ -27,8 +27,28 @@ def init_db() -> None:
     _conn.row_factory = sqlite3.Row
     _conn.execute("PRAGMA journal_mode=WAL")
     _conn.executescript(SCHEMA_SQL)
+    _ensure_column(_conn, "orders", "asset_class", "TEXT")
+    _ensure_column(_conn, "orders", "instrument_type", "TEXT")
+    _ensure_column(_conn, "orders", "routing_mode", "TEXT")
+    _ensure_column(_conn, "orders", "underlier_symbol", "TEXT")
+    _ensure_column(_conn, "orders", "contract_multiplier", "REAL")
+    _ensure_column(_conn, "orders", "metadata_json", "TEXT")
+    _ensure_column(_conn, "positions", "asset_class", "TEXT")
+    _ensure_column(_conn, "positions", "instrument_type", "TEXT")
+    _ensure_column(_conn, "positions", "routing_mode", "TEXT")
+    _ensure_column(_conn, "positions", "underlier_symbol", "TEXT")
+    _ensure_column(_conn, "positions", "contract_multiplier", "REAL")
+    _ensure_column(_conn, "positions", "metadata_json", "TEXT")
     _conn.commit()
     print(f"Database initialized at {settings.SQLITE_PATH}")
+
+
+def _ensure_column(conn: sqlite3.Connection, table: str, column: str, column_sql: str) -> None:
+    rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
+    names = {str(row[1]) for row in rows}
+    if column in names:
+        return
+    conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {column_sql}")
 
 
 @contextmanager
@@ -47,8 +67,8 @@ def save_order(order: Dict[str, Any]) -> None:
     with get_db() as db:
         db.execute(
             """INSERT OR REPLACE INTO orders
-               (id, symbol, side, qty, avg_price, status, created_at)
-               VALUES (:id, :symbol, :side, :qty, :avg_price, :status, :created_at)""",
+               (id, symbol, side, qty, avg_price, status, created_at, asset_class, instrument_type, routing_mode, underlier_symbol, contract_multiplier, metadata_json)
+               VALUES (:id, :symbol, :side, :qty, :avg_price, :status, :created_at, :asset_class, :instrument_type, :routing_mode, :underlier_symbol, :contract_multiplier, :metadata_json)""",
             {
                 "id": str(order["id"]),
                 "symbol": order["symbol"],
@@ -57,6 +77,12 @@ def save_order(order: Dict[str, Any]) -> None:
                 "avg_price": float(order.get("avg_price", order.get("price", 0))),
                 "status": order.get("status", "filled"),
                 "created_at": order.get("created_at", datetime.utcnow().isoformat()),
+                "asset_class": order.get("asset_class"),
+                "instrument_type": order.get("instrument_type"),
+                "routing_mode": order.get("routing_mode"),
+                "underlier_symbol": order.get("underlier_symbol"),
+                "contract_multiplier": float(order.get("contract_multiplier", 1.0) or 1.0),
+                "metadata_json": json.dumps(dict(order.get("metadata") or {}), ensure_ascii=False),
             },
         )
 
@@ -64,7 +90,16 @@ def save_order(order: Dict[str, Any]) -> None:
 def load_orders() -> List[Dict[str, Any]]:
     with get_db() as db:
         rows = db.execute("SELECT * FROM orders ORDER BY created_at").fetchall()
-        return [dict(r) for r in rows]
+        items = []
+        for row in rows:
+            payload = dict(row)
+            try:
+                payload["metadata"] = json.loads(payload.get("metadata_json") or "{}")
+            except Exception:
+                payload["metadata"] = {}
+            payload.pop("metadata_json", None)
+            items.append(payload)
+        return items
 
 
 # Positions
@@ -74,18 +109,47 @@ def save_positions(positions: Dict[str, Dict]) -> None:
         db.execute("DELETE FROM positions")
         for sym, pos in positions.items():
             db.execute(
-                "INSERT INTO positions (symbol, qty, avg_price) VALUES (?, ?, ?)",
-                (sym, float(pos["qty"]), float(pos["avg_price"])),
+                """
+                INSERT INTO positions
+                (symbol, qty, avg_price, asset_class, instrument_type, routing_mode, underlier_symbol, contract_multiplier, metadata_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    sym,
+                    float(pos["qty"]),
+                    float(pos["avg_price"]),
+                    pos.get("asset_class"),
+                    pos.get("instrument_type"),
+                    pos.get("routing_mode"),
+                    pos.get("underlier_symbol"),
+                    float(pos.get("contract_multiplier", 1.0) or 1.0),
+                    json.dumps(dict(pos.get("metadata") or {}), ensure_ascii=False),
+                ),
             )
 
 
 def load_positions() -> Dict[str, Dict]:
     with get_db() as db:
         rows = db.execute("SELECT * FROM positions").fetchall()
-        return {
-            r["symbol"]: {"symbol": r["symbol"], "qty": r["qty"], "avg_price": r["avg_price"]}
-            for r in rows
-        }
+        results: Dict[str, Dict] = {}
+        for row in rows:
+            payload = dict(row)
+            try:
+                metadata = json.loads(payload.get("metadata_json") or "{}")
+            except Exception:
+                metadata = {}
+            results[row["symbol"]] = {
+                "symbol": row["symbol"],
+                "qty": row["qty"],
+                "avg_price": row["avg_price"],
+                "asset_class": payload.get("asset_class") or "equities",
+                "instrument_type": payload.get("instrument_type") or "equity",
+                "routing_mode": payload.get("routing_mode") or "paper_equity",
+                "underlier_symbol": payload.get("underlier_symbol"),
+                "contract_multiplier": float(payload.get("contract_multiplier") or 1.0),
+                "metadata": metadata,
+            }
+        return results
 
 
 # Cash
@@ -941,6 +1005,253 @@ def clear_performance_history() -> Dict[str, int]:
         "deleted_snapshots": deleted_snapshots,
         "deleted_baselines": deleted_baselines,
     }
+
+
+# Allocation policy persistence
+def save_allocation_policy(policy: Dict[str, Any]) -> None:
+    row = dict(policy or {})
+    policy_id = str(row.get("policy_id") or "").strip()
+    if not policy_id:
+        return
+    now = datetime.utcnow().isoformat()
+    with get_db() as db:
+        db.execute(
+            """
+            INSERT INTO fund_allocation_policies (
+                policy_id, run_id, agent_id, status, total_capital_usd, reserve_cash_usd,
+                deployable_capital_usd, asset_weights_json, sleeve_weights_json,
+                constraints_json, metadata_json, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(policy_id) DO UPDATE SET
+                run_id=excluded.run_id,
+                agent_id=excluded.agent_id,
+                status=excluded.status,
+                total_capital_usd=excluded.total_capital_usd,
+                reserve_cash_usd=excluded.reserve_cash_usd,
+                deployable_capital_usd=excluded.deployable_capital_usd,
+                asset_weights_json=excluded.asset_weights_json,
+                sleeve_weights_json=excluded.sleeve_weights_json,
+                constraints_json=excluded.constraints_json,
+                metadata_json=excluded.metadata_json,
+                updated_at=excluded.updated_at
+            """,
+            (
+                policy_id,
+                row.get("run_id"),
+                row.get("agent_id"),
+                str(row.get("status") or "active"),
+                float(row.get("total_capital_usd") or 0.0),
+                float(row.get("reserve_cash_usd") or 0.0),
+                float(row.get("deployable_capital_usd") or 0.0),
+                json.dumps(dict(row.get("asset_weights") or {}), ensure_ascii=False),
+                json.dumps(dict(row.get("sleeve_weights") or {}), ensure_ascii=False),
+                json.dumps(dict(row.get("constraints") or {}), ensure_ascii=False),
+                json.dumps(dict(row.get("metadata") or {}), ensure_ascii=False),
+                str(row.get("created_at") or now),
+                str(row.get("updated_at") or now),
+            ),
+        )
+
+
+def load_allocation_policies(*, limit: int = 20, run_id: str | None = None) -> List[Dict[str, Any]]:
+    query = (
+        "SELECT policy_id, run_id, agent_id, status, total_capital_usd, reserve_cash_usd, "
+        "deployable_capital_usd, asset_weights_json, sleeve_weights_json, constraints_json, "
+        "metadata_json, created_at, updated_at "
+        "FROM fund_allocation_policies"
+    )
+    params: list[Any] = []
+    if run_id:
+        query += " WHERE run_id = ?"
+        params.append(str(run_id))
+    query += " ORDER BY updated_at DESC LIMIT ?"
+    params.append(int(limit))
+    with get_db() as db:
+        rows = db.execute(query, params).fetchall()
+    out: List[Dict[str, Any]] = []
+    for raw in rows:
+        row = dict(raw)
+        try:
+            asset_weights = json.loads(row.get("asset_weights_json") or "{}")
+            if not isinstance(asset_weights, dict):
+                asset_weights = {}
+        except Exception:
+            asset_weights = {}
+        try:
+            sleeve_weights = json.loads(row.get("sleeve_weights_json") or "{}")
+            if not isinstance(sleeve_weights, dict):
+                sleeve_weights = {}
+        except Exception:
+            sleeve_weights = {}
+        try:
+            constraints = json.loads(row.get("constraints_json") or "{}")
+            if not isinstance(constraints, dict):
+                constraints = {}
+        except Exception:
+            constraints = {}
+        try:
+            metadata = json.loads(row.get("metadata_json") or "{}")
+            if not isinstance(metadata, dict):
+                metadata = {}
+        except Exception:
+            metadata = {}
+        out.append(
+            {
+                "policy_id": row.get("policy_id"),
+                "run_id": row.get("run_id"),
+                "agent_id": row.get("agent_id"),
+                "status": row.get("status"),
+                "total_capital_usd": float(row.get("total_capital_usd") or 0.0),
+                "reserve_cash_usd": float(row.get("reserve_cash_usd") or 0.0),
+                "deployable_capital_usd": float(row.get("deployable_capital_usd") or 0.0),
+                "asset_weights": asset_weights,
+                "sleeve_weights": sleeve_weights,
+                "constraints": constraints,
+                "metadata": metadata,
+                "created_at": row.get("created_at"),
+                "updated_at": row.get("updated_at"),
+            }
+        )
+    return out
+
+
+def load_latest_allocation_policy(run_id: str | None = None) -> Dict[str, Any] | None:
+    rows = load_allocation_policies(limit=1, run_id=run_id)
+    return rows[0] if rows else None
+
+
+# Discovery opportunity persistence
+def save_discovery_opportunity(opportunity: Dict[str, Any]) -> None:
+    row = dict(opportunity or {})
+    opportunity_id = str(row.get("opportunity_id") or "").strip()
+    if not opportunity_id:
+        return
+    now = datetime.utcnow().isoformat()
+    with get_db() as db:
+        db.execute(
+            """
+            INSERT INTO fund_discovery_opportunities (
+                opportunity_id, run_id, symbol, asset_class, strategy_family, direction,
+                score, confidence, horizon, thesis, catalysts_json, evidence_json, ml_json,
+                metadata_json, status, discovered_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(opportunity_id) DO UPDATE SET
+                run_id=excluded.run_id,
+                symbol=excluded.symbol,
+                asset_class=excluded.asset_class,
+                strategy_family=excluded.strategy_family,
+                direction=excluded.direction,
+                score=excluded.score,
+                confidence=excluded.confidence,
+                horizon=excluded.horizon,
+                thesis=excluded.thesis,
+                catalysts_json=excluded.catalysts_json,
+                evidence_json=excluded.evidence_json,
+                ml_json=excluded.ml_json,
+                metadata_json=excluded.metadata_json,
+                status=excluded.status,
+                updated_at=excluded.updated_at
+            """,
+            (
+                opportunity_id,
+                row.get("run_id"),
+                str(row.get("symbol") or "").upper(),
+                str(row.get("asset_class") or "equities"),
+                row.get("strategy_family"),
+                row.get("direction"),
+                float(row.get("score") or 0.0),
+                float(row.get("confidence") or 0.0),
+                row.get("horizon"),
+                str(row.get("thesis") or ""),
+                json.dumps(list(row.get("catalysts") or []), ensure_ascii=False),
+                json.dumps(list(row.get("evidence") or []), ensure_ascii=False),
+                json.dumps(dict(row.get("ml") or {}), ensure_ascii=False),
+                json.dumps(dict(row.get("metadata") or {}), ensure_ascii=False),
+                str(row.get("status") or "candidate"),
+                str(row.get("discovered_at") or now),
+                str(row.get("updated_at") or now),
+            ),
+        )
+
+
+def load_discovery_opportunities(
+    *,
+    limit: int = 100,
+    run_id: str | None = None,
+    status: str | None = None,
+    asset_class: str | None = None,
+) -> List[Dict[str, Any]]:
+    query = (
+        "SELECT opportunity_id, run_id, symbol, asset_class, strategy_family, direction, score, confidence, "
+        "horizon, thesis, catalysts_json, evidence_json, ml_json, metadata_json, status, discovered_at, updated_at "
+        "FROM fund_discovery_opportunities"
+    )
+    clauses: list[str] = []
+    params: list[Any] = []
+    if run_id:
+        clauses.append("run_id = ?")
+        params.append(str(run_id))
+    if status:
+        clauses.append("status = ?")
+        params.append(str(status))
+    if asset_class:
+        clauses.append("asset_class = ?")
+        params.append(str(asset_class))
+    if clauses:
+        query += " WHERE " + " AND ".join(clauses)
+    query += " ORDER BY score DESC, updated_at DESC LIMIT ?"
+    params.append(int(limit))
+    with get_db() as db:
+        rows = db.execute(query, params).fetchall()
+    out: List[Dict[str, Any]] = []
+    for raw in rows:
+        row = dict(raw)
+        try:
+            catalysts = json.loads(row.get("catalysts_json") or "[]")
+            if not isinstance(catalysts, list):
+                catalysts = []
+        except Exception:
+            catalysts = []
+        try:
+            evidence = json.loads(row.get("evidence_json") or "[]")
+            if not isinstance(evidence, list):
+                evidence = []
+        except Exception:
+            evidence = []
+        try:
+            ml = json.loads(row.get("ml_json") or "{}")
+            if not isinstance(ml, dict):
+                ml = {}
+        except Exception:
+            ml = {}
+        try:
+            metadata = json.loads(row.get("metadata_json") or "{}")
+            if not isinstance(metadata, dict):
+                metadata = {}
+        except Exception:
+            metadata = {}
+        out.append(
+            {
+                "opportunity_id": row.get("opportunity_id"),
+                "run_id": row.get("run_id"),
+                "symbol": row.get("symbol"),
+                "asset_class": row.get("asset_class"),
+                "strategy_family": row.get("strategy_family"),
+                "direction": row.get("direction"),
+                "score": float(row.get("score") or 0.0),
+                "confidence": float(row.get("confidence") or 0.0),
+                "horizon": row.get("horizon"),
+                "thesis": row.get("thesis"),
+                "catalysts": catalysts,
+                "evidence": evidence,
+                "ml": ml,
+                "metadata": metadata,
+                "status": row.get("status"),
+                "discovered_at": row.get("discovered_at"),
+                "updated_at": row.get("updated_at"),
+            }
+        )
+    return out
 
 
 # Knowledge event persistence

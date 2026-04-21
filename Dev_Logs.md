@@ -5467,3 +5467,402 @@ files:
 - .run/backend.pid
 validation: live /health returned mode=multi_vendor_router; live /api/admin/system/status-badges returned router routes, provider states, and healthy paper/data/orchestration badges
 notes: Provider quota states are still unknown until the first routed model call; next verification step should be a real analyst task.
+
+[2026-04-21T18:39:56.558361Z] [START]
+entry_id: devlog-20260421-52cc7ca7
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-8345eb228e94
+git_branch: main
+git_commit_start: cf8a86d8dbd9e16ce8de44d9c7b484c437c35994
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-21T19:00:12.047641Z] [START]
+entry_id: devlog-20260421-3aaa69a0
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-fbbcd63e5e51
+git_branch: main
+git_commit_start: cf8a86d8dbd9e16ce8de44d9c7b484c437c35994
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-21T19:04:26.294596Z] [START]
+entry_id: devlog-20260421-cdbccd86
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-651c9103539f
+git_branch: main
+git_commit_start: cf8a86d8dbd9e16ce8de44d9c7b484c437c35994
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-21T19:05:28.539879Z] [START]
+entry_id: devlog-20260421-5e4802bf
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-a5a6faac1dc6
+git_branch: main
+git_commit_start: cf8a86d8dbd9e16ce8de44d9c7b484c437c35994
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+[2026-04-21T19:06:00Z] [END]
+entry_id: devlog-20260421-codex-kb-routing-verification
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5.4
+actor_provider: openai
+run_id: run-codex-20260421-kb-routing-verification
+git_branch: main
+git_commit_start: cf8a86d8dbd9e16ce8de44d9c7b484c437c35994
+git_commit_end: 
+scope: Phase Alpha backend verification, KB/public deliverable split, admin KB trace graph, and hosted multi-vendor role sweep
+files:
+- backend/app/admin_research_routes.py
+- backend/app/fund/blog_service.py
+- frontend/src/api/adminAPI.js
+- frontend/src/pages/Admin.jsx
+- frontend/src/pages/Research.jsx
+- frontend/src/styles/admin.css
+- frontend/src/components/admin/KnowledgeTraceGraph.jsx
+validation: frontend build passed; backend tests passed (71); live role sweep completed across specialist roles; provider/model metadata live on KB documents and blogs
+notes: Public research page now excludes operational analyst deliverables; KB/admin surfaces provider/model traceability and downstream usage graph. Hosted verification showed Gemini Flash-Lite and Gemini Flash paths reachable but rate-limited, with Groq succeeding as fallback for most specialist runs.
+
+[2026-04-21T19:14:27.473825Z] [START]
+entry_id: devlog-20260421-edcb5950
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-a1e11930c7c1
+git_branch: main
+git_commit_start: cf8a86d8dbd9e16ce8de44d9c7b484c437c35994
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-21T19:16:19.525404Z] [START]
+entry_id: devlog-20260421-2296ddc3
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-850e88c1f233
+git_branch: main
+git_commit_start: cf8a86d8dbd9e16ce8de44d9c7b484c437c35994
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-21T19:21:18.127096Z] [START]
+entry_id: devlog-20260421-a0c1c4d1
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-d15c7b4dcfc7
+git_branch: main
+git_commit_start: cf8a86d8dbd9e16ce8de44d9c7b484c437c35994
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-21T19:31:59.606473Z] [START]
+entry_id: devlog-20260421-c6318089
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-762361883022
+git_branch: main
+git_commit_start: cf8a86d8dbd9e16ce8de44d9c7b484c437c35994
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-21T19:42:43.351035Z] [START]
+entry_id: devlog-20260421-cb4b4b2c
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-e65ef9fd7432
+git_branch: main
+git_commit_start: cf8a86d8dbd9e16ce8de44d9c7b484c437c35994
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-21T20:20:45.656721Z] [START]
+entry_id: devlog-20260421-34016054
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-c0487072c959
+git_branch: main
+git_commit_start: cf8a86d8dbd9e16ce8de44d9c7b484c437c35994
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-21T20:34:28.581270Z] [START]
+entry_id: devlog-20260421-87b4b591
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-b1a71e83cc0e
+git_branch: main
+git_commit_start: cf8a86d8dbd9e16ce8de44d9c7b484c437c35994
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-21T21:00:43.204111Z] [START]
+entry_id: devlog-20260421-6e7fa318
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-620e3d25c934
+git_branch: main
+git_commit_start: cf8a86d8dbd9e16ce8de44d9c7b484c437c35994
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-21T21:46:30.633652Z] [START]
+entry_id: devlog-20260421-a2886955
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-7228246d53f6
+git_branch: main
+git_commit_start: cf8a86d8dbd9e16ce8de44d9c7b484c437c35994
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-21T21:47:07.767532Z] [START]
+entry_id: devlog-20260421-0f6fc540
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-a3735d4b3373
+git_branch: main
+git_commit_start: cf8a86d8dbd9e16ce8de44d9c7b484c437c35994
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-21T21:49:41.966846Z] [START]
+entry_id: devlog-20260421-e7878355
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-e84fc794b1e0
+git_branch: main
+git_commit_start: cf8a86d8dbd9e16ce8de44d9c7b484c437c35994
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-21T22:22:04.741705Z] [START]
+entry_id: devlog-20260421-6b2ff0c2
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-34955201e03f
+git_branch: main
+git_commit_start: cf8a86d8dbd9e16ce8de44d9c7b484c437c35994
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-21T22:32:29.026432Z] [START]
+entry_id: devlog-20260421-a23346f0
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-c15126b00d04
+git_branch: main
+git_commit_start: cf8a86d8dbd9e16ce8de44d9c7b484c437c35994
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-04-21T22:45:50.849698Z] [START]
+entry_id: devlog-20260421-31d9f4ed
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-463d4062f332
+git_branch: main
+git_commit_start: cf8a86d8dbd9e16ce8de44d9c7b484c437c35994
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot

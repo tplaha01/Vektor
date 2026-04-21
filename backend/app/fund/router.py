@@ -3,8 +3,9 @@ from __future__ import annotations
 import asyncio
 from decimal import Decimal
 from typing import Any, Literal
+from uuid import uuid4
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
 from app.fund.contracts import (
@@ -18,6 +19,7 @@ from app.fund.openclaw_command_adapter import OpenClawCommandAdapter, openclaw_c
 from app.fund.orchestrator import FirmOrchestrator, firm_orchestrator
 from app.fund.performance_tracker import performance_tracker
 from app.fund.realtime_stream import realtime_stream
+from app.fund.runtime_guard import data_integrity_guard
 
 router = APIRouter(prefix="/fund", tags=["fund"])
 
@@ -40,6 +42,17 @@ class SleeveAllocationIn(BaseModel):
     reserve_cash_usd: float = Field(default=0, ge=0)
     decision_id: str | None = Field(default=None, min_length=3, max_length=128)
     target_weights: dict[str, float] | None = None
+
+
+class AllocationPolicyIn(BaseModel):
+    run_id: str = Field(..., min_length=3, max_length=128)
+    agent_id: str = Field(default="ceo", min_length=2, max_length=128)
+    total_capital_usd: float | None = Field(default=None, gt=0)
+    reserve_cash_usd: float | None = Field(default=None, ge=0)
+    asset_weights: dict[str, float] = Field(default_factory=dict)
+    sleeve_weights: dict[str, float] = Field(default_factory=dict)
+    constraints: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class ResearchProvenanceIn(BaseModel):
@@ -188,6 +201,49 @@ async def allocate_sleeves_endpoint(
     )
 
 
+@router.post("/allocation/policy")
+async def set_allocation_policy_endpoint(
+    body: AllocationPolicyIn,
+    orchestrator: FirmOrchestrator = Depends(get_orchestrator),
+):
+    return orchestrator.set_allocation_policy(
+        run_id=body.run_id,
+        agent_id=body.agent_id,
+        total_capital_usd=body.total_capital_usd,
+        reserve_cash_usd=body.reserve_cash_usd,
+        asset_weights=body.asset_weights,
+        sleeve_weights=body.sleeve_weights,
+        constraints=body.constraints,
+        metadata=body.metadata,
+    )
+
+
+@router.get("/allocation/policy")
+async def get_allocation_policy_endpoint(
+    run_id: str | None = Query(default=None, min_length=3, max_length=128),
+    orchestrator: FirmOrchestrator = Depends(get_orchestrator),
+):
+    return orchestrator.allocation_policy_status(run_id=run_id)
+
+
+@router.get("/discovery/opportunities")
+async def discovery_opportunities(
+    limit: int = Query(default=100, ge=1, le=2000),
+    run_id: str | None = Query(default=None, min_length=3, max_length=128),
+    status: str | None = Query(default=None, min_length=2, max_length=64),
+    asset_class: str | None = Query(default=None, min_length=2, max_length=64),
+    orchestrator: FirmOrchestrator = Depends(get_orchestrator),
+):
+    return {
+        "opportunities": orchestrator.list_discovery_opportunities(
+            limit=limit,
+            run_id=run_id,
+            status=status,
+            asset_class=asset_class,
+        )
+    }
+
+
 @router.post("/research/reports")
 async def create_research_report(
     body: ResearchReportIn,
@@ -303,9 +359,23 @@ async def autopilot_status(runtime: FundAgentRuntime = Depends(get_agent_runtime
 @router.post("/agents/autopilot/kick")
 async def autopilot_kick(
     body: AutopilotKickIn,
+    background_tasks: BackgroundTasks,
     runtime: FundAgentRuntime = Depends(get_agent_runtime),
 ):
-    result = runtime.kick_autopilot(run_id=body.run_id)
+    if not runtime.is_started():
+        result = {"accepted": False, "reason": "runtime_not_started"}
+    elif data_integrity_guard.halted():
+        result = {"accepted": False, "reason": data_integrity_guard.halt_reason() or "system_halted"}
+    else:
+        run_id = str(body.run_id or f"run-autopilot-{uuid4().hex[:12]}")
+        background_tasks.add_task(runtime.kick_autopilot, run_id)
+        result = {
+            "accepted": True,
+            "manual": True,
+            "queued": True,
+            "run_id": run_id,
+            "message": "Autopilot cycle scheduled in background.",
+        }
     if not result.get("accepted"):
         raise HTTPException(status_code=400, detail=result.get("reason", "autopilot_rejected"))
     return result

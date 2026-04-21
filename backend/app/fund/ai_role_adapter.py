@@ -3,10 +3,11 @@ from __future__ import annotations
 import ast
 import json
 import re
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
-from time import monotonic
+from time import monotonic, time
 from typing import Any, Callable
 
 import requests
@@ -32,6 +33,30 @@ _ROUTED_ROLE_ALIASES: dict[str, str] = {
 
 def _utc_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _utc_iso_from_ts(value: float | None) -> str | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromtimestamp(float(value), timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    except Exception:
+        return None
+
+
+class TemporaryProviderCapacityError(RuntimeError):
+    def __init__(
+        self,
+        message: str,
+        *,
+        retry_after_seconds: float,
+        reasons: list[str] | None = None,
+        providers: list[str] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.retry_after_seconds = max(1.0, float(retry_after_seconds))
+        self.reasons = list(reasons or [])
+        self.providers = list(providers or [])
 
 
 def _clamp(value: float, lower: float, upper: float) -> float:
@@ -193,6 +218,12 @@ class ProviderConfig:
     api_key: str | None
     default_model: str
     enabled: bool = True
+    max_concurrency: int = 1
+    cooldown_seconds: float = 45.0
+    transient_cooldown_seconds: float = 8.0
+    requests_per_window: int = 0
+    tokens_per_window: int = 0
+    window_seconds: float = 60.0
 
 
 @dataclass
@@ -201,14 +232,22 @@ class ProviderRuntimeState:
     successes: int = 0
     failures: int = 0
     failovers: int = 0
+    in_flight: int = 0
     last_model: str | None = None
     last_error: str | None = None
     last_status_code: int | None = None
     last_success_at: str | None = None
     last_failure_at: str | None = None
     quota_state: str = "unknown"
+    cooldown_until: float = 0.0
+    window_started_at: float = 0.0
+    window_reset_at: float = 0.0
+    requests_in_window: int = 0
+    estimated_tokens_in_window: int = 0
 
     def to_dict(self, *, config: ProviderConfig) -> dict[str, Any]:
+        remaining = max(0.0, float(self.cooldown_until or 0.0) - time())
+        window_remaining = max(0.0, float(self.window_reset_at or 0.0) - time())
         return {
             "name": config.name,
             "provider_type": config.provider_type,
@@ -216,6 +255,8 @@ class ProviderRuntimeState:
             "base_url": config.base_url,
             "api_key_configured": bool(config.api_key),
             "default_model": config.default_model,
+            "max_concurrency": max(1, int(config.max_concurrency)),
+            "in_flight": self.in_flight,
             "attempts": self.attempts,
             "successes": self.successes,
             "failures": self.failures,
@@ -226,6 +267,45 @@ class ProviderRuntimeState:
             "last_success_at": self.last_success_at,
             "last_failure_at": self.last_failure_at,
             "quota_state": self.quota_state,
+            "cooldown_until": _utc_iso_from_ts(self.cooldown_until),
+            "cooldown_remaining_seconds": round(remaining, 2),
+            "requests_per_window": max(0, int(config.requests_per_window)),
+            "tokens_per_window": max(0, int(config.tokens_per_window)),
+            "window_seconds": round(max(1.0, float(config.window_seconds)), 2),
+            "window_started_at": _utc_iso_from_ts(self.window_started_at),
+            "window_reset_at": _utc_iso_from_ts(self.window_reset_at),
+            "window_remaining_seconds": round(window_remaining, 2),
+            "requests_in_window": int(self.requests_in_window),
+            "estimated_tokens_in_window": int(self.estimated_tokens_in_window),
+        }
+
+
+@dataclass
+class RunBudgetState:
+    run_id: str
+    requests_used: int = 0
+    estimated_tokens_used: int = 0
+    window_started_at: float = 0.0
+    window_reset_at: float = 0.0
+    last_role: str | None = None
+    last_provider: str | None = None
+    last_attempt_at: str | None = None
+
+    def to_dict(self, *, requests_limit: int, tokens_limit: int, window_seconds: float) -> dict[str, Any]:
+        remaining = max(0.0, float(self.window_reset_at or 0.0) - time())
+        return {
+            "run_id": self.run_id,
+            "requests_limit": max(0, int(requests_limit)),
+            "tokens_limit": max(0, int(tokens_limit)),
+            "window_seconds": round(max(1.0, float(window_seconds)), 2),
+            "requests_used": int(self.requests_used),
+            "estimated_tokens_used": int(self.estimated_tokens_used),
+            "window_started_at": _utc_iso_from_ts(self.window_started_at),
+            "window_reset_at": _utc_iso_from_ts(self.window_reset_at),
+            "window_remaining_seconds": round(remaining, 2),
+            "last_role": self.last_role,
+            "last_provider": self.last_provider,
+            "last_attempt_at": self.last_attempt_at,
         }
 
 
@@ -272,6 +352,9 @@ class AIRoleAdapter:
         role_routes: dict[str, tuple[str, ...]] | None = None,
         default_route: tuple[str, ...] | None = None,
         gateway: dict[str, Any] | None = None,
+        run_request_envelope: int = 0,
+        run_tokens_envelope: int = 0,
+        run_window_seconds: float = 120.0,
     ) -> None:
         self._enabled = bool(enabled)
         self._provider = str(provider or "openai_compatible").strip().lower()
@@ -292,9 +375,19 @@ class AIRoleAdapter:
         self._provider_runtime: dict[str, ProviderRuntimeState] = {
             name: ProviderRuntimeState() for name in self._provider_configs
         }
+        self._provider_limiters: dict[str, threading.BoundedSemaphore] = {
+            name: threading.BoundedSemaphore(max(1, int(config.max_concurrency)))
+            for name, config in self._provider_configs.items()
+        }
+        self._provider_state_lock = threading.RLock()
         self._role_routes = {str(role).strip(): tuple(route) for role, route in (role_routes or {}).items()}
         self._default_route = tuple(default_route or ())
         self._role_runtime: dict[str, RoleRuntimeState] = {}
+        self._run_request_envelope = max(0, int(run_request_envelope))
+        self._run_tokens_envelope = max(0, int(run_tokens_envelope))
+        self._run_window_seconds = max(1.0, float(run_window_seconds))
+        self._run_budget_runtime: dict[str, RunBudgetState] = {}
+        self._run_budget_lock = threading.RLock()
 
         if not self._router_enabled:
             self._default_route = tuple()
@@ -314,6 +407,20 @@ class AIRoleAdapter:
                 "gateway": dict(self._gateway),
             }
 
+        with self._run_budget_lock:
+            active_runs = [
+                state.to_dict(
+                    requests_limit=self._run_request_envelope,
+                    tokens_limit=self._run_tokens_envelope,
+                    window_seconds=self._run_window_seconds,
+                )
+                for _, state in sorted(
+                    self._run_budget_runtime.items(),
+                    key=lambda item: item[1].window_reset_at,
+                    reverse=True,
+                )[:12]
+            ]
+
         return {
             "enabled": self._enabled,
             "mode": "multi_vendor_router",
@@ -330,6 +437,12 @@ class AIRoleAdapter:
             "providers": {
                 name: self._provider_runtime[name].to_dict(config=config)
                 for name, config in sorted(self._provider_configs.items())
+            },
+            "scheduler": {
+                "run_request_envelope": self._run_request_envelope,
+                "run_tokens_envelope": self._run_tokens_envelope,
+                "run_window_seconds": round(self._run_window_seconds, 2),
+                "active_runs": active_runs,
             },
             "role_runtime": {
                 role: state.to_dict()
@@ -398,6 +511,7 @@ class AIRoleAdapter:
         try:
             response_meta = self._invoke_model(
                 role=role,
+                run_id=run_id,
                 model=route_context["model"],
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
@@ -418,6 +532,7 @@ class AIRoleAdapter:
                 )
                 retry_meta = self._invoke_model(
                     role=role,
+                    run_id=run_id,
                     model=resolved_model,
                     system_prompt=system_prompt,
                     user_prompt=retry_prompt,
@@ -520,7 +635,8 @@ class AIRoleAdapter:
             "You are Vektor's principal editorial analyst for AI, fintech, and hedge-fund research. "
             "Write specific, high-signal content for serious operators. "
             "Avoid generic motivation, filler, broad beginner advice, and vague futurism. "
-            "Every section must connect directly to the supplied report facts."
+            "Every section must connect directly to the supplied report facts. "
+            "The writing must be easy to read: short paragraphs, explicit transitions, and a clear blend of technical explanation and layman explanation."
         )
         user_payload = {
             "run_id": run_id,
@@ -532,11 +648,13 @@ class AIRoleAdapter:
                 "tone": "institutional, precise, operator-focused",
                 "must_include_sections": [
                     "Executive Brief",
+                    "In Plain English",
                     "Why This Matters Now",
                     "Evidence and Context",
                     "Execution Scenarios (30/90 day)",
                     "Risk Controls and Failure Modes",
                     "What to Track Next",
+                    "Bottom Line",
                 ],
                 "must_include_visuals": [
                     "at least 2 standalone markdown images using ![alt](url)",
@@ -568,6 +686,7 @@ class AIRoleAdapter:
             "Return only JSON matching output_schema. No markdown fences. "
             "content_markdown must be full article body, not outline. "
             "Use standalone markdown image blocks inside content_markdown, not HTML. "
+            "Keep paragraphs short and readable. Include one section literally titled 'In Plain English' that explains the technical point simply without dumbing it down. "
             "Use concrete symbols, catalysts, constraints, and risks from the supplied report. "
             "Do not fabricate numbers or citations not present in the report.\n"
             + json.dumps(user_payload, sort_keys=True, default=str)
@@ -576,6 +695,7 @@ class AIRoleAdapter:
         try:
             response_meta = self._invoke_model(
                 role="blog_writer",
+                run_id=run_id,
                 model=route_context["model"],
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
@@ -591,6 +711,7 @@ class AIRoleAdapter:
                 parse_retry_used = True
                 retry_meta = self._invoke_model(
                     role="blog_writer",
+                    run_id=run_id,
                     model=resolved_model,
                     system_prompt=system_prompt,
                     user_prompt=(
@@ -650,6 +771,7 @@ class AIRoleAdapter:
         self,
         *,
         role: str,
+        run_id: str,
         model: str,
         system_prompt: str,
         user_prompt: str,
@@ -683,6 +805,22 @@ class AIRoleAdapter:
             raise RuntimeError(f"ai_role_adapter_missing_route:{role}")
 
         errors: list[str] = []
+        estimated_request_tokens = self._estimate_request_tokens(system_prompt=system_prompt, user_prompt=user_prompt)
+        run_budget_available, run_skip_reason, run_retry_after = self._try_reserve_run_budget(
+            run_id=run_id,
+            role=role,
+            estimated_tokens=estimated_request_tokens,
+        )
+        if not run_budget_available:
+            failure = str(run_skip_reason or "run_budget_unavailable")
+            self._record_role_failure(role=role, route=route, error=failure)
+            raise TemporaryProviderCapacityError(
+                failure,
+                retry_after_seconds=run_retry_after,
+                reasons=[failure],
+                providers=list(route),
+            )
+
         for index, provider_name in enumerate(route):
             provider = self._provider_configs.get(provider_name)
             if provider is None:
@@ -691,7 +829,20 @@ class AIRoleAdapter:
             if not provider.enabled:
                 errors.append(f"{provider_name}:provider_disabled")
                 continue
+            available, skip_reason = self._try_enter_provider(provider_name)
+            if not available:
+                errors.append(f"{provider_name}:{skip_reason}")
+                continue
             provider_model = self._model_for_role(role, provider_name=provider_name, fallback=model)
+            budget_reserved, budget_reason, budget_retry_after = self._try_reserve_provider_budget(
+                provider_name=provider_name,
+                estimated_tokens=estimated_request_tokens,
+            )
+            if not budget_reserved:
+                self._record_provider_budget_skip(provider_name, reason=str(budget_reason))
+                errors.append(f"{provider_name}:{budget_reason}")
+                self._exit_provider(provider_name)
+                continue
             self._record_provider_attempt(provider_name, provider_model)
             self._record_role_attempt(role=role, route=route)
             try:
@@ -702,6 +853,13 @@ class AIRoleAdapter:
                     user_prompt=user_prompt,
                 )
                 self._record_provider_success(provider_name, provider_model)
+                self._record_budget_success(
+                    provider_name=provider_name,
+                    run_id=run_id,
+                    role=role,
+                    usage=usage,
+                    fallback_estimated_tokens=estimated_request_tokens,
+                )
                 self._record_role_success(
                     role=role,
                     provider=provider_name,
@@ -723,10 +881,165 @@ class AIRoleAdapter:
                 self._record_provider_failure(provider_name, exc, status_code=status_code, failover=index < len(route) - 1)
                 errors.append(f"{provider_name}:{exc}")
                 continue
+            finally:
+                self._exit_provider(provider_name)
 
         failure = " | ".join(errors) if errors else "provider_invocation_failed"
         self._record_role_failure(role=role, route=route, error=failure)
+        if self._route_temporarily_unavailable(route=route, errors=errors):
+            raise TemporaryProviderCapacityError(
+                failure,
+                retry_after_seconds=self._earliest_retry_after(route),
+                reasons=errors,
+                providers=list(route),
+            )
         raise RuntimeError(failure)
+
+    def _route_temporarily_unavailable(self, *, route: tuple[str, ...], errors: list[str]) -> bool:
+        if not route or not errors:
+            return False
+        if any("run_request_budget_exhausted" in item or "run_token_budget_exhausted" in item for item in errors):
+            return True
+        temporary_markers = (
+            "provider_cooling_down",
+            "provider_saturated",
+            "provider_budget_window_exhausted",
+            "provider_token_window_exhausted",
+            ":429 ",
+            "http_error:429",
+        )
+        for provider_name in route:
+            provider_errors = [item for item in errors if item.startswith(f"{provider_name}:")]
+            if not provider_errors:
+                return False
+            if not all(any(marker in item for marker in temporary_markers) for item in provider_errors):
+                return False
+        return True
+
+    def _earliest_retry_after(self, route: tuple[str, ...]) -> float:
+        candidates: list[float] = []
+        now = time()
+        with self._provider_state_lock:
+            for provider_name in route:
+                config = self._provider_configs.get(provider_name)
+                state = self._provider_runtime.get(provider_name)
+                if config is None or state is None:
+                    continue
+                if state.cooldown_until and state.cooldown_until > now:
+                    candidates.append(max(1.0, float(state.cooldown_until - now)))
+                    continue
+                if state.window_reset_at and state.window_reset_at > now and (
+                    (config.requests_per_window and state.requests_in_window >= max(0, int(config.requests_per_window)))
+                    or (config.tokens_per_window and state.estimated_tokens_in_window >= max(0, int(config.tokens_per_window)))
+                ):
+                    candidates.append(max(1.0, float(state.window_reset_at - now)))
+                    continue
+                max_concurrency = max(1, int(config.max_concurrency))
+                if int(state.in_flight) >= max_concurrency:
+                    candidates.append(1.0)
+        return min(candidates) if candidates else 5.0
+
+    def _estimate_request_tokens(self, *, system_prompt: str, user_prompt: str) -> int:
+        # Cheap approximation is sufficient for free-tier budget control.
+        return max(1, int((len(system_prompt or "") + len(user_prompt or "")) / 4))
+
+    def _estimate_total_tokens(self, *, usage: dict[str, Any], fallback_estimated_tokens: int, response_text: str = "") -> int:
+        prompt_tokens = int(usage.get("prompt_tokens") or 0) if isinstance(usage, dict) else 0
+        completion_tokens = int(usage.get("completion_tokens") or 0) if isinstance(usage, dict) else 0
+        total_tokens = int(usage.get("total_tokens") or 0) if isinstance(usage, dict) else 0
+        if total_tokens > 0:
+            return max(1, total_tokens)
+        if prompt_tokens > 0 or completion_tokens > 0:
+            return max(1, prompt_tokens + completion_tokens)
+        completion_estimate = max(1, int(len(response_text or "") / 4)) if response_text else 0
+        return max(1, int(fallback_estimated_tokens) + completion_estimate)
+
+    def _reset_provider_window_if_needed(self, state: ProviderRuntimeState, config: ProviderConfig, *, now: float | None = None) -> None:
+        current = float(now if now is not None else time())
+        if state.window_reset_at and current < state.window_reset_at:
+            return
+        state.window_started_at = current
+        state.window_reset_at = current + max(1.0, float(config.window_seconds))
+        state.requests_in_window = 0
+        state.estimated_tokens_in_window = 0
+
+    def _reset_run_window_if_needed(self, state: RunBudgetState, *, now: float | None = None) -> None:
+        current = float(now if now is not None else time())
+        if state.window_reset_at and current < state.window_reset_at:
+            return
+        state.window_started_at = current
+        state.window_reset_at = current + self._run_window_seconds
+        state.requests_used = 0
+        state.estimated_tokens_used = 0
+
+    def _try_reserve_provider_budget(self, *, provider_name: str, estimated_tokens: int) -> tuple[bool, str | None, float]:
+        provider = self._provider_configs.get(provider_name)
+        if provider is None:
+            return False, "provider_unconfigured", 5.0
+        now = time()
+        with self._provider_state_lock:
+            state = self._provider_runtime.setdefault(provider_name, ProviderRuntimeState())
+            self._reset_provider_window_if_needed(state, provider, now=now)
+            request_limit = max(0, int(provider.requests_per_window))
+            token_limit = max(0, int(provider.tokens_per_window))
+            if request_limit and state.requests_in_window >= request_limit:
+                retry_after = max(1.0, float(state.window_reset_at - now))
+                return False, f"provider_budget_window_exhausted:{retry_after:.1f}s", retry_after
+            if token_limit and state.estimated_tokens_in_window + max(1, int(estimated_tokens)) > token_limit:
+                retry_after = max(1.0, float(state.window_reset_at - now))
+                return False, f"provider_token_window_exhausted:{retry_after:.1f}s", retry_after
+            state.requests_in_window += 1
+            state.estimated_tokens_in_window += max(1, int(estimated_tokens))
+        return True, None, 0.0
+
+    def _try_reserve_run_budget(self, *, run_id: str, role: str, estimated_tokens: int) -> tuple[bool, str | None, float]:
+        if not run_id or (self._run_request_envelope <= 0 and self._run_tokens_envelope <= 0):
+            return True, None, 0.0
+        now = time()
+        with self._run_budget_lock:
+            state = self._run_budget_runtime.setdefault(str(run_id), RunBudgetState(run_id=str(run_id)))
+            self._reset_run_window_if_needed(state, now=now)
+            if self._run_request_envelope and state.requests_used >= self._run_request_envelope:
+                retry_after = max(1.0, float(state.window_reset_at - now))
+                return False, f"run_request_budget_exhausted:{retry_after:.1f}s", retry_after
+            if self._run_tokens_envelope and state.estimated_tokens_used + max(1, int(estimated_tokens)) > self._run_tokens_envelope:
+                retry_after = max(1.0, float(state.window_reset_at - now))
+                return False, f"run_token_budget_exhausted:{retry_after:.1f}s", retry_after
+            state.requests_used += 1
+            state.estimated_tokens_used += max(1, int(estimated_tokens))
+            state.last_role = role
+            state.last_attempt_at = _utc_iso()
+        return True, None, 0.0
+
+    def _record_provider_budget_skip(self, provider_name: str, *, reason: str) -> None:
+        with self._provider_state_lock:
+            state = self._provider_runtime.setdefault(provider_name, ProviderRuntimeState())
+            state.failovers += 1
+            state.last_error = reason
+            state.quota_state = "budget_window_exhausted"
+
+    def _record_budget_success(
+        self,
+        *,
+        provider_name: str,
+        run_id: str,
+        role: str,
+        usage: dict[str, Any],
+        fallback_estimated_tokens: int,
+    ) -> None:
+        total_tokens = self._estimate_total_tokens(usage=usage, fallback_estimated_tokens=fallback_estimated_tokens)
+        additional_tokens = max(0, int(total_tokens) - max(1, int(fallback_estimated_tokens)))
+        with self._provider_state_lock:
+            state = self._provider_runtime.setdefault(provider_name, ProviderRuntimeState())
+            state.estimated_tokens_in_window += additional_tokens
+        if run_id and (self._run_request_envelope > 0 or self._run_tokens_envelope > 0):
+            with self._run_budget_lock:
+                state = self._run_budget_runtime.setdefault(str(run_id), RunBudgetState(run_id=str(run_id)))
+                self._reset_run_window_if_needed(state)
+                state.estimated_tokens_used += additional_tokens
+                state.last_role = role
+                state.last_provider = provider_name
+                state.last_attempt_at = _utc_iso()
 
     def _invoke_legacy_provider(self, *, model: str, system_prompt: str, user_prompt: str) -> tuple[str, dict[str, Any]]:
         if self._provider in {"openai_compatible", "openai"}:
@@ -877,24 +1190,55 @@ class AIRoleAdapter:
                 return config_model
         return fallback
 
+    def _try_enter_provider(self, provider_name: str) -> tuple[bool, str | None]:
+        config = self._provider_configs.get(provider_name)
+        limiter = self._provider_limiters.get(provider_name)
+        if config is None or limiter is None:
+            return False, "provider_unconfigured"
+        with self._provider_state_lock:
+            state = self._provider_runtime.setdefault(provider_name, ProviderRuntimeState())
+            now = time()
+            if state.cooldown_until and state.cooldown_until > now:
+                remaining = max(0.0, state.cooldown_until - now)
+                return False, f"provider_cooling_down:{remaining:.1f}s"
+        acquired = limiter.acquire(blocking=False)
+        if not acquired:
+            return False, "provider_saturated"
+        with self._provider_state_lock:
+            state = self._provider_runtime.setdefault(provider_name, ProviderRuntimeState())
+            state.in_flight += 1
+        return True, None
+
+    def _exit_provider(self, provider_name: str) -> None:
+        limiter = self._provider_limiters.get(provider_name)
+        if limiter is None:
+            return
+        with self._provider_state_lock:
+            state = self._provider_runtime.setdefault(provider_name, ProviderRuntimeState())
+            state.in_flight = max(0, int(state.in_flight) - 1)
+        limiter.release()
+
     def _record_provider_attempt(self, provider_name: str, model: str) -> None:
-        state = self._provider_runtime.setdefault(provider_name, ProviderRuntimeState())
-        state.attempts += 1
-        state.last_model = model
+        with self._provider_state_lock:
+            state = self._provider_runtime.setdefault(provider_name, ProviderRuntimeState())
+            state.attempts += 1
+            state.last_model = model
 
     def _record_provider_success(self, provider_name: str, model: str) -> None:
         provider = self._provider_configs.get(provider_name)
-        state = self._provider_runtime.setdefault(provider_name, ProviderRuntimeState())
-        state.successes += 1
-        state.last_model = model
-        state.last_error = None
-        state.last_status_code = None
-        state.last_success_at = _utc_iso()
-        state.quota_state = _quota_state(
-            api_key_configured=bool(provider.api_key) if provider else False,
-            status_code=None,
-            had_error=False,
-        )
+        with self._provider_state_lock:
+            state = self._provider_runtime.setdefault(provider_name, ProviderRuntimeState())
+            state.successes += 1
+            state.last_model = model
+            state.last_error = None
+            state.last_status_code = None
+            state.last_success_at = _utc_iso()
+            state.cooldown_until = 0.0
+            state.quota_state = _quota_state(
+                api_key_configured=bool(provider.api_key) if provider else False,
+                status_code=None,
+                had_error=False,
+            )
 
     def _record_provider_failure(
         self,
@@ -905,18 +1249,27 @@ class AIRoleAdapter:
         failover: bool,
     ) -> None:
         provider = self._provider_configs.get(provider_name)
-        state = self._provider_runtime.setdefault(provider_name, ProviderRuntimeState())
-        state.failures += 1
-        if failover:
-            state.failovers += 1
-        state.last_error = str(exc)
-        state.last_status_code = status_code
-        state.last_failure_at = _utc_iso()
-        state.quota_state = _quota_state(
-            api_key_configured=bool(provider.api_key) if provider else False,
-            status_code=status_code,
-            had_error=True,
-        )
+        with self._provider_state_lock:
+            state = self._provider_runtime.setdefault(provider_name, ProviderRuntimeState())
+            state.failures += 1
+            if failover:
+                state.failovers += 1
+            state.last_error = str(exc)
+            state.last_status_code = status_code
+            state.last_failure_at = _utc_iso()
+            if provider:
+                if status_code == 429:
+                    state.cooldown_until = max(state.cooldown_until, time() + max(0.0, float(provider.cooldown_seconds)))
+                elif status_code in {408, 500, 502, 503, 504} or isinstance(exc, requests.RequestException):
+                    state.cooldown_until = max(
+                        state.cooldown_until,
+                        time() + max(0.0, float(provider.transient_cooldown_seconds)),
+                    )
+            state.quota_state = _quota_state(
+                api_key_configured=bool(provider.api_key) if provider else False,
+                status_code=status_code,
+                had_error=True,
+            )
 
     def _record_role_attempt(self, *, role: str, route: tuple[str, ...]) -> None:
         state = self._role_runtime.setdefault(role, RoleRuntimeState())
@@ -1006,6 +1359,12 @@ def _build_adapter_from_settings() -> AIRoleAdapter:
             api_key=settings.AI_ROLE_PROVIDER_GEMINI_FLASH_LITE_API_KEY,
             default_model=settings.AI_ROLE_PROVIDER_GEMINI_FLASH_LITE_MODEL,
             enabled=settings.AI_ROLE_PROVIDER_GEMINI_FLASH_LITE_ENABLED,
+            max_concurrency=settings.AI_ROLE_PROVIDER_GEMINI_FLASH_LITE_MAX_CONCURRENCY,
+            cooldown_seconds=settings.AI_ROLE_PROVIDER_GEMINI_FLASH_LITE_COOLDOWN_SECONDS,
+            transient_cooldown_seconds=settings.AI_ROLE_PROVIDER_GEMINI_FLASH_LITE_TRANSIENT_COOLDOWN_SECONDS,
+            requests_per_window=settings.AI_ROLE_PROVIDER_GEMINI_FLASH_LITE_REQUESTS_PER_WINDOW,
+            tokens_per_window=settings.AI_ROLE_PROVIDER_GEMINI_FLASH_LITE_TOKENS_PER_WINDOW,
+            window_seconds=settings.AI_ROLE_PROVIDER_GEMINI_FLASH_LITE_WINDOW_SECONDS,
         ),
         "gemini_flash": ProviderConfig(
             name="gemini_flash",
@@ -1014,6 +1373,12 @@ def _build_adapter_from_settings() -> AIRoleAdapter:
             api_key=settings.AI_ROLE_PROVIDER_GEMINI_FLASH_API_KEY,
             default_model=settings.AI_ROLE_PROVIDER_GEMINI_FLASH_MODEL,
             enabled=settings.AI_ROLE_PROVIDER_GEMINI_FLASH_ENABLED,
+            max_concurrency=settings.AI_ROLE_PROVIDER_GEMINI_FLASH_MAX_CONCURRENCY,
+            cooldown_seconds=settings.AI_ROLE_PROVIDER_GEMINI_FLASH_COOLDOWN_SECONDS,
+            transient_cooldown_seconds=settings.AI_ROLE_PROVIDER_GEMINI_FLASH_TRANSIENT_COOLDOWN_SECONDS,
+            requests_per_window=settings.AI_ROLE_PROVIDER_GEMINI_FLASH_REQUESTS_PER_WINDOW,
+            tokens_per_window=settings.AI_ROLE_PROVIDER_GEMINI_FLASH_TOKENS_PER_WINDOW,
+            window_seconds=settings.AI_ROLE_PROVIDER_GEMINI_FLASH_WINDOW_SECONDS,
         ),
         "groq": ProviderConfig(
             name="groq",
@@ -1022,6 +1387,12 @@ def _build_adapter_from_settings() -> AIRoleAdapter:
             api_key=settings.AI_ROLE_PROVIDER_GROQ_API_KEY,
             default_model=settings.AI_ROLE_PROVIDER_GROQ_MODEL,
             enabled=settings.AI_ROLE_PROVIDER_GROQ_ENABLED,
+            max_concurrency=settings.AI_ROLE_PROVIDER_GROQ_MAX_CONCURRENCY,
+            cooldown_seconds=settings.AI_ROLE_PROVIDER_GROQ_COOLDOWN_SECONDS,
+            transient_cooldown_seconds=settings.AI_ROLE_PROVIDER_GROQ_TRANSIENT_COOLDOWN_SECONDS,
+            requests_per_window=settings.AI_ROLE_PROVIDER_GROQ_REQUESTS_PER_WINDOW,
+            tokens_per_window=settings.AI_ROLE_PROVIDER_GROQ_TOKENS_PER_WINDOW,
+            window_seconds=settings.AI_ROLE_PROVIDER_GROQ_WINDOW_SECONDS,
         ),
         "github_models": ProviderConfig(
             name="github_models",
@@ -1030,6 +1401,12 @@ def _build_adapter_from_settings() -> AIRoleAdapter:
             api_key=settings.AI_ROLE_PROVIDER_GITHUB_MODELS_API_KEY,
             default_model=settings.AI_ROLE_PROVIDER_GITHUB_MODELS_MODEL,
             enabled=settings.AI_ROLE_PROVIDER_GITHUB_MODELS_ENABLED,
+            max_concurrency=settings.AI_ROLE_PROVIDER_GITHUB_MODELS_MAX_CONCURRENCY,
+            cooldown_seconds=settings.AI_ROLE_PROVIDER_GITHUB_MODELS_COOLDOWN_SECONDS,
+            transient_cooldown_seconds=settings.AI_ROLE_PROVIDER_GITHUB_MODELS_TRANSIENT_COOLDOWN_SECONDS,
+            requests_per_window=settings.AI_ROLE_PROVIDER_GITHUB_MODELS_REQUESTS_PER_WINDOW,
+            tokens_per_window=settings.AI_ROLE_PROVIDER_GITHUB_MODELS_TOKENS_PER_WINDOW,
+            window_seconds=settings.AI_ROLE_PROVIDER_GITHUB_MODELS_WINDOW_SECONDS,
         ),
     }
     role_routes = {
@@ -1063,6 +1440,9 @@ def _build_adapter_from_settings() -> AIRoleAdapter:
         role_routes=role_routes,
         default_route=_parse_route(settings.AI_ROLE_ROUTE_DEFAULT),
         gateway=gateway,
+        run_request_envelope=settings.AI_ROLE_RUN_REQUEST_ENVELOPE,
+        run_tokens_envelope=settings.AI_ROLE_RUN_TOKENS_ENVELOPE,
+        run_window_seconds=settings.AI_ROLE_RUN_WINDOW_SECONDS,
     )
 
 

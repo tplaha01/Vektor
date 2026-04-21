@@ -1,10 +1,11 @@
-import { getAllBlogPosts } from "@/lib/blog-loader";
+import { getBlogPostBySlug } from "@/lib/blog-loader";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import Image from "next/image";
 import ReactMarkdown from "react-markdown";
+import React from "react";
 
 import { FlickeringGrid } from "@/components/magicui/flickering-grid";
 import { HashScrollHandler } from "@/components/hash-scroll-handler";
@@ -28,8 +29,7 @@ export default async function BlogPost({ params }: PageProps) {
     notFound();
   }
 
-  const posts = await getAllBlogPosts();
-  const post = posts.find(p => p.slug === slug);
+  const post = await getBlogPostBySlug(slug);
 
   if (!post) {
     notFound();
@@ -110,7 +110,23 @@ export default async function BlogPost({ params }: PageProps) {
                   h1: ({ children }) => <h1 className="text-4xl font-bold mt-8 mb-4">{children}</h1>,
                   h2: ({ children }) => <h2 className="text-3xl font-semibold mt-6 mb-3">{children}</h2>,
                   h3: ({ children }) => <h3 className="text-2xl font-semibold mt-4 mb-2">{children}</h3>,
-                  p: ({ children }) => <p className="text-muted-foreground leading-7 mb-4">{children}</p>,
+                  p: ({ children }) => {
+                    const items = React.Children.toArray(children);
+                    const hasMediaChild = items.some((item) => {
+                      if (!React.isValidElement(item)) {
+                        return false;
+                      }
+                      if (item.type === "figure" || item.type === "img") {
+                        return true;
+                      }
+                      const props = item.props as { src?: string; node?: { tagName?: string } };
+                      return Boolean(props?.src) || props?.node?.tagName === "img";
+                    });
+                    if (hasMediaChild) {
+                      return <div className="mb-6 max-w-4xl">{children}</div>;
+                    }
+                    return <p className="text-muted-foreground leading-8 mb-5 text-[1.04rem] max-w-3xl">{children}</p>;
+                  },
                   ul: ({ children }) => <ul className="list-disc list-inside space-y-2 mb-4">{children}</ul>,
                   ol: ({ children }) => <ol className="list-decimal list-inside space-y-2 mb-4">{children}</ol>,
                   li: ({ children }) => <li className="text-muted-foreground">{children}</li>,
@@ -119,6 +135,21 @@ export default async function BlogPost({ params }: PageProps) {
                   em: ({ children }) => <em className="italic">{children}</em>,
                   code: ({ children }) => <code className="bg-muted px-2 py-1 rounded text-sm font-mono">{children}</code>,
                   blockquote: ({ children }) => <blockquote className="border-l-4 border-primary pl-4 italic text-muted-foreground my-4">{children}</blockquote>,
+                  img: ({ src, alt }) => (
+                    <figure className="my-8 overflow-hidden rounded-2xl border border-border bg-card/40">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={String(src || "")}
+                        alt={String(alt || "Blog figure")}
+                        className="w-full object-cover"
+                      />
+                      {alt ? (
+                        <figcaption className="border-t border-border px-4 py-3 text-sm text-muted-foreground">
+                          {String(alt)}
+                        </figcaption>
+                      ) : null}
+                    </figure>
+                  ),
                 }}
               >
                 {post.content}

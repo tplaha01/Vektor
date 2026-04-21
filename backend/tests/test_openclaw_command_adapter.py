@@ -60,6 +60,9 @@ class _StubRuntime:
     def __init__(self) -> None:
         self.calls = []
         self.swarm_calls = []
+        self.cancel_run_calls = []
+        self.cancel_pack_calls = []
+        self.reroute_pack_calls = []
         self.started = True
         self.start_calls = 0
         self.stop_calls = 0
@@ -145,6 +148,18 @@ class _StubRuntime:
         if not self.started:
             return {"accepted": False, "reason": "runtime_not_started"}
         return {"accepted": True, "run_id": run_id or "run-kick-test"}
+
+    def cancel_run(self, *, run_id: str, reason: str = "operator_cancel") -> dict:
+        self.cancel_run_calls.append({"run_id": run_id, "reason": reason})
+        return {"accepted": True, "run_id": run_id, "blocked_task_count": 2}
+
+    def cancel_signal_pack(self, *, signal_pack_id: str, reason: str = "operator_cancel") -> dict:
+        self.cancel_pack_calls.append({"signal_pack_id": signal_pack_id, "reason": reason})
+        return {"accepted": True, "signal_pack_id": signal_pack_id, "run_id": "run-pack", "blocked_task_count": 3}
+
+    def reroute_signal_pack(self, *, signal_pack_id: str, assigned_roles: list[str], reason: str = "operator_reroute") -> dict:
+        self.reroute_pack_calls.append({"signal_pack_id": signal_pack_id, "assigned_roles": list(assigned_roles), "reason": reason})
+        return {"accepted": True, "signal_pack_id": signal_pack_id, "run_id": "run-pack", "assigned_roles": list(assigned_roles)}
 
 
 class _StubOrchestrator:
@@ -662,3 +677,86 @@ def test_openclaw_command_adapter_routes_pending_decisions_control(monkeypatch):
     assert route_result["count"] == 1
     assert route_result["decisions"][0]["decision_id"] == "dec-1"
     assert knowledge_events[-1]["event_type"] == "runtime.control.pending_decisions"
+
+
+def test_openclaw_command_adapter_reroutes_signal_pack_roles(monkeypatch):
+    runtime = _StubRuntime()
+    orchestrator = _StubOrchestrator()
+    knowledge_events = _stub_knowledge_graph(monkeypatch)
+    adapter = OpenClawCommandAdapter(
+        runtime=runtime,
+        orchestrator=orchestrator,
+        token="adapter-secret",
+        enabled=True,
+        channel_allowlist=["general"],
+        sender_allowlist=["ceo"],
+        fund_manager_mode=True,
+        log=AuditLog(),
+    )
+    monkeypatch.setattr(openclaw_adapter_module.data_integrity_guard, "halted", lambda: False)
+    monkeypatch.setattr(openclaw_adapter_module.data_integrity_guard, "halt_reason", lambda: None)
+
+    accepted = adapter.route_message(
+        {
+            "platform": "discord",
+            "channel_name": "general",
+            "sender_name": "ceo",
+            "text": "reroute signal pack pack:sigpack-123 roles=technical_analyst,sentiment_analyst",
+            "run_id": "run-ocmd-reroute-1",
+        },
+        token="adapter-secret",
+    )
+    assert accepted["accepted"] is True
+    route_result = accepted["route_result"]
+    assert route_result["action"] == "reroute_signal_pack"
+    assert runtime.reroute_pack_calls[0]["signal_pack_id"] == "sigpack-123"
+    assert runtime.reroute_pack_calls[0]["assigned_roles"] == ["technical_analyst", "sentiment_analyst"]
+    assert runtime.reroute_pack_calls[0]["reason"].startswith("openclaw:")
+    assert knowledge_events[-1]["event_type"] == "runtime.control.reroute_signal_pack"
+
+
+def test_openclaw_command_adapter_cancels_run_and_pack(monkeypatch):
+    runtime = _StubRuntime()
+    orchestrator = _StubOrchestrator()
+    knowledge_events = _stub_knowledge_graph(monkeypatch)
+    adapter = OpenClawCommandAdapter(
+        runtime=runtime,
+        orchestrator=orchestrator,
+        token="adapter-secret",
+        enabled=True,
+        channel_allowlist=["general"],
+        sender_allowlist=["ceo"],
+        fund_manager_mode=True,
+        log=AuditLog(),
+    )
+    monkeypatch.setattr(openclaw_adapter_module.data_integrity_guard, "halted", lambda: False)
+    monkeypatch.setattr(openclaw_adapter_module.data_integrity_guard, "halt_reason", lambda: None)
+
+    cancel_run = adapter.route_message(
+        {
+            "platform": "discord",
+            "channel_name": "general",
+            "sender_name": "ceo",
+            "text": "cancel run run:run-ocmd-cancel",
+            "run_id": "run-ocmd-control-1",
+        },
+        token="adapter-secret",
+    )
+    cancel_pack = adapter.route_message(
+        {
+            "platform": "discord",
+            "channel_name": "general",
+            "sender_name": "ceo",
+            "text": "cancel signal pack pack:sigpack-999",
+            "run_id": "run-ocmd-control-1",
+        },
+        token="adapter-secret",
+    )
+    assert cancel_run["accepted"] is True
+    assert cancel_pack["accepted"] is True
+    assert runtime.cancel_run_calls[0]["run_id"] == "run-ocmd-cancel"
+    assert runtime.cancel_run_calls[0]["reason"].startswith("openclaw:")
+    assert runtime.cancel_pack_calls[0]["signal_pack_id"] == "sigpack-999"
+    assert runtime.cancel_pack_calls[0]["reason"].startswith("openclaw:")
+    assert knowledge_events[-2]["event_type"] == "runtime.control.cancel_run"
+    assert knowledge_events[-1]["event_type"] == "runtime.control.cancel_signal_pack"

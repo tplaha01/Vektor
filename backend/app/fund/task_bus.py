@@ -5,6 +5,7 @@ from threading import RLock
 from typing import Any, Callable, Dict, List, Literal
 from uuid import uuid4
 
+from app.config import get_settings
 from app.fund.contracts import AgentTask
 from app.websocket.agent_events import publish_agent_event
 
@@ -13,6 +14,25 @@ TaskStatus = Literal["queued", "running", "completed", "failed", "blocked"]
 
 def _utc_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _parse_iso_utc(value: str | None) -> datetime | None:
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00")).astimezone(timezone.utc)
+    except Exception:
+        return None
+
+
+def _defer_delay_seconds(*, retry_count: int, suggested_retry_after_seconds: float) -> float:
+    settings = get_settings()
+    base = max(1.0, float(settings.AI_ROLE_DEFER_BASE_SECONDS))
+    multiplier = max(1.0, float(settings.AI_ROLE_DEFER_BACKOFF_MULTIPLIER))
+    ceiling = max(base, float(settings.AI_ROLE_DEFER_MAX_SECONDS))
+    exponential = base * (multiplier ** max(0, int(retry_count) - 1))
+    return max(1.0, min(ceiling, max(float(suggested_retry_after_seconds), exponential)))
 
 
 class TaskBus:
@@ -142,7 +162,7 @@ class TaskBus:
             candidates = [
                 task
                 for task in self._tasks.values()
-                if task.role == role and task.status == "queued"
+                if task.role == role and task.status == "queued" and self._task_ready(task)
             ]
             if not candidates:
                 return None
@@ -171,6 +191,84 @@ class TaskBus:
                 "payload": {
                     "task_id": selected.task_id,
                     "role": role,
+                },
+            }
+        self._persist_history_row(row)
+        self._emit_event(event_payload)
+        return updated
+
+    def defer_task(
+        self,
+        task_id: str,
+        *,
+        reason: str,
+        retry_after_seconds: float,
+        extra_details: dict[str, Any] | None = None,
+    ) -> AgentTask | None:
+        row: dict[str, Any]
+        event_payload: dict[str, Any]
+        now_iso = _utc_iso()
+        with self._lock:
+            existing = self._tasks.get(task_id)
+            if existing is None:
+                return None
+            payload = dict(existing.payload or {})
+            scheduler = dict(payload.get("_scheduler") or {})
+            retry_count = int(scheduler.get("retry_count") or 0) + 1
+            retry_after_seconds = _defer_delay_seconds(
+                retry_count=retry_count,
+                suggested_retry_after_seconds=max(1.0, float(retry_after_seconds)),
+            )
+            next_attempt_dt = datetime.now(timezone.utc).timestamp() + retry_after_seconds
+            next_attempt_at = _utc_iso_from_timestamp(next_attempt_dt)
+            scheduler.update(
+                {
+                    "retry_count": retry_count,
+                    "deferred_at": now_iso,
+                    "next_attempt_at": next_attempt_at,
+                    "retry_after_seconds": round(retry_after_seconds, 2),
+                    "reason": str(reason or "temporarily_unavailable"),
+                }
+            )
+            payload["_scheduler"] = scheduler
+            updated = existing.model_copy(update={"status": "queued", "payload": payload})
+            self._tasks[task_id] = updated
+            normalized_details = self._normalize_details(
+                updated,
+                status="queued",
+                details={
+                    "reason": str(reason or "temporarily_unavailable"),
+                    "retry_after_seconds": round(retry_after_seconds, 2),
+                    "next_attempt_at": next_attempt_at,
+                    "deferred_at": now_iso,
+                    "retry_count": retry_count,
+                    **dict(extra_details or {}),
+                },
+            )
+            row = {
+                "task_id": task_id,
+                "run_id": updated.run_id,
+                "agent_id": updated.agent_id,
+                "role": updated.role,
+                "status": "queued",
+                "ts": now_iso,
+                "event": "deferred",
+                "details": normalized_details,
+                "payload": dict(updated.payload or {}),
+            }
+            self._history.append(row)
+            event_payload = {
+                "event_id": f"{task_id}:deferred:{len(self._history)}",
+                "event_type": "task.deferred",
+                "ts": now_iso,
+                "run_id": updated.run_id,
+                "agent_id": updated.agent_id,
+                "decision_id": normalized_details.get("decision_id"),
+                "payload": {
+                    "task_id": task_id,
+                    "status": "queued",
+                    "details": normalized_details,
+                    "role": updated.role,
                 },
             }
         self._persist_history_row(row)
@@ -397,6 +495,18 @@ class TaskBus:
                 merged["reasons"] = [str(reason)]
 
         return merged
+
+    def _task_ready(self, task: AgentTask) -> bool:
+        payload = dict(task.payload or {})
+        scheduler = payload.get("_scheduler") if isinstance(payload.get("_scheduler"), dict) else {}
+        next_attempt = _parse_iso_utc(scheduler.get("next_attempt_at"))
+        if next_attempt is None:
+            return True
+        return next_attempt <= datetime.now(timezone.utc)
+
+
+def _utc_iso_from_timestamp(value: float) -> str:
+    return datetime.fromtimestamp(float(value), timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 task_bus = TaskBus()

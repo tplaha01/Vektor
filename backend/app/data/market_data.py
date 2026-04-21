@@ -3,11 +3,13 @@ from __future__ import annotations
 import threading
 import time
 import os
+from urllib.parse import urlencode
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from typing import Callable, Dict, List
 
 import pandas as pd
+import requests
 
 from app.config import get_settings
 from app.fund.runtime_guard import DataMode, data_integrity_guard
@@ -313,51 +315,84 @@ class AlpacaRealtimeFeed:
             self._started = False
 
     def _alpaca_latest_price(self, symbol: str) -> float:
-        from alpaca.data.historical import StockHistoricalDataClient
-        from alpaca.data.requests import StockLatestTradeRequest
-
-        with _without_proxy_env():
-            client = StockHistoricalDataClient(
-                settings.ALPACA_API_KEY,
-                settings.ALPACA_SECRET_KEY,
-            )
-            req = StockLatestTradeRequest(symbol_or_symbols=symbol)
-            resp = client.get_stock_latest_trade(req)
-        if symbol in resp:
-            return float(resp[symbol].price)
+        payload = self._alpaca_rest_json(
+            "/v2/stocks/trades/latest",
+            {"symbols": symbol},
+        )
+        trade = ((payload or {}).get("trades") or {}).get(symbol) or {}
+        price = trade.get("p")
+        if price is not None:
+            return float(price)
         return 0.0
 
     def _alpaca_bars(self, symbol: str, bars: int) -> pd.DataFrame:
-        from alpaca.data.historical import StockHistoricalDataClient
-        from alpaca.data.requests import StockBarsRequest
-        from alpaca.data.timeframe import TimeFrame
-
-        with _without_proxy_env():
-            client = StockHistoricalDataClient(
-                settings.ALPACA_API_KEY,
-                settings.ALPACA_SECRET_KEY,
-            )
-            req = StockBarsRequest(
-                symbol_or_symbols=symbol,
-                timeframe=TimeFrame.Day,
-                start=datetime.utcnow() - timedelta(days=bars * 2),
-            )
-            df = client.get_stock_bars(req).df
-        if isinstance(df.index, pd.MultiIndex):
-            df = df.xs(symbol, level="symbol")
-        df = df.reset_index()
-        df.columns = [c[0] if isinstance(c, tuple) else c for c in df.columns]
-        df = df.rename(
+        start = (datetime.utcnow() - timedelta(days=bars * 2)).replace(microsecond=0).isoformat() + "Z"
+        payload = self._alpaca_rest_json(
+            "/v2/stocks/bars",
+            {
+                "symbols": symbol,
+                "timeframe": "1Day",
+                "start": start,
+                "limit": max(1, int(bars)),
+                "feed": settings.ALPACA_FEED,
+                "sort": "asc",
+            },
+        )
+        rows = ((payload or {}).get("bars") or {}).get(symbol) or []
+        if not rows:
+            return _empty_history()
+        frame = pd.DataFrame(rows)
+        frame = frame.rename(
             columns={
-                "timestamp": "ts",
-                "open": "open",
-                "high": "high",
-                "low": "low",
-                "close": "close",
-                "volume": "volume",
+                "t": "ts",
+                "o": "open",
+                "h": "high",
+                "l": "low",
+                "c": "close",
+                "v": "volume",
             }
         )
-        return df.tail(bars).reset_index(drop=True)
+        frame = frame[[col for col in ("ts", "open", "high", "low", "close", "volume") if col in frame.columns]]
+        if "ts" in frame.columns:
+            frame["ts"] = pd.to_datetime(frame["ts"], utc=True, errors="coerce")
+        return frame.tail(bars).reset_index(drop=True)
+
+    def _alpaca_rest_json(self, path: str, params: dict[str, object] | None = None) -> dict:
+        params = dict(params or {})
+        if settings.ALPACA_FEED and "feed" not in params and path.startswith("/v2/stocks/"):
+            params["feed"] = settings.ALPACA_FEED
+        query = urlencode({k: v for k, v in params.items() if v is not None}, doseq=True)
+        url = f"https://data.alpaca.markets{path}"
+        if query:
+            url = f"{url}?{query}"
+        headers = {
+            "APCA-API-KEY-ID": str(settings.ALPACA_API_KEY or ""),
+            "APCA-API-SECRET-KEY": str(settings.ALPACA_SECRET_KEY or ""),
+            "Accept": "application/json",
+        }
+        last_exc: Exception | None = None
+        attempts = max(1, int(settings.ALPACA_HTTP_RETRIES))
+        timeout = float(settings.ALPACA_HTTP_TIMEOUT_SECONDS)
+        backoff = max(0.0, float(settings.ALPACA_HTTP_RETRY_BACKOFF_SECONDS))
+        for attempt in range(1, attempts + 1):
+            try:
+                with _without_proxy_env():
+                    response = requests.get(
+                        url,
+                        headers=headers,
+                        timeout=timeout,
+                    )
+                response.raise_for_status()
+                return response.json()
+            except requests.RequestException as exc:
+                last_exc = exc
+                if attempt >= attempts:
+                    break
+                if backoff > 0:
+                    time.sleep(backoff * attempt)
+        if last_exc is not None:
+            raise last_exc
+        raise RuntimeError(f"alpaca_request_failed:{path}")
 
     def _yf_bars(self, symbol: str, bars: int) -> pd.DataFrame:
         try:

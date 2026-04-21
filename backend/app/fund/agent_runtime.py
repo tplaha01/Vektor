@@ -3,14 +3,16 @@ from __future__ import annotations
 import asyncio
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from threading import RLock
 from typing import Any, Iterable, Literal
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 from app.config import get_settings
-from app.fund.ai_role_adapter import ai_role_adapter
+from app.fund.ai_role_adapter import TemporaryProviderCapacityError, ai_role_adapter
+from app.fund.allocation_policy import infer_asset_class
 from app.fund.contracts import (
     ProvenanceRef,
     ResearchReport as ContractResearchReport,
@@ -94,6 +96,26 @@ def _parse_symbol_csv(value: str | None) -> tuple[str, ...]:
         seen.add(symbol)
         out.append(symbol)
     return tuple(out)
+
+
+def _parse_weekday_name(value: str | None, fallback: int = 6) -> int:
+    mapping = {
+        "mon": 0,
+        "monday": 0,
+        "tue": 1,
+        "tuesday": 1,
+        "wed": 2,
+        "wednesday": 2,
+        "thu": 3,
+        "thursday": 3,
+        "fri": 4,
+        "friday": 4,
+        "sat": 5,
+        "saturday": 5,
+        "sun": 6,
+        "sunday": 6,
+    }
+    return mapping.get(str(value or "").strip().lower(), fallback)
 
 
 def _normalize_role(value: str | None) -> WorkerRole:
@@ -207,6 +229,9 @@ class SignalPackState:
     dispatched: bool = False
     composite_report_id: str | None = None
     fund_manager_task_id: str | None = None
+    status: str = "active"
+    canceled_at: str | None = None
+    canceled_reason: str | None = None
 
 
 class FundAgentRuntime:
@@ -224,6 +249,9 @@ class FundAgentRuntime:
         autopilot_dynamic_universe_enabled: bool = True,
         autopilot_scout_symbols: Iterable[str] | None = None,
         autopilot_scout_max_symbols: int = 4,
+        swarm_wave_size: int = 2,
+        swarm_wave_spacing_seconds: float = 20.0,
+        swarm_max_active_packs: int = 2,
         autopilot_default_side: Literal["buy", "sell"] = "buy",
         autopilot_default_quantity: float = 1.0,
         autopilot_sleeve: Sleeve = Sleeve.TACTICAL,
@@ -235,6 +263,16 @@ class FundAgentRuntime:
         blog_editorial_interval_hours: int = 12,
         blog_editorial_target_per_day: int = 2,
         blog_editorial_min_confidence: float = 0.55,
+        blog_market_report_scheduler_interval_seconds: float = 300.0,
+        blog_premarket_report_enabled: bool = True,
+        blog_premarket_report_lead_minutes: int = 30,
+        blog_postmarket_report_enabled: bool = True,
+        blog_postmarket_report_delay_minutes: int = 20,
+        blog_weekahead_report_enabled: bool = True,
+        blog_weekahead_report_weekday: int = 6,
+        blog_weekahead_report_hour_et: int = 18,
+        blog_weekahead_report_minute_et: int = 0,
+        blog_market_report_symbols: Iterable[str] | None = None,
     ) -> None:
         self._orchestrator = orchestrator
         self._task_bus = task_bus_service
@@ -247,6 +285,8 @@ class FundAgentRuntime:
         self._signal_pack_lock = RLock()
         self._states = {role: WorkerState(role=role) for role in self._roles}
         self._signal_packs: dict[str, SignalPackState] = {}
+        self._canceled_runs: dict[str, dict[str, Any]] = {}
+        self._canceled_signal_packs: dict[str, dict[str, Any]] = {}
         self._started = False
 
         symbols = tuple(str(item).strip().upper() for item in (autopilot_symbols or ()) if str(item).strip())
@@ -258,6 +298,10 @@ class FundAgentRuntime:
         merged_scout_universe = tuple(dict.fromkeys((*self._autopilot_symbols, *scout_symbols)))
         self._autopilot_scout_symbols = merged_scout_universe or self._autopilot_symbols
         self._autopilot_scout_max_symbols = max(1, int(autopilot_scout_max_symbols))
+        self._swarm_wave_size = max(1, int(swarm_wave_size))
+        self._swarm_wave_spacing_seconds = max(1.0, float(swarm_wave_spacing_seconds))
+        self._swarm_max_active_packs = max(1, int(swarm_max_active_packs))
+        self._scheduled_swarm_waves: list[dict[str, Any]] = []
         self._autopilot_default_side: Literal["buy", "sell"] = "sell" if autopilot_default_side == "sell" else "buy"
         self._autopilot_default_quantity = max(0.01, float(autopilot_default_quantity))
         self._autopilot_sleeve = autopilot_sleeve
@@ -275,8 +319,21 @@ class FundAgentRuntime:
         self._last_halt_drain_reason: str | None = None
         self._blog_editorial_enabled = bool(blog_editorial_enabled)
         self._blog_editorial_interval_seconds = max(60.0, float(max(1, int(blog_editorial_interval_hours)) * 3600))
+        self._blog_market_report_scheduler_interval_seconds = max(60.0, float(blog_market_report_scheduler_interval_seconds))
         self._blog_editorial_target_per_day = max(0, int(blog_editorial_target_per_day))
         self._blog_editorial_min_confidence = max(0.0, min(1.0, float(blog_editorial_min_confidence)))
+        self._blog_premarket_report_enabled = bool(blog_premarket_report_enabled)
+        self._blog_premarket_report_lead_minutes = max(1, int(blog_premarket_report_lead_minutes))
+        self._blog_postmarket_report_enabled = bool(blog_postmarket_report_enabled)
+        self._blog_postmarket_report_delay_minutes = max(0, int(blog_postmarket_report_delay_minutes))
+        self._blog_weekahead_report_enabled = bool(blog_weekahead_report_enabled)
+        self._blog_weekahead_report_weekday = max(0, min(6, int(blog_weekahead_report_weekday)))
+        self._blog_weekahead_report_hour_et = max(0, min(23, int(blog_weekahead_report_hour_et)))
+        self._blog_weekahead_report_minute_et = max(0, min(59, int(blog_weekahead_report_minute_et)))
+        self._blog_market_report_symbols = tuple(
+            dict.fromkeys(str(item).strip().upper() for item in (blog_market_report_symbols or ()) if str(item).strip())
+        ) or ("SPY", "QQQ", "AAPL", "MSFT", "NVDA")
+        self._market_timezone = ZoneInfo("America/New_York")
         self._blog_editorial_task: asyncio.Task | None = None
         self._blog_editorial_cycles = 0
         self._blog_editorial_enqueued = 0
@@ -343,6 +400,9 @@ class FundAgentRuntime:
                 "dynamic_universe_enabled": self._autopilot_dynamic_universe_enabled,
                 "scout_symbols": list(self._autopilot_scout_symbols),
                 "scout_max_symbols": self._autopilot_scout_max_symbols,
+                "swarm_wave_size": self._swarm_wave_size,
+                "swarm_wave_spacing_seconds": self._swarm_wave_spacing_seconds,
+                "swarm_max_active_packs": self._swarm_max_active_packs,
                 "default_side": self._autopilot_default_side,
                 "default_quantity": self._autopilot_default_quantity,
                 "sleeve": self._autopilot_sleeve.value,
@@ -357,13 +417,24 @@ class FundAgentRuntime:
                 "last_error": self._autopilot_last_error,
                 "last_session": dict(self._autopilot_last_session or {}),
                 "last_scout": dict(self._autopilot_last_scout or {}),
+                "scheduled_wave_count": len(self._scheduled_swarm_waves),
+                "next_wave_at": self._scheduled_swarm_waves[0]["scheduled_for"] if self._scheduled_swarm_waves else None,
             }
             blog_editorial = {
                 "enabled": self._blog_editorial_enabled,
                 "running": self._blog_editorial_task is not None and not self._blog_editorial_task.done(),
-                "interval_seconds": self._blog_editorial_interval_seconds,
+                "interval_seconds": self._blog_market_report_scheduler_interval_seconds,
                 "target_per_day": self._blog_editorial_target_per_day,
                 "min_confidence": self._blog_editorial_min_confidence,
+                "premarket_enabled": self._blog_premarket_report_enabled,
+                "premarket_lead_minutes": self._blog_premarket_report_lead_minutes,
+                "postmarket_enabled": self._blog_postmarket_report_enabled,
+                "postmarket_delay_minutes": self._blog_postmarket_report_delay_minutes,
+                "weekahead_enabled": self._blog_weekahead_report_enabled,
+                "weekahead_weekday": self._blog_weekahead_report_weekday,
+                "weekahead_hour_et": self._blog_weekahead_report_hour_et,
+                "weekahead_minute_et": self._blog_weekahead_report_minute_et,
+                "market_report_symbols": list(self._blog_market_report_symbols),
                 "cycles": self._blog_editorial_cycles,
                 "enqueued_count": self._blog_editorial_enqueued,
                 "last_run_id": self._blog_editorial_last_run_id,
@@ -386,9 +457,29 @@ class FundAgentRuntime:
                     "dispatched": state.dispatched,
                     "composite_report_id": state.composite_report_id,
                     "fund_manager_task_id": state.fund_manager_task_id,
+                    "status": state.status,
+                    "canceled_at": state.canceled_at,
+                    "canceled_reason": state.canceled_reason,
                 }
                 for state in self._signal_packs.values()
             ]
+        active_contexts = []
+        for item in self._orchestrator.list_active_tasks():
+            payload = item.get("payload") if isinstance(item.get("payload"), dict) else {}
+            active_contexts.append(
+                {
+                    "task_id": item.get("task_id"),
+                    "run_id": item.get("run_id"),
+                    "role": item.get("role"),
+                    "agent_id": item.get("agent_id"),
+                    "symbol": payload.get("symbol"),
+                    "command": payload.get("command"),
+                    "decision_id": payload.get("decision_id"),
+                    "signal_pack_id": payload.get("signal_pack_id"),
+                    "context": payload,
+                }
+            )
+        discovery_rows = self._orchestrator.list_discovery_opportunities(limit=12)
         return {
             "enabled": self._enabled,
             "started": self._started,
@@ -396,6 +487,14 @@ class FundAgentRuntime:
             "workers": workers,
             "autopilot": autopilot,
             "signal_packs": packs,
+            "swarm_waves": list(self._scheduled_swarm_waves),
+            "canceled_runs": list(self._canceled_runs.values()),
+            "canceled_signal_packs": list(self._canceled_signal_packs.values()),
+            "active_contexts": active_contexts,
+            "discovery": {
+                "count": len(discovery_rows),
+                "top": discovery_rows[:6],
+            },
             "ai_role_adapter": ai_role_adapter.health(),
             "data_integrity": data_integrity_guard.status(),
             "halt_guard": halt_guard,
@@ -512,11 +611,150 @@ class FundAgentRuntime:
             return {"accepted": False, "reason": "runtime_not_started"}
         if data_integrity_guard.halted():
             return {"accepted": False, "reason": data_integrity_guard.halt_reason() or "system_halted"}
+        self._process_due_swarm_waves()
         cycle_run_id = run_id or f"run-autopilot-{uuid4().hex[:12]}"
         result = self._enqueue_autopilot_cycle(cycle_run_id)
         result["accepted"] = True
         result["manual"] = True
         return result
+
+    def cancel_run(self, *, run_id: str, reason: str = "operator_cancel") -> dict[str, Any]:
+        clean_run_id = str(run_id or "").strip()
+        if not clean_run_id:
+            return {"accepted": False, "reason": "missing_run_id"}
+        canceled_at = _utc_iso()
+        self._canceled_runs[clean_run_id] = {"run_id": clean_run_id, "reason": reason, "canceled_at": canceled_at}
+        blocked = 0
+        task_ids: list[str] = []
+        for task in self._task_bus.list_tasks():
+            if task.run_id != clean_run_id or task.status not in {"queued", "running"}:
+                continue
+            self._task_bus.set_status(task.task_id, "blocked", {"reason": reason, "run_id": clean_run_id, "canceled": True})
+            blocked += 1
+            task_ids.append(task.task_id)
+        canceled_packs: list[str] = []
+        with self._signal_pack_lock:
+            for state in self._signal_packs.values():
+                if state.run_id != clean_run_id:
+                    continue
+                state.status = "canceled"
+                state.canceled_at = canceled_at
+                state.canceled_reason = reason
+                self._canceled_signal_packs[state.signal_pack_id] = {
+                    "signal_pack_id": state.signal_pack_id,
+                    "run_id": clean_run_id,
+                    "reason": reason,
+                    "canceled_at": canceled_at,
+                }
+                canceled_packs.append(state.signal_pack_id)
+            self._scheduled_swarm_waves = [wave for wave in self._scheduled_swarm_waves if str(wave.get("run_id") or "") != clean_run_id]
+        return {
+            "accepted": True,
+            "run_id": clean_run_id,
+            "blocked_task_count": blocked,
+            "task_ids": task_ids,
+            "canceled_signal_pack_ids": canceled_packs,
+            "canceled_at": canceled_at,
+        }
+
+    def cancel_signal_pack(self, *, signal_pack_id: str, reason: str = "operator_cancel") -> dict[str, Any]:
+        clean_signal_pack_id = str(signal_pack_id or "").strip()
+        if not clean_signal_pack_id:
+            return {"accepted": False, "reason": "missing_signal_pack_id"}
+        canceled_at = _utc_iso()
+        with self._signal_pack_lock:
+            state = self._signal_packs.get(clean_signal_pack_id)
+            if state is None:
+                return {"accepted": False, "reason": "unknown_signal_pack_id"}
+            state.status = "canceled"
+            state.canceled_at = canceled_at
+            state.canceled_reason = reason
+            self._canceled_signal_packs[clean_signal_pack_id] = {
+                "signal_pack_id": clean_signal_pack_id,
+                "run_id": state.run_id,
+                "reason": reason,
+                "canceled_at": canceled_at,
+            }
+            self._scheduled_swarm_waves = [
+                {
+                    **wave,
+                    "symbols": [symbol for symbol in (wave.get("symbols") or []) if symbol.upper().strip() != state.symbol.upper().strip()],
+                }
+                for wave in self._scheduled_swarm_waves
+                if str(wave.get("run_id") or "") != state.run_id or any(
+                    symbol.upper().strip() != state.symbol.upper().strip() for symbol in (wave.get("symbols") or [])
+                )
+            ]
+        blocked = 0
+        task_ids: list[str] = []
+        for task in self._task_bus.list_tasks():
+            if str(task.payload.get("signal_pack_id") or "").strip() != clean_signal_pack_id:
+                continue
+            if task.status not in {"queued", "running"}:
+                continue
+            self._task_bus.set_status(task.task_id, "blocked", {"reason": reason, "signal_pack_id": clean_signal_pack_id, "canceled": True})
+            blocked += 1
+            task_ids.append(task.task_id)
+        return {
+            "accepted": True,
+            "signal_pack_id": clean_signal_pack_id,
+            "run_id": state.run_id,
+            "blocked_task_count": blocked,
+            "task_ids": task_ids,
+            "canceled_at": canceled_at,
+        }
+
+    def reroute_signal_pack(
+        self,
+        *,
+        signal_pack_id: str,
+        assigned_roles: Iterable[str],
+        reason: str = "operator_reroute",
+    ) -> dict[str, Any]:
+        clean_signal_pack_id = str(signal_pack_id or "").strip()
+        if not clean_signal_pack_id:
+            return {"accepted": False, "reason": "missing_signal_pack_id"}
+        normalized_roles = {role for role in (str(item).strip().lower() for item in assigned_roles) if role in ANALYST_ROLES}
+        if not normalized_roles:
+            return {"accepted": False, "reason": "no_valid_roles"}
+        with self._signal_pack_lock:
+            state = self._signal_packs.get(clean_signal_pack_id)
+            if state is None:
+                return {"accepted": False, "reason": "unknown_signal_pack_id"}
+            if state.status == "canceled":
+                return {"accepted": False, "reason": "signal_pack_canceled"}
+            state.expected_roles = set(normalized_roles)
+            state.dispatched = all(role in state.outputs for role in state.expected_roles)
+            run_id = state.run_id
+            symbol = state.symbol
+        queued_task_ids: list[str] = []
+        for role in sorted(normalized_roles):
+            if self._has_existing_pack_task(signal_pack_id=clean_signal_pack_id, role=role) or self._has_completed_pack_output(signal_pack_id=clean_signal_pack_id, role=role):
+                continue
+            task = self._task_bus.create_task(
+                run_id=run_id,
+                agent_id="openclaw_orchestrator",
+                role=role,
+                priority=9,
+                payload={
+                    "command": f"rerouted specialist task for {symbol}",
+                    "symbol": symbol,
+                    "side": self._autopilot_default_side,
+                    "quantity": self._autopilot_default_quantity,
+                    "sleeve": self._autopilot_sleeve.value,
+                    "signal_pack_id": clean_signal_pack_id,
+                    "signal_pack_roles": sorted(normalized_roles),
+                    "metadata": {"rerouted": True, "reason": reason},
+                },
+            )
+            queued_task_ids.append(task.task_id)
+        return {
+            "accepted": True,
+            "signal_pack_id": clean_signal_pack_id,
+            "run_id": run_id,
+            "expected_roles": sorted(normalized_roles),
+            "queued_task_ids": queued_task_ids,
+        }
 
     async def _worker_loop(self, role: WorkerRole) -> None:
         while True:
@@ -677,6 +915,50 @@ class FundAgentRuntime:
                         })
             except asyncio.CancelledError:
                 raise
+            except TemporaryProviderCapacityError as exc:
+                deferred = self._task_bus.defer_task(
+                    task.task_id,
+                    reason=str(exc),
+                    retry_after_seconds=exc.retry_after_seconds,
+                    extra_details={
+                        "reasons": list(exc.reasons or []),
+                        "providers": list(exc.providers or []),
+                        "defer_type": "provider_capacity",
+                    },
+                )
+                with self._state_lock:
+                    state = self._states[role]
+                    state.last_task_status = "queued"
+                    state.last_error = f"deferred_until_capacity:{exc.retry_after_seconds:.1f}s"
+
+                    agent_id = f"agent-{role}"
+                    next_attempt_at = None
+                    if deferred is not None:
+                        scheduler = deferred.payload.get("_scheduler") if isinstance(deferred.payload, dict) else {}
+                        if isinstance(scheduler, dict):
+                            next_attempt_at = scheduler.get("next_attempt_at")
+                    agent_hierarchy.update_agent_status(
+                        agent_id=agent_id,
+                        role=role,
+                        status="idle",
+                        last_task_id=task.task_id,
+                        last_task_status="queued",
+                        last_error=state.last_error,
+                        task_count=state.completed_count + state.failed_count + state.blocked_count,
+                        success_count=state.completed_count,
+                        failed_count=state.failed_count,
+                        blocked_count=state.blocked_count,
+                    )
+                    publish_agent_event("agent.task_deferred", {
+                        "agent_id": agent_id,
+                        "role": role,
+                        "task_id": task.task_id,
+                        "status": "queued",
+                        "retry_after_seconds": round(exc.retry_after_seconds, 2),
+                        "next_attempt_at": next_attempt_at,
+                        "reason": str(exc),
+                        "reasons": list(exc.reasons or []),
+                    })
             except Exception as exc:
                 self._task_bus.set_status(task.task_id, "failed", {"error": str(exc)})
                 with self._state_lock:
@@ -714,6 +996,7 @@ class FundAgentRuntime:
     async def _autopilot_loop(self) -> None:
         while True:
             try:
+                self._process_due_swarm_waves()
                 if data_integrity_guard.halted():
                     with self._state_lock:
                         self._autopilot_last_error = data_integrity_guard.halt_reason() or "system_halted"
@@ -737,7 +1020,7 @@ class FundAgentRuntime:
                     with self._state_lock:
                         self._blog_editorial_last_error = data_integrity_guard.halt_reason() or "system_halted"
                         self._blog_editorial_last_run_at = _utc_iso()
-                    await asyncio.sleep(self._blog_editorial_interval_seconds)
+                    await asyncio.sleep(self._blog_market_report_scheduler_interval_seconds)
                     continue
 
                 cycle_run_id = f"run-blog-editorial-{uuid4().hex[:10]}"
@@ -748,7 +1031,7 @@ class FundAgentRuntime:
                 with self._state_lock:
                     self._blog_editorial_last_error = str(exc)
                     self._blog_editorial_last_run_at = _utc_iso()
-            await asyncio.sleep(self._blog_editorial_interval_seconds)
+            await asyncio.sleep(self._blog_market_report_scheduler_interval_seconds)
 
     def _enqueue_autopilot_cycle(self, run_id: str) -> dict[str, Any]:
         session = self._market_session()
@@ -769,24 +1052,8 @@ class FundAgentRuntime:
             return {"run_id": run_id, "enqueued_count": 0, "task_ids": [], "reason": reason, "session": session}
 
         selected_symbols, scout_meta = self._resolve_autopilot_symbols()
-        queued_ids: list[str] = []
-        for symbol in selected_symbols:
-            if self._has_inflight_analyst_tasks(symbol=symbol):
-                continue
-            swarm = self.enqueue_signal_swarm(
-                run_id=run_id,
-                symbol=symbol,
-                agent_id="autopilot_coordinator",
-                command=f"autopilot swarm {symbol}",
-                payload={
-                    "side": self._autopilot_default_side,
-                    "quantity": self._autopilot_default_quantity,
-                    "sleeve": self._autopilot_sleeve.value,
-                    "metadata": {"autopilot": True},
-                },
-                priority=7,
-            )
-            queued_ids.extend(list(swarm.get("task_ids") or []))
+        wave_plan = self._plan_swarm_waves(run_id=run_id, selected_symbols=selected_symbols)
+        queued_ids = self._process_due_swarm_waves()
 
         with self._state_lock:
             self._autopilot_cycles += 1
@@ -795,7 +1062,10 @@ class FundAgentRuntime:
             self._autopilot_last_run_at = _utc_iso()
             self._autopilot_last_error = None
             self._autopilot_last_session = dict(session)
-            self._autopilot_last_scout = dict(scout_meta)
+            self._autopilot_last_scout = {
+                **dict(scout_meta),
+                **wave_plan,
+            }
 
         return {
             "run_id": run_id,
@@ -804,7 +1074,7 @@ class FundAgentRuntime:
             "symbol_count": len(selected_symbols),
             "selected_symbols": list(selected_symbols),
             "session": session,
-            "scout": scout_meta,
+            "scout": {**dict(scout_meta), **wave_plan},
         }
 
     def _market_session(self) -> dict[str, Any]:
@@ -819,12 +1089,12 @@ class FundAgentRuntime:
                 "selected_symbols": list(selected),
             }
 
-        scored: list[tuple[float, str]] = []
+        scored: list[dict[str, Any]] = []
         for symbol in self._autopilot_scout_symbols:
-            score = self._score_autopilot_symbol(symbol)
-            if score is None:
+            opportunity = self._score_autopilot_symbol(symbol)
+            if opportunity is None:
                 continue
-            scored.append((score, symbol))
+            scored.append(opportunity)
 
         if not scored:
             fallback = tuple(self._autopilot_symbols[: self._autopilot_scout_max_symbols])
@@ -835,16 +1105,121 @@ class FundAgentRuntime:
                 "reason": "scout_no_scores_fallback_to_seed",
             }
 
-        scored.sort(key=lambda item: (-item[0], item[1]))
-        selected = tuple(symbol for _, symbol in scored[: self._autopilot_scout_max_symbols])
+        scored.sort(key=lambda item: (-float(item.get("score") or 0.0), str(item.get("symbol") or "")))
+        selected = tuple(str(item.get("symbol") or "") for item in scored[: self._autopilot_scout_max_symbols])
         return selected, {
             "dynamic_universe_enabled": True,
             "candidate_count": len(self._autopilot_scout_symbols),
             "selected_symbols": list(selected),
-            "top_scores": [{"symbol": symbol, "score": round(score, 4)} for score, symbol in scored[:5]],
+            "top_scores": [
+                {
+                    "symbol": str(item.get("symbol") or ""),
+                    "score": round(float(item.get("score") or 0.0), 4),
+                    "asset_class": item.get("asset_class"),
+                    "direction": item.get("direction"),
+                }
+                for item in scored[:5]
+            ],
         }
 
-    def _score_autopilot_symbol(self, symbol: str) -> float | None:
+    def _active_signal_pack_count(self) -> int:
+        with self._signal_pack_lock:
+            return sum(
+                1
+                for state in self._signal_packs.values()
+                if set(state.outputs.keys()) != set(state.expected_roles)
+            )
+
+    def _schedule_swarm_wave(
+        self,
+        *,
+        run_id: str,
+        symbols: list[str],
+        scheduled_for: datetime,
+        wave_index: int,
+        total_waves: int,
+    ) -> None:
+        if not symbols:
+            return
+        self._scheduled_swarm_waves.append(
+            {
+                "run_id": run_id,
+                "symbols": list(symbols),
+                "scheduled_for": scheduled_for.replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+                "wave_index": wave_index,
+                "total_waves": total_waves,
+            }
+        )
+        self._scheduled_swarm_waves.sort(key=lambda item: (item.get("scheduled_for") or "", item.get("wave_index") or 0))
+
+    def _plan_swarm_waves(self, *, run_id: str, selected_symbols: tuple[str, ...]) -> dict[str, Any]:
+        symbols = [symbol for symbol in selected_symbols if symbol and not self._has_inflight_analyst_tasks(symbol=symbol)]
+        self._scheduled_swarm_waves = [wave for wave in self._scheduled_swarm_waves if str(wave.get("run_id") or "") != run_id]
+        if not symbols:
+            return {
+                "wave_count": 0,
+                "scheduled_wave_count": len(self._scheduled_swarm_waves),
+                "wave_symbols": [],
+            }
+
+        waves = [symbols[index:index + self._swarm_wave_size] for index in range(0, len(symbols), self._swarm_wave_size)]
+        now = datetime.now(timezone.utc)
+        for wave_index, wave_symbols in enumerate(waves, start=1):
+            scheduled_for = now + timedelta(seconds=(wave_index - 1) * self._swarm_wave_spacing_seconds)
+            self._schedule_swarm_wave(
+                run_id=run_id,
+                symbols=wave_symbols,
+                scheduled_for=scheduled_for,
+                wave_index=wave_index,
+                total_waves=len(waves),
+            )
+        return {
+            "wave_count": len(waves),
+            "scheduled_wave_count": len(self._scheduled_swarm_waves),
+            "wave_symbols": [list(wave) for wave in waves],
+            "next_wave_at": self._scheduled_swarm_waves[0]["scheduled_for"] if self._scheduled_swarm_waves else None,
+        }
+
+    def _process_due_swarm_waves(self) -> list[str]:
+        now = datetime.now(timezone.utc)
+        queued_ids: list[str] = []
+        keep: list[dict[str, Any]] = []
+        for wave in self._scheduled_swarm_waves:
+            scheduled_for = datetime.fromisoformat(str(wave.get("scheduled_for") or now.isoformat()).replace("Z", "+00:00"))
+            if scheduled_for > now:
+                keep.append(wave)
+                continue
+            if self._active_signal_pack_count() >= self._swarm_max_active_packs:
+                rescheduled_for = now + timedelta(seconds=self._swarm_wave_spacing_seconds)
+                wave["scheduled_for"] = rescheduled_for.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+                keep.append(wave)
+                continue
+            for symbol in wave.get("symbols") or []:
+                if self._has_inflight_analyst_tasks(symbol=symbol):
+                    continue
+                swarm = self.enqueue_signal_swarm(
+                    run_id=str(wave.get("run_id") or f"run-autopilot-{uuid4().hex[:12]}"),
+                    symbol=str(symbol).upper().strip(),
+                    agent_id="autopilot_coordinator",
+                    command=f"autopilot swarm {symbol}",
+                    payload={
+                        "side": self._autopilot_default_side,
+                        "quantity": self._autopilot_default_quantity,
+                        "sleeve": self._autopilot_sleeve.value,
+                        "metadata": {
+                            "autopilot": True,
+                            "wave_index": wave.get("wave_index"),
+                            "total_waves": wave.get("total_waves"),
+                            "scheduled_for": wave.get("scheduled_for"),
+                        },
+                    },
+                    priority=7,
+                )
+                queued_ids.extend(list(swarm.get("task_ids") or []))
+        self._scheduled_swarm_waves = keep
+        return queued_ids
+
+    def _score_autopilot_symbol(self, symbol: str) -> dict[str, Any] | None:
         normalized = str(symbol or "").upper().strip()
         if not normalized:
             return None
@@ -862,53 +1237,173 @@ class FundAgentRuntime:
         sentiment_norm = max(0.0, min(1.0, (_to_float(sentiment.sentiment_score, 0.0) + 1.0) / 2.0))
         tech_conf = max(0.0, min(1.0, _to_float(technical.confidence, 0.5)))
         ml_conf = max(0.0, min(1.0, _to_float(ml.confidence, 0.5)))
-        return (ml_prob_up * 0.55) + (sentiment_norm * 0.15) + (tech_conf * 0.15) + (ml_conf * 0.15)
+        score = (ml_prob_up * 0.55) + (sentiment_norm * 0.15) + (tech_conf * 0.15) + (ml_conf * 0.15)
+        direction = "long_bias" if ml_prob_up >= 0.5 else "short_bias"
+        opportunity = self._orchestrator.record_discovery_opportunity(
+            {
+                "run_id": self._autopilot_last_run_id or "autopilot-discovery",
+                "agent_id": "world_scanner",
+                "symbol": normalized,
+                "asset_class": infer_asset_class(normalized),
+                "strategy_family": "multi_signal_scout",
+                "direction": direction,
+                "score": score,
+                "confidence": max(0.0, min(1.0, (tech_conf + ml_conf + sentiment_norm) / 3.0)),
+                "horizon": "swing",
+                "thesis": f"{normalized} ranked by multi-signal scout with {direction.replace('_', ' ')} bias.",
+                "catalysts": list(dict.fromkeys([str(technical.summary), str(sentiment.source), "ml_timeseries"])),
+                "evidence": [
+                    str(technical.summary),
+                    str(ml.summary),
+                    f"Sentiment score {round(_to_float(sentiment.sentiment_score, 0.0), 3)}",
+                ],
+                "ml": {
+                    "directional_probability_up": round(ml_prob_up, 4),
+                    "technical_confidence": round(tech_conf, 4),
+                    "ml_confidence": round(ml_conf, 4),
+                    "sentiment_normalized": round(sentiment_norm, 4),
+                },
+                "metadata": {
+                    "source": "autopilot_dynamic_universe",
+                },
+                "status": "candidate",
+            }
+        )
+        return opportunity
+
+    def _scheduled_market_brief_jobs(self) -> list[dict[str, Any]]:
+        now_et = datetime.now(self._market_timezone)
+        jobs: list[dict[str, Any]] = []
+        weekday = now_et.weekday()
+        market_date = now_et.date().isoformat()
+        symbols = self._blog_market_report_symbols
+
+        if self._blog_premarket_report_enabled and weekday < 5:
+            trigger_time = now_et.replace(hour=9, minute=30, second=0, microsecond=0) - timedelta(
+                minutes=self._blog_premarket_report_lead_minutes
+            )
+            schedule_key = f"premarket-{market_date}"
+            if now_et >= trigger_time and not blog_service.has_scheduled_post(schedule_kind="premarket", schedule_key=schedule_key):
+                jobs.append(
+                    {
+                        "kind": "premarket",
+                        "schedule_key": schedule_key,
+                        "market_date": market_date,
+                        "symbols": symbols,
+                        "command": (
+                            "Write a dated premarket report using real overnight news, expected session pressure, "
+                            "watchlist catalysts, and scenario-based speculation with explicit uncertainty."
+                        ),
+                    }
+                )
+
+        if self._blog_postmarket_report_enabled and weekday < 5:
+            trigger_time = now_et.replace(hour=16, minute=0, second=0, microsecond=0) + timedelta(
+                minutes=self._blog_postmarket_report_delay_minutes
+            )
+            schedule_key = f"postmarket-{market_date}"
+            if now_et >= trigger_time and not blog_service.has_scheduled_post(schedule_kind="postmarket", schedule_key=schedule_key):
+                jobs.append(
+                    {
+                        "kind": "postmarket",
+                        "schedule_key": schedule_key,
+                        "market_date": market_date,
+                        "symbols": symbols,
+                        "command": (
+                            "Write a dated postmarket report covering session winners/losers, closing narrative, "
+                            "risk carryover into tomorrow, and what the price action likely means."
+                        ),
+                    }
+                )
+
+        if self._blog_weekahead_report_enabled and weekday == self._blog_weekahead_report_weekday:
+            trigger_time = now_et.replace(
+                hour=self._blog_weekahead_report_hour_et,
+                minute=self._blog_weekahead_report_minute_et,
+                second=0,
+                microsecond=0,
+            )
+            iso_year, iso_week, _ = now_et.isocalendar()
+            schedule_key = f"week-ahead-{iso_year}-W{iso_week:02d}"
+            if now_et >= trigger_time and not blog_service.has_scheduled_post(schedule_kind="week_ahead", schedule_key=schedule_key):
+                jobs.append(
+                    {
+                        "kind": "week_ahead",
+                        "schedule_key": schedule_key,
+                        "market_date": market_date,
+                        "symbols": symbols,
+                        "command": (
+                            "Write a week-ahead report for serious operators: macro calendar, market structure, likely "
+                            "crowding, cross-asset watchpoints, and where the fund should stay in cash if evidence is weak."
+                        ),
+                    }
+                )
+
+        return jobs
 
     def _enqueue_blog_editorial_cycle(self, run_id: str) -> dict[str, Any]:
-        remaining = blog_service.daily_quota_remaining(self._blog_editorial_target_per_day)
-        if remaining <= 0:
-            with self._state_lock:
-                self._blog_editorial_cycles += 1
-                self._blog_editorial_last_run_id = run_id
-                self._blog_editorial_last_run_at = _utc_iso()
-                self._blog_editorial_last_error = None
-            return {"run_id": run_id, "enqueued_count": 0, "reason": "daily_quota_reached"}
-
-        reports = self._orchestrator.list_recent_research_reports(limit=200)
-        candidates = blog_service.select_editorial_candidates(
-            reports=reports,
-            min_confidence=self._blog_editorial_min_confidence,
-            limit=remaining,
-        )
-
         queued_task_ids: list[str] = []
-        for report in candidates:
-            report_id = str(report.get("report_id") or "").strip()
-            if not report_id:
-                continue
-            symbol = str((report.get("asset_universe") or ["MARKET"])[0]).upper().strip()
-            confidence = float(report.get("confidence") or 0.0)
+        schedule_jobs = self._scheduled_market_brief_jobs()
+        for job in schedule_jobs:
             task = self._task_bus.create_task(
                 run_id=run_id,
                 agent_id="editorial_coordinator",
                 role="blog_writer",
-                priority=8,
+                priority=9,
                 payload={
-                    "report_ids": [report_id],
-                    "symbol": symbol,
-                    "command": (
-                        f"Write a specific AI-fintech-hedge-fund editorial for {symbol} "
-                        f"(source confidence={confidence:.2f}). Include scenario map, risk controls, and concrete monitoring checklist."
-                    ),
-                    "trigger_source": "scheduled_editorial",
+                    "editorial_kind": job["kind"],
+                    "schedule_key": job["schedule_key"],
+                    "market_date": job["market_date"],
+                    "symbols": list(job["symbols"]),
+                    "symbol": str(job["symbols"][0]) if job["symbols"] else "SPY",
+                    "command": job["command"],
+                    "trigger_source": "scheduled_market_report",
                     "metadata": {
                         "scheduled": True,
-                        "confidence": confidence,
-                        "target_per_day": self._blog_editorial_target_per_day,
+                        "schedule_kind": job["kind"],
+                        "schedule_key": job["schedule_key"],
                     },
                 },
             )
             queued_task_ids.append(task.task_id)
+
+        remaining = blog_service.daily_quota_remaining(self._blog_editorial_target_per_day)
+        candidate_count = 0
+        if remaining > 0:
+            reports = self._orchestrator.list_recent_research_reports(limit=200)
+            candidates = blog_service.select_editorial_candidates(
+                reports=reports,
+                min_confidence=self._blog_editorial_min_confidence,
+                limit=remaining,
+            )
+            candidate_count = len(candidates)
+            for report in candidates:
+                report_id = str(report.get("report_id") or "").strip()
+                if not report_id:
+                    continue
+                symbol = str((report.get("asset_universe") or ["MARKET"])[0]).upper().strip()
+                confidence = float(report.get("confidence") or 0.0)
+                task = self._task_bus.create_task(
+                    run_id=run_id,
+                    agent_id="editorial_coordinator",
+                    role="blog_writer",
+                    priority=8,
+                    payload={
+                        "report_ids": [report_id],
+                        "symbol": symbol,
+                        "command": (
+                            f"Write a specific AI-fintech-hedge-fund editorial for {symbol} "
+                            f"(source confidence={confidence:.2f}). Include scenario map, risk controls, and concrete monitoring checklist."
+                        ),
+                        "trigger_source": "scheduled_editorial",
+                        "metadata": {
+                            "scheduled": True,
+                            "confidence": confidence,
+                            "target_per_day": self._blog_editorial_target_per_day,
+                        },
+                    },
+                )
+                queued_task_ids.append(task.task_id)
 
         with self._state_lock:
             self._blog_editorial_cycles += 1
@@ -921,8 +1416,9 @@ class FundAgentRuntime:
             "run_id": run_id,
             "enqueued_count": len(queued_task_ids),
             "task_ids": queued_task_ids,
-            "candidate_count": len(candidates),
-            "remaining_quota": max(0, remaining - len(queued_task_ids)),
+            "candidate_count": candidate_count,
+            "scheduled_market_reports": len(schedule_jobs),
+            "remaining_quota": max(0, remaining - candidate_count),
         }
 
     def _has_inflight_analyst_tasks(self, *, symbol: str) -> bool:
@@ -937,11 +1433,43 @@ class FundAgentRuntime:
                 return True
         return False
 
+    def _has_existing_pack_task(self, *, signal_pack_id: str, role: str) -> bool:
+        for task in self._task_bus.list_tasks():
+            if task.role != role or task.status not in {"queued", "running"}:
+                continue
+            if str(task.payload.get("signal_pack_id") or "").strip() == signal_pack_id:
+                return True
+        return False
+
+    def _has_completed_pack_output(self, *, signal_pack_id: str, role: str) -> bool:
+        with self._signal_pack_lock:
+            state = self._signal_packs.get(signal_pack_id)
+            if state is None:
+                return False
+            return role in state.outputs
+
     async def _process_task(self, role: WorkerRole, payload: dict[str, Any], *, run_id: str, task_id: str) -> dict[str, Any]:
         if data_integrity_guard.halted():
             return {
                 "status": "blocked",
                 "reason": data_integrity_guard.halt_reason() or "system_halted",
+                "run_id": run_id,
+                "task_id": task_id,
+                "role": role,
+            }
+        if run_id in self._canceled_runs:
+            return {
+                "status": "blocked",
+                "reason": str(self._canceled_runs[run_id].get("reason") or "run_canceled"),
+                "run_id": run_id,
+                "task_id": task_id,
+                "role": role,
+            }
+        signal_pack_id = str(payload.get("signal_pack_id") or "").strip()
+        if signal_pack_id and signal_pack_id in self._canceled_signal_packs:
+            return {
+                "status": "blocked",
+                "reason": str(self._canceled_signal_packs[signal_pack_id].get("reason") or "signal_pack_canceled"),
                 "run_id": run_id,
                 "task_id": task_id,
                 "role": role,
@@ -1136,6 +1664,14 @@ class FundAgentRuntime:
     ) -> dict[str, Any]:
         signal_pack_id = str(payload.get("signal_pack_id") or "").strip()
         if signal_pack_id:
+            if signal_pack_id in self._canceled_signal_packs or run_id in self._canceled_runs:
+                return {
+                    "status": "blocked",
+                    "report_id": report_id,
+                    "signal_pack_id": signal_pack_id,
+                    "reason": "signal_pack_canceled" if signal_pack_id in self._canceled_signal_packs else "run_canceled",
+                    **dict(extra or {}),
+                }
             swarm = self._register_signal_pack_output(
                 signal_pack_id=signal_pack_id,
                 role=role,
@@ -1151,6 +1687,8 @@ class FundAgentRuntime:
 
         should_auto_blog = bool(payload.get("auto_publish_blog")) or role in {"insight_researcher", "hedge_fund_researcher"}
         blog_task_id = None
+        if run_id in self._canceled_runs:
+            return {"status": "blocked", "report_id": report_id, "reason": "run_canceled", **dict(extra or {})}
         if should_auto_blog:
             blog_task = self._task_bus.create_task(
                 run_id=run_id,
@@ -1218,6 +1756,8 @@ class FundAgentRuntime:
                     expected = set(ANALYST_ROLES)
                 state = SignalPackState(signal_pack_id=signal_pack_id, run_id=run_id, symbol=symbol, expected_roles=expected)
                 self._signal_packs[signal_pack_id] = state
+            if state.status == "canceled" or signal_pack_id in self._canceled_signal_packs:
+                return {"status": "blocked", "reason": state.canceled_reason or "signal_pack_canceled"}
 
             state.outputs[role] = {"report_id": report_id, "summary": summary, "confidence": float(confidence)}
             ready = all(expected_role in state.outputs for expected_role in state.expected_roles)
@@ -1405,6 +1945,28 @@ class FundAgentRuntime:
         return {"status": "completed", "run_id": run_id, "blocked_count": len(blocked), "pending_count": len(pending)}
 
     def _handle_blog_writer(self, payload: dict[str, Any], *, run_id: str) -> dict[str, Any]:
+        editorial_kind = str(payload.get("editorial_kind") or "").strip().lower()
+        if editorial_kind:
+            post = blog_service.publish_market_brief(
+                schedule_kind=editorial_kind,
+                schedule_key=str(payload.get("schedule_key") or "").strip(),
+                market_date=str(payload.get("market_date") or "").strip(),
+                run_id=run_id,
+                symbols=payload.get("symbols") or self._blog_market_report_symbols,
+                command=str(
+                    payload.get("command")
+                    or f"Write a dated {editorial_kind.replace('_', ' ')} market report with overnight news, scenarios, and risk watchpoints."
+                ),
+                trigger_source=str(payload.get("trigger_source") or "scheduled_market_report"),
+            )
+            return {
+                "status": "completed",
+                "published_count": 1,
+                "post_ids": [str(post.get("id"))],
+                "schedule_kind": editorial_kind,
+                "schedule_key": str(payload.get("schedule_key") or ""),
+            }
+
         report_ids = [str(item).strip() for item in (payload.get("report_ids") or []) if str(item).strip()]
         symbol = str(payload.get("symbol") or "").upper().strip()
         if not report_ids:
@@ -1451,6 +2013,9 @@ def _build_runtime() -> FundAgentRuntime:
         autopilot_dynamic_universe_enabled=settings.AGENT_RUNTIME_AUTOPILOT_DYNAMIC_UNIVERSE_ENABLED,
         autopilot_scout_symbols=_parse_symbol_csv(settings.AGENT_RUNTIME_AUTOPILOT_SCOUT_SYMBOLS),
         autopilot_scout_max_symbols=settings.AGENT_RUNTIME_AUTOPILOT_SCOUT_MAX_SYMBOLS,
+        swarm_wave_size=settings.AGENT_RUNTIME_SWARM_WAVE_SIZE,
+        swarm_wave_spacing_seconds=settings.AGENT_RUNTIME_SWARM_WAVE_SPACING_SECONDS,
+        swarm_max_active_packs=settings.AGENT_RUNTIME_SWARM_MAX_ACTIVE_PACKS,
         autopilot_default_side="sell" if settings.AGENT_RUNTIME_AUTOPILOT_DEFAULT_SIDE.strip().lower() == "sell" else "buy",
         autopilot_default_quantity=settings.AGENT_RUNTIME_AUTOPILOT_DEFAULT_QUANTITY,
         autopilot_sleeve=_normalize_sleeve(settings.AGENT_RUNTIME_AUTOPILOT_SLEEVE),
@@ -1462,6 +2027,16 @@ def _build_runtime() -> FundAgentRuntime:
         blog_editorial_interval_hours=settings.BLOG_AUTO_EDITORIAL_INTERVAL_HOURS,
         blog_editorial_target_per_day=settings.BLOG_AUTO_EDITORIAL_TARGET_PER_DAY,
         blog_editorial_min_confidence=settings.BLOG_AUTO_EDITORIAL_MIN_CONFIDENCE,
+        blog_market_report_scheduler_interval_seconds=settings.BLOG_MARKET_REPORT_SCHEDULER_INTERVAL_SECONDS,
+        blog_premarket_report_enabled=settings.BLOG_PREMARKET_REPORT_ENABLED,
+        blog_premarket_report_lead_minutes=settings.BLOG_PREMARKET_REPORT_LEAD_MINUTES,
+        blog_postmarket_report_enabled=settings.BLOG_POSTMARKET_REPORT_ENABLED,
+        blog_postmarket_report_delay_minutes=settings.BLOG_POSTMARKET_REPORT_DELAY_MINUTES,
+        blog_weekahead_report_enabled=settings.BLOG_WEEKAHEAD_REPORT_ENABLED,
+        blog_weekahead_report_weekday=_parse_weekday_name(settings.BLOG_WEEKAHEAD_REPORT_WEEKDAY),
+        blog_weekahead_report_hour_et=settings.BLOG_WEEKAHEAD_REPORT_HOUR_ET,
+        blog_weekahead_report_minute_et=settings.BLOG_WEEKAHEAD_REPORT_MINUTE_ET,
+        blog_market_report_symbols=_parse_symbol_csv(settings.BLOG_MARKET_REPORT_SYMBOLS),
     )
 
 

@@ -14,6 +14,9 @@ interface BlogData {
   author?: string;
   authorImage?: string;
   thumbnail?: string;
+  assetClass?: string;
+  filterKey?: string;
+  filterLabel?: string;
 }
 
 interface BlogPage {
@@ -54,6 +57,9 @@ export default async function HomePage({
       author: post.author,
       authorImage: post.authorImage,
       thumbnail: post.thumbnail,
+      assetClass: post.assetClass,
+      filterKey: post.filterKey,
+      filterLabel: post.filterLabel,
     },
   }));
   
@@ -67,23 +73,25 @@ export default async function HomePage({
   const allTags = [
     "All",
     ...Array.from(
-      new Set(sortedBlogs.flatMap((blog) => blog.data.tags || []))
-    ).sort(),
+      new Set(
+        sortedBlogs
+          .map((blog) => blog.data.filterLabel)
+          .filter((label): label is string => Boolean(label))
+      )
+    ),
   ];
 
   const selectedTag = resolvedSearchParams.tag || "All";
   const filteredBlogs =
     selectedTag === "All"
       ? sortedBlogs
-      : sortedBlogs.filter((blog) => blog.data.tags?.includes(selectedTag));
+      : sortedBlogs.filter((blog) => blog.data.filterLabel === selectedTag);
 
   const tagCounts = allTags.reduce((acc, tag) => {
     if (tag === "All") {
       acc[tag] = sortedBlogs.length;
     } else {
-      acc[tag] = sortedBlogs.filter((blog) =>
-        blog.data.tags?.includes(tag)
-      ).length;
+      acc[tag] = sortedBlogs.filter((blog) => blog.data.filterLabel === tag).length;
     }
     return acc;
   }, {} as Record<string, number>);
@@ -107,7 +115,7 @@ export default async function HomePage({
               Vektor Trading Blog
             </h1>
             <p className="text-muted-foreground text-sm md:text-base lg:text-lg">
-              Latest news and updates from Vektor Trading.
+              Readable market briefs and research notes from Vektor&apos;s live operating stack.
             </p>
           </div>
         </div>
@@ -141,6 +149,9 @@ export default async function HomePage({
                   description={blog.data.description}
                   date={formattedDate}
                   thumbnail={blog.data.thumbnail}
+                  assetClass={blog.data.assetClass}
+                  filterLabel={blog.data.filterLabel}
+                  filterKey={blog.data.filterKey}
                   showRightBorder={filteredBlogs.length < 3}
                 />
               );

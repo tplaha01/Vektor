@@ -46,7 +46,7 @@ import DecisionQueue from '../components/admin/DecisionQueue';
 import RiskGauges from '../components/admin/RiskGauges';
 import PositionsPanel from '../components/admin/PositionsPanel';
 import LineagePanel from '../components/admin/LineagePanel';
-import AgentGraphCanvas from '../components/admin/AgentGraphCanvas';
+import KnowledgeTraceGraph from '../components/admin/KnowledgeTraceGraph';
 
 const badgeTone = (status) => {
   const normalized = String(status || '').toLowerCase();
@@ -74,6 +74,18 @@ const formatRelative = (value) => {
   if (Math.abs(diffHr) < 24) return `${diffHr}h ago`;
   const diffDay = Math.round(diffHr / 24);
   return `${diffDay}d ago`;
+};
+
+const formatCountdown = (value, nowTs = Date.now()) => {
+  if (!value) return 'n/a';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'n/a';
+  const diffMs = date.getTime() - nowTs;
+  const remaining = Math.abs(Math.round(diffMs / 1000));
+  const minutes = Math.floor(remaining / 60);
+  const seconds = remaining % 60;
+  const label = `${minutes}m ${String(seconds).padStart(2, '0')}s`;
+  return diffMs >= 0 ? `in ${label}` : `${label} ago`;
 };
 
 const summarizeText = (value, max = 220) => {
@@ -177,10 +189,12 @@ const Admin = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState('connecting');
   const [lastUpdate, setLastUpdate] = useState(new Date());
+  const [nowTick, setNowTick] = useState(Date.now());
   const [controlBusy, setControlBusy] = useState('');
   const [kbBusy, setKbBusy] = useState('');
   const [contextBusy, setContextBusy] = useState(false);
   const [performanceBusy, setPerformanceBusy] = useState('');
+  const [allocationSaving, setAllocationSaving] = useState(false);
   const [selectedContext, setSelectedContext] = useState(null);
   const [contextRailTab, setContextRailTab] = useState('focus');
   const [deliverableDrawerOpen, setDeliverableDrawerOpen] = useState(false);
@@ -191,6 +205,30 @@ const Admin = () => {
   const [timelineZoom, setTimelineZoom] = useState(8);
   const [taskTrailPage, setTaskTrailPage] = useState(1);
   const [treePanelOpen, setTreePanelOpen] = useState(true);
+  const [allocationDraft, setAllocationDraft] = useState({
+    totalCapitalUsd: 100000,
+    reserveCashUsd: 10000,
+    assetWeights: {
+      equities: 55,
+      options: 10,
+      commodities: 10,
+      forex: 10,
+      crypto: 5,
+      cash: 10,
+    },
+    sleeveWeights: {
+      long_term: 50,
+      recurring: 30,
+      tactical: 20,
+    },
+    constraints: {
+      min_cash_reserve_pct: 10,
+      max_asset_class_exposure_pct: 60,
+      max_options_notional_pct: 5,
+      max_crypto_notional_pct: 5,
+      max_forex_notional_pct: 10,
+    },
+  });
   const { success, error: showError } = useToast();
   const fetchInProgress = useRef(false);
   const isMounted = useRef(true);
@@ -199,7 +237,7 @@ const Admin = () => {
     { id: 'warroom', label: 'War Room', icon: Workflow, description: 'CEO theater and command surface' },
     { id: 'agents', label: 'Agents', icon: Bot, description: 'Hierarchy, workers, swarm runtime' },
     { id: 'performance', label: 'Performance', icon: LineChart, description: 'Track record, alpha, drawdown' },
-    { id: 'deliverables', label: 'Deliverables', icon: FileText, description: 'Research reports and blog output' },
+    { id: 'deliverables', label: 'KB', icon: FileText, description: 'Knowledge base documents, outputs, and lineage' },
     { id: 'decisions', label: 'Decisions', icon: TrendingUp, description: 'Pending approvals and lineage' },
     { id: 'risk', label: 'Risk', icon: Shield, description: 'Limits, controls, runtime status' },
     { id: 'positions', label: 'Positions', icon: Activity, description: 'Portfolio exposure and holdings' },
@@ -228,8 +266,8 @@ const Admin = () => {
         adminAPI.getPaperPositions(),
         adminAPI.getPerformanceSummary(),
         adminAPI.getPerformanceSnapshots({ limit: 240 }),
-        researchAPI.getReports({ limit: 12 }),
-        blogAPI.getPosts({ limit: 12 }),
+        researchAPI.getReports({ surface: 'kb', limit: 24 }),
+        blogAPI.getPosts({ limit: 24 }),
       ]);
 
       if (!isMounted.current) return;
@@ -304,6 +342,40 @@ const Admin = () => {
     };
   }, [fetchAdminState]);
 
+  useEffect(() => {
+    const interval = window.setInterval(() => setNowTick(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const policy = systemStatus?.allocation_policy?.policy;
+    if (!policy) return;
+    setAllocationDraft({
+      totalCapitalUsd: Number(policy.total_capital_usd || 100000),
+      reserveCashUsd: Number(policy.reserve_cash_usd || 0),
+      assetWeights: {
+        equities: Number(policy.asset_weights?.equities || 0) * 100,
+        options: Number(policy.asset_weights?.options || 0) * 100,
+        commodities: Number(policy.asset_weights?.commodities || 0) * 100,
+        forex: Number(policy.asset_weights?.forex || 0) * 100,
+        crypto: Number(policy.asset_weights?.crypto || 0) * 100,
+        cash: Number(policy.asset_weights?.cash || 0) * 100,
+      },
+      sleeveWeights: {
+        long_term: Number(policy.sleeve_weights?.long_term || 0) * 100,
+        recurring: Number(policy.sleeve_weights?.recurring || 0) * 100,
+        tactical: Number(policy.sleeve_weights?.tactical || 0) * 100,
+      },
+      constraints: {
+        min_cash_reserve_pct: Number(policy.constraints?.min_cash_reserve_pct || 0) * 100,
+        max_asset_class_exposure_pct: Number(policy.constraints?.max_asset_class_exposure_pct || 0) * 100,
+        max_options_notional_pct: Number(policy.constraints?.max_options_notional_pct || 0) * 100,
+        max_crypto_notional_pct: Number(policy.constraints?.max_crypto_notional_pct || 0) * 100,
+        max_forex_notional_pct: Number(policy.constraints?.max_forex_notional_pct || 0) * 100,
+      },
+    });
+  }, [systemStatus]);
+
   const haltRecoveryChecklist = Array.isArray(systemStatus?.halt?.recovery_checklist)
     ? systemStatus.halt.recovery_checklist
     : [];
@@ -341,13 +413,19 @@ const Admin = () => {
         .map((report) => ({
           id: report.report_id,
           kind: 'research',
-          type: 'Research',
+          type: 'KB Document',
           title: report.title,
           subtitle: `${report.agent_role || report.agent_id || 'agent'} | ${String(report.asset_universe?.[0] || 'multi-asset').toUpperCase()}`,
-          detail: `${Math.round(Number(report.confidence || 0) * 100)}% confidence`,
+          detail: [
+            `${Math.round(Number(report.confidence || 0) * 100)}% confidence`,
+            report.provider_used,
+            report.model_used,
+          ].filter(Boolean).join(' · '),
           timestamp: report.published_at || report.created_at,
-          href: deliverableHref('research', report.report_id),
+          href: report.surface === 'public' ? deliverableHref('research', report.report_id) : '',
           preview: summarizeText(report.summary || report.thesis || report.executive_summary, 180),
+          metaBadges: [report.provider_used, report.model_used].filter(Boolean),
+          data: report,
         }))
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
     [reports]
@@ -362,10 +440,15 @@ const Admin = () => {
           type: 'Blog',
           title: post.title,
           subtitle: `${post.category || 'Research'} | ${post.author_role || 'editorial'}`,
-          detail: `${Number(post.views || 0)} views`,
+          detail: [
+            `${Number(post.views || 0)} views`,
+            post.providerUsed,
+            post.modelUsed,
+          ].filter(Boolean).join(' · '),
           timestamp: post.published_at || post.created_at,
           href: deliverableHref('blog', post.id),
           preview: summarizeText(post.excerpt || post.summary || post.content, 180),
+          metaBadges: [post.providerUsed, post.modelUsed].filter(Boolean),
         }))
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
     [posts]
@@ -475,6 +558,9 @@ const Admin = () => {
         .sort((a, b) => new Date(b.ts || b.created_at || 0).getTime() - new Date(a.ts || a.created_at || 0).getTime())
         .map((entry, index) => {
           const symbol = String(entry.details?.symbol || entry.payload?.symbol || entry.details?.asset || 'multi-asset').toUpperCase();
+          const nextAttemptAt = entry.details?.next_attempt_at || entry.payload?._scheduler?.next_attempt_at || '';
+          const retryCount = Number(entry.details?.retry_count || entry.payload?._scheduler?.retry_count || 0);
+          const deferReason = entry.details?.reason || '';
           return {
             id: entry.task_id || `${entry.run_id || 'run'}-${index}`,
             taskId: entry.task_id || '',
@@ -486,11 +572,127 @@ const Admin = () => {
             symbolName: tickerFullName(symbol),
             timestamp: entry.ts || entry.created_at,
             detail: entry.payload?.command || entry.details?.status || jsonPreview(entry.details, 120),
+            nextAttemptAt,
+            retryCount,
+            deferReason,
             raw: entry,
           };
         }),
     [taskHistory]
   );
+
+  const deferredTaskCount = useMemo(
+    () =>
+      activeTasks.filter((task) => {
+        const nextAttemptAt = task?.payload?._scheduler?.next_attempt_at;
+        if (!nextAttemptAt) return false;
+        const date = new Date(nextAttemptAt);
+        return !Number.isNaN(date.getTime()) && date.getTime() > Date.now();
+      }).length,
+    [activeTasks]
+  );
+
+  const allocationRows = useMemo(
+    () =>
+      Object.entries(systemStatus?.allocation_policy?.asset_classes || {}).map(([assetClass, row]) => ({
+        assetClass,
+        allocated: Number(row?.allocated_usd || 0),
+        used: Number(row?.used_usd || 0),
+        remaining: Number(row?.remaining_usd || 0),
+        weight: Number(row?.weight || 0),
+      })),
+    [systemStatus]
+  );
+
+  const discoveryRows = useMemo(
+    () => Array.isArray(systemStatus?.discovery?.top) ? systemStatus.discovery.top : [],
+    [systemStatus]
+  );
+
+  const swarmActiveContexts = useMemo(
+    () => Array.isArray(systemStatus?.swarm_snapshot?.active_contexts) ? systemStatus.swarm_snapshot.active_contexts : [],
+    [systemStatus]
+  );
+
+  const scheduledWaveRows = useMemo(
+    () =>
+      Array.isArray(workersStatus?.swarm_waves)
+        ? workersStatus.swarm_waves.map((wave, index) => ({
+            id: `${wave.run_id || 'run'}-${wave.wave_index || index}`,
+            runId: wave.run_id,
+            title: `Wave ${wave.wave_index || index + 1}/${wave.total_waves || '?'}`,
+            subtitle: (wave.symbols || []).join(', ') || 'no symbols',
+            detail: `Dispatch ${formatDateTime(wave.scheduled_for)} (${formatCountdown(wave.scheduled_for, nowTick)})`,
+            status: new Date(wave.scheduled_for).getTime() <= nowTick ? 'running' : 'queued',
+            data: wave,
+          }))
+        : [],
+    [workersStatus, nowTick]
+  );
+
+  const signalPackRows = useMemo(
+    () =>
+      Array.isArray(workersStatus?.signal_packs)
+        ? workersStatus.signal_packs.map((pack) => ({
+            id: pack.signal_pack_id,
+            title: `${pack.symbol} pack`,
+            subtitle: `${pack.completed_roles?.length || 0}/${pack.expected_roles?.length || 0} specialists complete`,
+            detail: pack.status === 'canceled'
+              ? `Canceled ${formatRelative(pack.canceled_at)}`
+              : pack.dispatched
+                ? `Dispatched to fund manager`
+                : `Waiting for ${Math.max((pack.expected_roles?.length || 0) - (pack.completed_roles?.length || 0), 0)} roles`,
+            status: pack.status || (pack.dispatched ? 'running' : 'queued'),
+            data: pack,
+          }))
+        : [],
+    [workersStatus]
+  );
+
+  const nextProviderWindow = useMemo(() => {
+    const providers = workersStatus?.ai_role_adapter?.providers || {};
+    const candidates = Object.entries(providers)
+      .map(([name, provider]) => {
+        const cooldownRemaining = Number(provider?.cooldown_remaining_seconds || 0);
+        const windowRemaining = Number(provider?.window_remaining_seconds || 0);
+        const budgeted =
+          provider?.quota_state === 'budget_window_exhausted' ||
+          (Number(provider?.requests_per_window || 0) > 0 &&
+            Number(provider?.requests_in_window || 0) >= Number(provider?.requests_per_window || 0)) ||
+          (Number(provider?.tokens_per_window || 0) > 0 &&
+            Number(provider?.estimated_tokens_in_window || 0) >= Number(provider?.tokens_per_window || 0));
+        const nextSeconds = budgeted && windowRemaining > 0
+          ? windowRemaining
+          : cooldownRemaining > 0
+            ? cooldownRemaining
+            : 0;
+        return {
+          name,
+          nextSeconds,
+          budgeted,
+          cooldownRemaining,
+          windowRemaining,
+        };
+      })
+      .filter((item) => item.nextSeconds > 0)
+      .sort((a, b) => a.nextSeconds - b.nextSeconds);
+
+    if (!candidates.length) {
+      return {
+        provider: 'all providers',
+        label: 'open now',
+        detail: 'No active cooldown or budget window',
+      };
+    }
+
+    const next = candidates[0];
+    const resetAt = new Date(Date.now() + next.nextSeconds * 1000);
+    return {
+      provider: next.name,
+      label: `${Math.ceil(next.nextSeconds)}s`,
+      detail: `${next.budgeted ? 'budget window' : 'cooldown'} until ${resetAt.toLocaleTimeString()}`,
+    };
+  }, [workersStatus]);
 
   const overviewRows = useMemo(
     () =>
@@ -950,6 +1152,46 @@ const Admin = () => {
     }
   };
 
+  const updateAllocationDraftGroup = (group, key, value) => {
+    setAllocationDraft((prev) => ({
+      ...prev,
+      [group]: {
+        ...prev[group],
+        [key]: Number(value),
+      },
+    }));
+  };
+
+  const saveAllocationPolicy = async () => {
+    if (allocationSaving) return;
+    try {
+      setAllocationSaving(true);
+      const runId =
+        systemStatus?.allocation_policy?.policy?.run_id ||
+        workersStatus?.autopilot?.last_run_id ||
+        activeTasks?.[0]?.run_id ||
+        'run-ceo-allocation';
+      const normalizeWeights = (source) =>
+        Object.fromEntries(Object.entries(source).map(([key, value]) => [key, Math.max(0, Number(value || 0)) / 100]));
+      await adminAPI.updateAllocationPolicy({
+        run_id: runId,
+        agent_id: 'ceo',
+        total_capital_usd: Number(allocationDraft.totalCapitalUsd || 0),
+        reserve_cash_usd: Number(allocationDraft.reserveCashUsd || 0),
+        asset_weights: normalizeWeights(allocationDraft.assetWeights),
+        sleeve_weights: normalizeWeights(allocationDraft.sleeveWeights),
+        constraints: normalizeWeights(allocationDraft.constraints),
+        metadata: { source: 'admin_crm' },
+      });
+      success('Allocation policy updated');
+      await fetchAdminState();
+    } catch (err) {
+      showError(`Allocation update failed: ${err.message}`);
+    } finally {
+      setAllocationSaving(false);
+    }
+  };
+
   const renderFeedRows = (rows, emptyText, options = {}) => {
     const { selectable = false, onSelect = null, selectedId = null, openLabel = 'Open' } = options;
     if (!rows.length) {
@@ -963,10 +1205,14 @@ const Admin = () => {
               <div className="theater-feed-copy">
                 <strong>{row.title || row.role || row.id}</strong>
                 <span>{row.subtitle || row.meta || row.detail || 'n/a'}</span>
+                {row.detail && row.subtitle ? <small className="theater-feed-detail">{row.detail}</small> : null}
               </div>
               <div className="theater-feed-meta">
                 {row.type ? <span className={`ops-role-chip ops-role-chip-${badgeTone(row.type === 'Blog' ? 'wait' : 'ok')}`}>{row.type}</span> : null}
                 {row.status ? <span className={`ops-role-chip ops-role-chip-${badgeTone(row.status)}`}>{row.status}</span> : null}
+                {Array.isArray(row.metaBadges) ? row.metaBadges.slice(0, 2).map((badge) => (
+                  <span key={`${row.id}-${badge}`} className="ops-role-chip ops-role-chip-wait">{badge}</span>
+                )) : null}
                 <small>{row.timestamp || row.lastHeartbeat ? formatRelative(row.timestamp || row.lastHeartbeat) : row.detail}</small>
               </div>
             </>
@@ -1322,6 +1568,10 @@ const Admin = () => {
             <div><span>Confidence</span><strong>{Math.round(Number(detail.confidence || 0) * 100 || 0)}%</strong></div>
             <div><span>Asset</span><strong>{String(detail.asset_universe?.[0] || 'multi-asset').toUpperCase()}</strong></div>
             <div><span>Published</span><strong>{formatRelative(detail.published_at || detail.created_at)}</strong></div>
+            <div><span>Provider</span><strong>{detail.provider_used || detail.ai_trace?.provider || 'n/a'}</strong></div>
+            <div><span>Model</span><strong>{detail.model_used || detail.ai_trace?.model || 'n/a'}</strong></div>
+            <div><span>Surface</span><strong>{detail.surface || 'kb'}</strong></div>
+            <div><span>Run</span><strong>{detail.run_id || lineageSummary?.run_id || 'n/a'}</strong></div>
           </div>
           {lineageSummary ? (
             <section className="drawer-section">
@@ -1377,11 +1627,13 @@ const Admin = () => {
               )}
             </div>
           </section>
-          {selectedContext.href ? (
+          {selectedContext.href && selectedContext.href !== '#' ? (
             <button type="button" className="drawer-open-page-btn" onClick={() => openDeliverablePage(selectedContext.href)}>
               Open full research page <ExternalLink size={14} />
             </button>
-          ) : null}
+          ) : (
+            <div className="context-empty">This document stays inside the KB surface until promoted to a public research paper.</div>
+          )}
         </div>
       );
     }
@@ -1392,6 +1644,8 @@ const Admin = () => {
           <div><span>Author</span><strong>{detail.author || detail.author_role || 'Vektor'}</strong></div>
           <div><span>Views</span><strong>{detail.views || 0}</strong></div>
           <div><span>Read Time</span><strong>{detail.read_time || detail.readTime || 'n/a'} min</strong></div>
+          <div><span>Provider</span><strong>{detail.providerUsed || detail.aiTrace?.provider || detail.metadata?.ai?.provider || 'n/a'}</strong></div>
+          <div><span>Model</span><strong>{detail.modelUsed || detail.aiTrace?.model || detail.metadata?.ai?.model || 'n/a'}</strong></div>
         </div>
         {lineageSummary ? (
           <section className="drawer-section">
@@ -1430,7 +1684,7 @@ const Admin = () => {
             )}
           </div>
         </section>
-        {selectedContext.href ? (
+        {selectedContext.href && selectedContext.href !== '#' ? (
           <button type="button" className="drawer-open-page-btn" onClick={() => openDeliverablePage(selectedContext.href)}>
             Open full blog page <ExternalLink size={14} />
           </button>
@@ -1596,6 +1850,11 @@ const Admin = () => {
                               <small>{taskHistoryRows.length} events captured in trail</small>
                             </div>
                             <div className="warroom-overview-card">
+                              <span>Deferred</span>
+                              <strong>{deferredTaskCount}</strong>
+                              <small>queued until provider capacity reopens</small>
+                            </div>
+                            <div className="warroom-overview-card">
                               <span>Paper equity</span>
                               <strong>{currency(metrics?.total_equity || paperSummary.equity)}</strong>
                               <small>{currency(paperSummary.unrealized)} unrealized</small>
@@ -1604,6 +1863,11 @@ const Admin = () => {
                               <span>OpenClaw packs</span>
                               <strong>{workersStatus?.signal_packs?.length || 0}</strong>
                               <small>{workersStatus?.autopilot?.allow_cash_hold ? 'cash hold enabled' : 'cash hold disabled'}</small>
+                            </div>
+                            <div className="warroom-overview-card">
+                              <span>Next provider window</span>
+                              <strong>{nextProviderWindow.label}</strong>
+                              <small>{nextProviderWindow.provider}: {nextProviderWindow.detail}</small>
                             </div>
                           </div>
                         </section>
@@ -1724,9 +1988,51 @@ const Admin = () => {
                               </div>
                               <div className="openclaw-summary-card">
                                 <span>LLM adapter</span>
-                                <strong>{workersStatus?.ai_role_adapter?.provider || 'n/a'}</strong>
-                                <small>{workersStatus?.ai_role_adapter?.default_model || 'model unavailable'}</small>
+                                <strong>{workersStatus?.ai_role_adapter?.mode || workersStatus?.ai_role_adapter?.provider || 'n/a'}</strong>
+                                <small>{nextProviderWindow.provider}: {nextProviderWindow.detail}</small>
                               </div>
+                            </div>
+                          </section>
+                        </div>
+
+                        <div className="content-grid two-up-tight">
+                          <section className="content-section">
+                            <div className="section-header section-header-tight">
+                              <h3 className="section-subtitle">Capital policy</h3>
+                            </div>
+                            <div className="deliverable-list">
+                              {allocationRows.length ? allocationRows.map((row) => (
+                                <article key={row.assetClass} className="deliverable-card">
+                                  <div className="deliverable-head">
+                                    <div>
+                                      <strong>{row.assetClass}</strong>
+                                      <span>{percent(row.weight * 100)}</span>
+                                    </div>
+                                    <span className="deliverable-pill">{currency(row.remaining)} free</span>
+                                  </div>
+                                  <p>{currency(row.used)} used of {currency(row.allocated)}</p>
+                                </article>
+                              )) : <div className="empty-state">No allocation policy registered yet.</div>}
+                            </div>
+                          </section>
+
+                          <section className="content-section">
+                            <div className="section-header section-header-tight">
+                              <h3 className="section-subtitle">Discovery pipeline</h3>
+                            </div>
+                            <div className="deliverable-list">
+                              {discoveryRows.length ? discoveryRows.slice(0, 5).map((row) => (
+                                <article key={row.opportunity_id || `${row.symbol}-${row.updated_at}`} className="deliverable-card">
+                                  <div className="deliverable-head">
+                                    <div>
+                                      <strong>{row.symbol}</strong>
+                                      <span>{row.asset_class || 'equities'} · {row.direction || 'candidate'}</span>
+                                    </div>
+                                    <span className="deliverable-pill">{Number(row.score || 0).toFixed(2)}</span>
+                                  </div>
+                                  <p>{row.thesis || 'No thesis summary available.'}</p>
+                                </article>
+                              )) : <div className="empty-state">No discovery opportunities recorded yet.</div>}
                             </div>
                           </section>
                         </div>
@@ -1738,6 +2044,90 @@ const Admin = () => {
                           <div className="warroom-tree-preview">
                             {renderArchitectureBoard(hierarchyTree, { compact: true })}
                           </div>
+                          <div className="content-grid two-up-tight">
+                            <div>
+                              <div className="section-header section-header-tight">
+                                <h3 className="section-subtitle">Staged wave queue</h3>
+                              </div>
+                              {renderFeedRows(
+                                scheduledWaveRows,
+                                'No staged waves.',
+                                {
+                                  selectable: true,
+                                  onSelect: (row) => openArtifactContext({
+                                    id: row.id,
+                                    title: row.title,
+                                    subtitle: row.subtitle,
+                                    preview: jsonPreview(row.data, 220),
+                                    detail: row.detail,
+                                    data: row.data,
+                                    type: 'Wave Queue',
+                                  }),
+                                  selectedId: selectedContext?.id,
+                                  openLabel: 'Pin',
+                                }
+                              )}
+                            </div>
+                            <div>
+                              <div className="section-header section-header-tight">
+                                <h3 className="section-subtitle">Signal pack state</h3>
+                              </div>
+                              {renderFeedRows(
+                                signalPackRows,
+                                'No active signal packs.',
+                                {
+                                  selectable: true,
+                                  onSelect: (row) => openArtifactContext({
+                                    id: row.id,
+                                    title: row.title,
+                                    subtitle: row.subtitle,
+                                    preview: jsonPreview(row.data, 220),
+                                    detail: row.detail,
+                                    data: row.data,
+                                    type: 'Signal Pack',
+                                  }),
+                                  selectedId: selectedContext?.id,
+                                  openLabel: 'Inspect',
+                                }
+                              )}
+                            </div>
+                          </div>
+                          <div className="feed-stack">
+                            {renderFeedRows(
+                              swarmActiveContexts.slice(0, 6).map((ctx) => ({
+                                id: ctx.task_id,
+                                type: 'task',
+                                title: ctx.role || ctx.agent_id || 'active_context',
+                                subtitle: [ctx.symbol, ctx.run_id].filter(Boolean).join(' · '),
+                                summary: ctx.command || JSON.stringify(ctx.context || {}),
+                                badge: 'Live context',
+                                data: ctx,
+                              })),
+                              'No live agent contexts.',
+                              {
+                                selectable: true,
+                                onSelect: openTaskContext,
+                                selectedId: selectedContext?.id,
+                                openLabel: 'Inspect',
+                              }
+                            )}
+                          </div>
+                        </section>
+
+                        <section className="content-section">
+                          <div className="section-header section-header-tight">
+                            <div>
+                              <div className="theater-kicker">Knowledge Base</div>
+                              <h2 className="section-title">Trace graph</h2>
+                            </div>
+                          </div>
+                          <KnowledgeTraceGraph
+                            reports={reports}
+                            posts={posts}
+                            lineageRows={lineageRows}
+                            onSelectReport={openDeliverable}
+                            onSelectPost={openDeliverable}
+                          />
                         </section>
 
                         <section className="content-section">
@@ -1918,7 +2308,16 @@ const Admin = () => {
                                   <div className="task-trail-meta">
                                     <span className={`ops-role-chip ops-role-chip-${badgeTone(row.status)}`}>{row.status}</span>
                                     <small>{formatRelative(row.timestamp)}</small>
+                                    {row.event === 'deferred' && row.nextAttemptAt ? (
+                                      <small className="task-trail-next-at">Retry {formatDateTime(row.nextAttemptAt)}</small>
+                                    ) : null}
+                                    {row.event === 'deferred' && row.retryCount ? (
+                                      <small className="task-trail-next-at">Attempt {row.retryCount + 1}</small>
+                                    ) : null}
                                   </div>
+                                  {row.event === 'deferred' && row.deferReason ? (
+                                    <div className="task-trail-defer-reason">{summarizeText(row.deferReason, 180)}</div>
+                                  ) : null}
                                 </button>
                               ))}
                           </div>
@@ -2163,8 +2562,23 @@ const Admin = () => {
                     {activeTab === 'deliverables' && (
                       <div className="tab-decisions">
                         <section className="content-section">
-                          <h2 className="section-title">Research Deliverables</h2>
-                          {renderFeedRows(reportDeliverables, 'No research reports available.', {
+                          <div className="section-header section-header-tight">
+                            <div>
+                              <div className="theater-kicker">Knowledge Base</div>
+                              <h2 className="section-title">Trace graph</h2>
+                            </div>
+                          </div>
+                          <KnowledgeTraceGraph
+                            reports={reports}
+                            posts={posts}
+                            lineageRows={lineageRows}
+                            onSelectReport={openDeliverable}
+                            onSelectPost={openDeliverable}
+                          />
+                        </section>
+                        <section className="content-section">
+                          <h2 className="section-title">KB Documents</h2>
+                          {renderFeedRows(reportDeliverables, 'No KB documents available.', {
                             selectable: true,
                             onSelect: openDeliverable,
                             selectedId: selectedContext?.id,
@@ -2284,6 +2698,89 @@ const Admin = () => {
                                   <span>Graphify Sync</span>
                                   <strong>{knowledgeStats?.graphify_sync_enabled ? 'Enabled' : 'Disabled'}</strong>
                                 </div>
+                              </div>
+                            </div>
+
+                            <div className="setting-group">
+                              <h3>CEO Allocation Editor</h3>
+                              <p className="setting-desc">
+                                This is the policy that constrains orchestration, discovery follow-through, and execution approval across asset classes.
+                              </p>
+                              <div className="allocation-editor-grid">
+                                <label className="allocation-editor-field">
+                                  <span>Total capital (USD)</span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={allocationDraft.totalCapitalUsd}
+                                    onChange={(e) => setAllocationDraft((prev) => ({ ...prev, totalCapitalUsd: Number(e.target.value) }))}
+                                  />
+                                </label>
+                                <label className="allocation-editor-field">
+                                  <span>Reserve cash (USD)</span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={allocationDraft.reserveCashUsd}
+                                    onChange={(e) => setAllocationDraft((prev) => ({ ...prev, reserveCashUsd: Number(e.target.value) }))}
+                                  />
+                                </label>
+                              </div>
+                              <div className="allocation-editor-block">
+                                <h4>Asset-class weights (%)</h4>
+                                <div className="allocation-editor-grid">
+                                  {Object.entries(allocationDraft.assetWeights).map(([key, value]) => (
+                                    <label key={key} className="allocation-editor-field">
+                                      <span>{key.replace(/_/g, ' ')}</span>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        value={value}
+                                        onChange={(e) => updateAllocationDraftGroup('assetWeights', key, e.target.value)}
+                                      />
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="allocation-editor-block">
+                                <h4>Sleeve weights (%)</h4>
+                                <div className="allocation-editor-grid">
+                                  {Object.entries(allocationDraft.sleeveWeights).map(([key, value]) => (
+                                    <label key={key} className="allocation-editor-field">
+                                      <span>{key.replace(/_/g, ' ')}</span>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        value={value}
+                                        onChange={(e) => updateAllocationDraftGroup('sleeveWeights', key, e.target.value)}
+                                      />
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="allocation-editor-block">
+                                <h4>Risk constraints (%)</h4>
+                                <div className="allocation-editor-grid">
+                                  {Object.entries(allocationDraft.constraints).map(([key, value]) => (
+                                    <label key={key} className="allocation-editor-field">
+                                      <span>{key.replace(/_/g, ' ')}</span>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        value={value}
+                                        onChange={(e) => updateAllocationDraftGroup('constraints', key, e.target.value)}
+                                      />
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="setting-actions">
+                                <button type="button" className="btn-secondary" onClick={saveAllocationPolicy} disabled={allocationSaving}>
+                                  {allocationSaving ? 'Saving...' : 'Save allocation policy'}
+                                </button>
                               </div>
                             </div>
                           </div>

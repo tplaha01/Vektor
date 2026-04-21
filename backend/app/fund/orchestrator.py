@@ -16,6 +16,14 @@ from app.fund.allocator import (
     SleeveWeights,
     allocate_sleeves,
 )
+from app.fund.allocation_policy import (
+    build_default_policy,
+    infer_asset_class,
+    infer_instrument_type,
+    infer_routing_mode,
+    infer_underlier_symbol,
+    normalize_asset_class,
+)
 from app.fund.audit_log import AuditLog, audit_log
 from app.fund.contracts import (
     DecisionRecord,
@@ -50,6 +58,7 @@ from app.fund.sentiment_ingest import (
     sentiment_ingest,
 )
 from app.fund.task_bus import TaskBus, task_bus
+from app.storage import db as storage_db
 
 logger = logging.getLogger("alfred.fund")
 
@@ -91,11 +100,13 @@ class FirmOrchestrator:
         self._policy_version = "phase1.paper.v1"
         self._lock = RLock()
         settings = get_settings()
+        self._broker_mode = str(settings.BROKER or "paper").strip().lower() or "paper"
         self._default_capital_usd = float(settings.FUND_DEFAULT_CAPITAL_USD)
         self._default_reserve_cash_usd = float(settings.FUND_DEFAULT_RESERVE_CASH_USD)
         self._default_sleeve_weights = self._parse_default_sleeve_weights(settings.FUND_DEFAULT_SLEEVE_WEIGHTS)
         self._run_sleeve_allocations: dict[str, dict[str, float]] = {}
         self._run_sleeve_used_notional: dict[str, dict[str, float]] = {}
+        self._run_asset_class_used_notional: dict[str, dict[str, float]] = {}
         self._reports: dict[str, ContractResearchReport] = {}
         self._theses: dict[str, TradeThesis] = {}
         self._risks: dict[str, RiskAssessment] = {}
@@ -135,6 +146,179 @@ class FirmOrchestrator:
             },
         )
         return payload
+
+    def set_allocation_policy(
+        self,
+        *,
+        run_id: str,
+        agent_id: str,
+        total_capital_usd: float | None = None,
+        reserve_cash_usd: float | None = None,
+        asset_weights: dict[str, Any] | None = None,
+        sleeve_weights: dict[str, Any] | None = None,
+        constraints: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        latest = self.get_allocation_policy(run_id=run_id)
+        total = float(total_capital_usd if total_capital_usd is not None else latest.get("total_capital_usd") or self._default_capital_usd)
+        reserve = float(reserve_cash_usd if reserve_cash_usd is not None else latest.get("reserve_cash_usd") or self._default_reserve_cash_usd)
+        merged_asset_weights = dict(latest.get("asset_weights") or {})
+        merged_asset_weights.update(dict(asset_weights or {}))
+        merged_sleeve_weights = dict(latest.get("sleeve_weights") or {})
+        merged_sleeve_weights.update(dict(sleeve_weights or {}))
+        merged_constraints = dict(latest.get("constraints") or {})
+        merged_constraints.update(dict(constraints or {}))
+        merged_metadata = dict(latest.get("metadata") or {})
+        merged_metadata.update(dict(metadata or {}))
+        policy_id = make_immutable_id("allocation-policy", run_id, agent_id, total, reserve, json.dumps(merged_asset_weights, sort_keys=True))
+        policy = build_default_policy(
+            run_id=run_id,
+            total_capital_usd=total,
+            reserve_cash_usd=reserve,
+            asset_weights=merged_asset_weights,
+            sleeve_weights=merged_sleeve_weights,
+            constraints=merged_constraints,
+            metadata=merged_metadata,
+        )
+        policy.update(
+            {
+                "policy_id": policy_id,
+                "agent_id": agent_id,
+                "created_at": latest.get("created_at") or datetime.utcnow().isoformat(),
+                "updated_at": datetime.utcnow().isoformat(),
+            }
+        )
+        try:
+            storage_db.save_allocation_policy(policy)
+        except RuntimeError:
+            pass
+        self._log_event(
+            "allocation.policy.updated",
+            run_id=run_id,
+            agent_id=agent_id,
+            payload={
+                "policy_id": policy_id,
+                "asset_weights": policy.get("asset_weights"),
+                "constraints": policy.get("constraints"),
+            },
+        )
+        return self.allocation_policy_status(run_id=run_id)
+
+    def get_allocation_policy(self, run_id: str | None = None) -> dict[str, Any]:
+        try:
+            stored = storage_db.load_latest_allocation_policy(run_id=run_id)
+            if stored:
+                return stored
+        except RuntimeError:
+            pass
+        return build_default_policy(
+            run_id=run_id,
+            total_capital_usd=self._default_capital_usd,
+            reserve_cash_usd=self._default_reserve_cash_usd,
+            sleeve_weights=self._default_sleeve_weights,
+        )
+
+    def allocation_policy_status(self, run_id: str | None = None) -> dict[str, Any]:
+        policy = self.get_allocation_policy(run_id=run_id)
+        run_key = str(run_id or policy.get("run_id") or "").strip() or None
+        positions = self._broker.list_positions(self._price_lookup)
+        by_asset_class: dict[str, dict[str, Any]] = {}
+        exposures: dict[str, float] = {}
+        for position in positions:
+            symbol = str(position.get("symbol") or "").upper().strip()
+            asset_class = infer_asset_class(symbol, (position.get("metadata") or {}).get("asset_class") if isinstance(position.get("metadata"), dict) else None)
+            market_value = float(position.get("market_value") or 0.0)
+            if market_value <= 0:
+                try:
+                    market_value = float(position.get("qty") or 0.0) * float(position.get("market_price") or self._price_lookup(symbol))
+                except Exception:
+                    market_value = 0.0
+            exposures[asset_class] = exposures.get(asset_class, 0.0) + max(0.0, market_value)
+        with self._lock:
+            used_notional = dict(self._run_asset_class_used_notional.get(run_key or "", {}))
+        for asset_class, weight in dict(policy.get("asset_weights") or {}).items():
+            allocated_usd = float(policy.get("deployable_capital_usd") or 0.0) * float(weight or 0.0)
+            used_usd = max(exposures.get(asset_class, 0.0), used_notional.get(asset_class, 0.0))
+            by_asset_class[asset_class] = {
+                "weight": round(float(weight or 0.0), 4),
+                "allocated_usd": round(allocated_usd, 2),
+                "used_usd": round(used_usd, 2),
+                "remaining_usd": round(max(0.0, allocated_usd - used_usd), 2),
+                "live_exposure_usd": round(exposures.get(asset_class, 0.0), 2),
+            }
+        return {
+            "policy": policy,
+            "asset_classes": by_asset_class,
+            "sleeves": self.sleeve_budget_status(run_id=run_key).get("runs", []),
+        }
+
+    def record_discovery_opportunity(self, opportunity: dict[str, Any]) -> dict[str, Any]:
+        row = dict(opportunity or {})
+        symbol = str(row.get("symbol") or "").upper().strip()
+        if not symbol:
+            raise ValueError("missing_symbol")
+        run_id = str(row.get("run_id") or "").strip() or None
+        asset_class = infer_asset_class(symbol, row.get("asset_class"))
+        discovered_at = str(row.get("discovered_at") or datetime.utcnow().isoformat())
+        opportunity_id = str(
+            row.get("opportunity_id")
+            or make_immutable_id("opportunity", run_id or "global", symbol, row.get("strategy_family") or "scanner", discovered_at[:16])
+        )
+        payload = {
+            "opportunity_id": opportunity_id,
+            "run_id": run_id,
+            "symbol": symbol,
+            "asset_class": asset_class,
+            "strategy_family": row.get("strategy_family") or "scanner",
+            "direction": row.get("direction") or "long_bias",
+            "score": float(row.get("score") or 0.0),
+            "confidence": float(row.get("confidence") or 0.0),
+            "horizon": row.get("horizon") or "swing",
+            "thesis": str(row.get("thesis") or f"Scanner candidate for {symbol}"),
+            "catalysts": list(row.get("catalysts") or []),
+            "evidence": list(row.get("evidence") or []),
+            "ml": dict(row.get("ml") or {}),
+            "metadata": dict(row.get("metadata") or {}),
+            "status": str(row.get("status") or "candidate"),
+            "discovered_at": discovered_at,
+            "updated_at": datetime.utcnow().isoformat(),
+        }
+        try:
+            storage_db.save_discovery_opportunity(payload)
+        except RuntimeError:
+            pass
+        self._log_event(
+            "scanner.opportunity.recorded",
+            run_id=run_id,
+            agent_id=str(row.get("agent_id") or "scanner"),
+            payload={
+                "opportunity_id": opportunity_id,
+                "symbol": symbol,
+                "asset_class": asset_class,
+                "score": payload["score"],
+                "confidence": payload["confidence"],
+            },
+        )
+        return payload
+
+    def list_discovery_opportunities(
+        self,
+        *,
+        limit: int = 100,
+        run_id: str | None = None,
+        status: str | None = None,
+        asset_class: str | None = None,
+    ) -> list[dict[str, Any]]:
+        normalized_asset_class = normalize_asset_class(asset_class) if asset_class else None
+        try:
+            return storage_db.load_discovery_opportunities(
+                limit=limit,
+                run_id=run_id,
+                status=status,
+                asset_class=normalized_asset_class,
+            )
+        except RuntimeError:
+            return []
 
     def submit_research(self, report: ContractResearchReport | dict[str, Any]) -> dict[str, Any]:
         model = report if isinstance(report, ContractResearchReport) else ContractResearchReport.model_validate(report)
@@ -407,6 +591,16 @@ class FirmOrchestrator:
         effective_price = price if price is not None else float(self._price_lookup(normalized_symbol))
         estimated_notional = float(quantity) * float(effective_price)
         budget_state = self._ensure_run_sleeve_budget(run_id=run_id, sleeve=thesis.sleeve)
+        allocation_state = self.allocation_policy_status(run_id=run_id)
+        policy = allocation_state.get("policy") if isinstance(allocation_state.get("policy"), dict) else {}
+        asset_class = infer_asset_class(
+            normalized_symbol,
+            (metadata or {}).get("asset_class") if isinstance(metadata, dict) else None,
+        )
+        asset_budget_state = (allocation_state.get("asset_classes") or {}).get(asset_class) or {}
+        instrument_type = infer_instrument_type(normalized_symbol, asset_class)
+        routing_mode = infer_routing_mode(normalized_symbol, asset_class)
+        underlier_symbol = infer_underlier_symbol(normalized_symbol, asset_class)
         positions = self._broker.list_positions(self._price_lookup)
         equity = self._current_equity(positions)
         intent = AdapterExecutionIntent(
@@ -423,10 +617,23 @@ class FirmOrchestrator:
             run_id=run_id,
             agent_id=agent_id,
             sleeve=thesis.sleeve.value,
-            broker_mode="paper",
+            broker_mode=self._broker_mode,
             price=float(effective_price),
+            asset_class=asset_class,
+            instrument_type=instrument_type,
+            routing_mode=routing_mode,
+            underlier_symbol=underlier_symbol,
             metadata={
                 "available_cash": self._broker.cash,
+                "asset_class": asset_class,
+                "instrument_type": instrument_type,
+                "routing_mode": routing_mode,
+                "underlier_symbol": underlier_symbol,
+                "allocation_policy_id": policy.get("policy_id"),
+                "allocation_constraints": dict(policy.get("constraints") or {}),
+                "asset_class_budget_allocated_usd": asset_budget_state.get("allocated_usd", 0.0),
+                "asset_class_budget_used_usd": asset_budget_state.get("used_usd", 0.0),
+                "asset_class_budget_remaining_usd": asset_budget_state.get("remaining_usd", 0.0),
                 "sleeve_budget_allocated_usd": budget_state["allocated_usd"],
                 "sleeve_budget_used_usd": budget_state["used_usd"],
                 "sleeve_budget_remaining_usd": budget_state["remaining_usd"],
@@ -505,6 +712,10 @@ class FirmOrchestrator:
                 quantity=float((execution_result.get("order") or {}).get("quantity") or quantity),
                 price=float((execution_result.get("order") or {}).get("avg_price") or effective_price),
             )
+            with self._lock:
+                asset_used = self._run_asset_class_used_notional.setdefault(run_id, {})
+                delta = estimated_notional if normalized_side == "buy" else -estimated_notional
+                asset_used[asset_class] = max(0.0, float(asset_used.get(asset_class, 0.0)) + delta)
 
         if execution_status == "executed":
             decision_status = "executed"
@@ -548,6 +759,7 @@ class FirmOrchestrator:
             payload={
                 "order_id": order_id,
                 "execution_status": execution_status,
+                "asset_class": asset_class,
                 "sleeve_budget": self._ensure_run_sleeve_budget(run_id=run_id, sleeve=thesis.sleeve),
             },
         )
@@ -911,22 +1123,27 @@ class FirmOrchestrator:
                 "recurring": float(existing_used.get("recurring", 0.0)),
                 "tactical": float(existing_used.get("tactical", 0.0)),
             }
+            self._run_asset_class_used_notional.setdefault(run_id, {})
 
     def _ensure_run_budget_initialized(self, run_id: str) -> None:
         with self._lock:
             if run_id in self._run_sleeve_allocations:
                 return
+        policy = self.get_allocation_policy(run_id=run_id)
+        total_capital_usd = float(policy.get("total_capital_usd") or self._default_capital_usd)
+        reserve_cash_usd = float(policy.get("reserve_cash_usd") or self._default_reserve_cash_usd)
+        target_weights = dict(policy.get("sleeve_weights") or self._default_sleeve_weights)
         allocation = self.allocate_sleeves(
             run_id=run_id,
-            total_capital_usd=self._default_capital_usd,
-            reserve_cash_usd=self._default_reserve_cash_usd,
+            total_capital_usd=total_capital_usd,
+            reserve_cash_usd=reserve_cash_usd,
             decision_id=make_immutable_id("budget", run_id),
-            target_weights=self._default_sleeve_weights,
+            target_weights=target_weights,
         )
         self._log_event(
             "sleeve_budget.initialized",
             run_id=run_id,
-            payload={"allocation_id": allocation.get("allocation_id"), "weights": dict(self._default_sleeve_weights)},
+            payload={"allocation_id": allocation.get("allocation_id"), "weights": target_weights},
         )
 
     def _ensure_run_sleeve_budget(self, *, run_id: str, sleeve: Sleeve) -> dict[str, float]:

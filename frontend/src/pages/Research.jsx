@@ -69,7 +69,7 @@ const Research = () => {
       try {
         if (!reports.length) setConnectionStatus('connecting');
         const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Request timeout')), 15000));
-        const data = await Promise.race([researchAPI.getReports({ status: 'published', limit: 80 }), timeoutPromise]);
+        const data = await Promise.race([researchAPI.getReports({ status: 'published', surface: 'public', limit: 80 }), timeoutPromise]);
         if (!isMounted.current) return;
         setReports(data.reports || []);
         setConnectionStatus('connected');
@@ -239,11 +239,11 @@ const Research = () => {
             </section>
 
             <section className="research-results-info" role="status" aria-live="polite">
-              <div className="results-count">Showing <strong>{filteredReports.length}</strong> of <strong>{reports.length}</strong> reports</div>
+              <div className="results-count">Showing <strong>{filteredReports.length}</strong> of <strong>{reports.length}</strong> public research papers</div>
             </section>
 
             {filteredReports.length > 0 ? <ResearchGrid reports={filteredReports} onReportClick={handleReportClick} /> : (
-              <div className="empty-research"><BookOpen size={48} /><h3>No research found</h3><p>Adjust the search or filters.</p></div>
+              <div className="empty-research"><BookOpen size={48} /><h3>No public research published</h3><p>Operational analyst deliverables stay in the Vektor KB until promoted into a public paper.</p></div>
             )}
           </>
         ) : (

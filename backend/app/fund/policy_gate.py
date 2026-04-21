@@ -101,6 +101,11 @@ class PolicyGate:
                 blocked.append("single_position_notional_limit_exceeded")
 
         if isinstance(intent.metadata, dict):
+            constraints = intent.metadata.get("allocation_constraints")
+            asset_class = str(intent.metadata.get("asset_class") or intent.asset_class or "").strip().lower()
+            routing_mode = str(intent.metadata.get("routing_mode") or intent.routing_mode or "").strip().lower()
+            instrument_type = str(intent.metadata.get("instrument_type") or intent.instrument_type or "").strip().lower()
+
             if "available_cash" in intent.metadata:
                 available_cash = _safe_float(intent.metadata.get("available_cash"))
                 if intent.side == "buy" and notional > available_cash:
@@ -117,6 +122,81 @@ class PolicyGate:
 
             if intent.metadata.get("direct_execution") is True:
                 blocked.append("direct_execution_not_permitted")
+
+            if isinstance(constraints, dict):
+                allowed_asset_classes = constraints.get("allowed_asset_classes")
+                if isinstance(allowed_asset_classes, list) and asset_class:
+                    allowed = {str(item).strip().lower() for item in allowed_asset_classes if str(item).strip()}
+                    if allowed and asset_class not in allowed:
+                        blocked.append("asset_class_not_allocated")
+                if intent.side == "buy" and asset_class:
+                    asset_class_remaining = _safe_float(intent.metadata.get("asset_class_budget_remaining_usd"))
+                    asset_class_allocated = _safe_float(intent.metadata.get("asset_class_budget_allocated_usd"))
+                    if asset_class_allocated > 0 and notional > asset_class_remaining:
+                        blocked.append("asset_class_budget_exceeded")
+                max_asset_class_exposure_pct = _safe_float(constraints.get("max_asset_class_exposure_pct"))
+                asset_class_used_usd = _safe_float(intent.metadata.get("asset_class_budget_used_usd"))
+                if (
+                    intent.side == "buy"
+                    and equity > 0
+                    and max_asset_class_exposure_pct > 0
+                    and ((asset_class_used_usd + notional) / equity) > max_asset_class_exposure_pct
+                ):
+                    blocked.append("asset_class_exposure_limit_exceeded")
+                cash_hold_enabled = bool(constraints.get("cash_hold_enabled", True))
+                if cash_hold_enabled and intent.side == "buy":
+                    min_cash_reserve_pct = _safe_float(constraints.get("min_cash_reserve_pct"))
+                    if min_cash_reserve_pct > 0:
+                        post_trade_cash = _safe_float(intent.metadata.get("available_cash")) - notional
+                        minimum_cash = equity * min_cash_reserve_pct
+                        if post_trade_cash < minimum_cash:
+                            blocked.append("cash_reserve_floor_breached")
+                if intent.side == "buy" and asset_class == "options":
+                    max_options_notional_pct = _safe_float(constraints.get("max_options_notional_pct"))
+                    if max_options_notional_pct > 0 and equity > 0 and (notional / equity) > max_options_notional_pct:
+                        blocked.append("options_notional_limit_exceeded")
+                if intent.side == "buy" and asset_class == "crypto":
+                    max_crypto_notional_pct = _safe_float(constraints.get("max_crypto_notional_pct"))
+                    if max_crypto_notional_pct > 0 and equity > 0 and (notional / equity) > max_crypto_notional_pct:
+                        blocked.append("crypto_notional_limit_exceeded")
+                if intent.side == "buy" and asset_class == "forex":
+                    max_forex_notional_pct = _safe_float(constraints.get("max_forex_notional_pct"))
+                    if max_forex_notional_pct > 0 and equity > 0 and (notional / equity) > max_forex_notional_pct:
+                        blocked.append("forex_notional_limit_exceeded")
+                    allowlist = constraints.get("forex_pairs_allowlist")
+                    if isinstance(allowlist, list):
+                        allowed_pairs = {str(item).strip().upper() for item in allowlist if str(item).strip()}
+                        if allowed_pairs and intent.symbol.upper().strip() not in allowed_pairs:
+                            blocked.append("forex_pair_not_allowed")
+                if intent.side == "buy" and asset_class == "crypto":
+                    allowlist = constraints.get("crypto_symbols_allowlist")
+                    if isinstance(allowlist, list):
+                        allowed_symbols = {str(item).strip().upper() for item in allowlist if str(item).strip()}
+                        if allowed_symbols and intent.symbol.upper().strip() not in allowed_symbols:
+                            blocked.append("crypto_symbol_not_allowed")
+                if intent.side == "buy" and asset_class == "commodities":
+                    allowlist = constraints.get("commodity_execution_allowlist")
+                    if isinstance(allowlist, list):
+                        allowed_symbols = {str(item).strip().upper() for item in allowlist if str(item).strip()}
+                        if allowed_symbols and intent.symbol.upper().strip() not in allowed_symbols:
+                            blocked.append("commodity_symbol_not_allowed")
+                if not bool(constraints.get("weekend_trading_enabled", False)) and _utc_now().weekday() >= 5:
+                    blocked.append("weekend_trading_disabled")
+
+            if asset_class == "options" and instrument_type != "option_contract":
+                blocked.append("invalid_option_contract")
+            if asset_class == "forex" and "/" not in intent.symbol:
+                blocked.append("invalid_forex_symbol")
+            if asset_class == "crypto" and "-" not in intent.symbol:
+                blocked.append("invalid_crypto_symbol")
+            if asset_class == "options" and routing_mode != "paper_options":
+                blocked.append("options_execution_route_invalid")
+            if asset_class == "forex" and routing_mode != "paper_forex":
+                blocked.append("forex_execution_route_invalid")
+            if asset_class == "crypto" and routing_mode != "paper_crypto":
+                blocked.append("crypto_execution_route_invalid")
+            if asset_class in {"options", "forex", "crypto"} and routing_mode == "paper_equity":
+                blocked.append("unsupported_execution_route")
 
         blocked = list(dict.fromkeys(blocked))
         approved = len(blocked) == 0

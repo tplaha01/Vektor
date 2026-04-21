@@ -1,6 +1,8 @@
 from decimal import Decimal
 
-from app.fund.ai_role_adapter import AIRoleAdapter, ProviderConfig
+import pytest
+
+from app.fund.ai_role_adapter import AIRoleAdapter, ProviderConfig, TemporaryProviderCapacityError
 from app.fund.contracts import ProvenanceRef
 
 
@@ -298,3 +300,185 @@ def test_ai_role_adapter_routes_by_role_and_fails_over_to_groq():
     assert health["role_runtime"]["technical_analyst"]["last_provider"] == "groq"
     assert health["role_runtime"]["technical_analyst"]["failover_count"] == 1
     assert len(calls) == 2
+
+
+def test_ai_role_adapter_raises_temporary_capacity_error_on_all_429s():
+    def _fake_post(url, json, headers=None, timeout=0):  # noqa: ANN001
+        raise RuntimeError("http_error:429")
+
+    adapter = AIRoleAdapter(
+        enabled=True,
+        provider="router",
+        base_url="",
+        api_key=None,
+        timeout_seconds=10,
+        temperature=0.1,
+        max_tokens=512,
+        default_model="",
+        role_models={},
+        require_success=True,
+        http_post=_fake_post,
+        provider_configs={
+            "gemini_flash_lite": ProviderConfig(
+                name="gemini_flash_lite",
+                provider_type="openai_compatible",
+                base_url="https://generativelanguage.googleapis.com/v1beta/openai",
+                api_key="gem-key",
+                default_model="gemini-2.5-flash-lite",
+                enabled=True,
+                cooldown_seconds=45.0,
+            ),
+            "groq": ProviderConfig(
+                name="groq",
+                provider_type="openai_compatible",
+                base_url="https://api.groq.com/openai/v1",
+                api_key="groq-key",
+                default_model="openai/gpt-oss-20b",
+                enabled=True,
+                cooldown_seconds=30.0,
+            ),
+        },
+        role_routes={"technical_analyst": ("gemini_flash_lite", "groq")},
+        default_route=("gemini_flash_lite", "groq"),
+    )
+
+    with pytest.raises(TemporaryProviderCapacityError) as exc_info:
+        adapter.analyze_specialist(
+            role="technical_analyst",
+            symbol="NVDA",
+            run_id="run-router-429",
+            payload={},
+            context={},
+            fallback_summary="fallback summary",
+            fallback_findings=("fallback finding",),
+            fallback_confidence=Decimal("0.50"),
+            fallback_provenance=(ProvenanceRef(source_type="research", source_id="src-1"),),
+        )
+
+    exc = exc_info.value
+    assert exc.retry_after_seconds >= 1.0
+    assert any("429" in reason for reason in exc.reasons)
+    health = adapter.health()
+    assert health["providers"]["gemini_flash_lite"]["quota_state"] == "throttled"
+    assert health["providers"]["groq"]["quota_state"] == "throttled"
+
+
+def test_ai_role_adapter_defers_when_provider_request_window_is_exhausted():
+    def _fake_post(url, json, headers=None, timeout=0):  # noqa: ANN001
+        return _FakeResponse(
+            {
+                "choices": [{"message": {"content": '{"summary":"Window ok","findings":["A"],"confidence":0.6,"citations":["src-1"]}'}}],
+                "usage": {"prompt_tokens": 20, "completion_tokens": 20},
+            }
+        )
+
+    adapter = AIRoleAdapter(
+        enabled=True,
+        provider="router",
+        base_url="",
+        api_key=None,
+        timeout_seconds=10,
+        temperature=0.1,
+        max_tokens=512,
+        default_model="",
+        role_models={},
+        require_success=True,
+        http_post=_fake_post,
+        provider_configs={
+            "groq": ProviderConfig(
+                name="groq",
+                provider_type="openai_compatible",
+                base_url="https://api.groq.com/openai/v1",
+                api_key="test-key",
+                default_model="openai/gpt-oss-20b",
+                requests_per_window=1,
+                tokens_per_window=500,
+                window_seconds=60,
+            )
+        },
+        role_routes={"technical_analyst": ("groq",)},
+        default_route=("groq",),
+    )
+
+    kwargs = dict(
+        role="technical_analyst",
+        symbol="AAPL",
+        run_id="run-window-1",
+        payload={},
+        context={},
+        fallback_summary="fallback summary",
+        fallback_findings=("fallback finding",),
+        fallback_confidence=Decimal("0.50"),
+        fallback_provenance=(ProvenanceRef(source_type="research", source_id="src-fallback"),),
+    )
+
+    first = adapter.analyze_specialist(**kwargs)
+    assert first is not None
+
+    with pytest.raises(TemporaryProviderCapacityError) as excinfo:
+        adapter.analyze_specialist(**kwargs)
+
+    assert "provider_budget_window_exhausted" in str(excinfo.value)
+    assert excinfo.value.retry_after_seconds >= 1.0
+
+
+def test_ai_role_adapter_defers_when_run_envelope_is_exhausted():
+    def _fake_post(url, json, headers=None, timeout=0):  # noqa: ANN001
+        return _FakeResponse(
+            {
+                "choices": [{"message": {"content": '{"summary":"Run ok","findings":["A"],"confidence":0.6,"citations":["src-1"]}'}}],
+                "usage": {"prompt_tokens": 20, "completion_tokens": 20},
+            }
+        )
+
+    adapter = AIRoleAdapter(
+        enabled=True,
+        provider="router",
+        base_url="",
+        api_key=None,
+        timeout_seconds=10,
+        temperature=0.1,
+        max_tokens=512,
+        default_model="",
+        role_models={},
+        require_success=True,
+        http_post=_fake_post,
+        provider_configs={
+            "groq": ProviderConfig(
+                name="groq",
+                provider_type="openai_compatible",
+                base_url="https://api.groq.com/openai/v1",
+                api_key="test-key",
+                default_model="openai/gpt-oss-20b",
+                requests_per_window=10,
+                tokens_per_window=5000,
+                window_seconds=60,
+            )
+        },
+        role_routes={"technical_analyst": ("groq",)},
+        default_route=("groq",),
+        run_request_envelope=1,
+        run_tokens_envelope=5000,
+        run_window_seconds=120,
+    )
+
+    kwargs = dict(
+        role="technical_analyst",
+        symbol="AAPL",
+        run_id="run-envelope-1",
+        payload={},
+        context={},
+        fallback_summary="fallback summary",
+        fallback_findings=("fallback finding",),
+        fallback_confidence=Decimal("0.50"),
+        fallback_provenance=(ProvenanceRef(source_type="research", source_id="src-fallback"),),
+    )
+
+    first = adapter.analyze_specialist(**kwargs)
+    assert first is not None
+
+    with pytest.raises(TemporaryProviderCapacityError) as excinfo:
+        adapter.analyze_specialist(**kwargs)
+
+    assert "run_request_budget_exhausted" in str(excinfo.value)
+    assert excinfo.value.retry_after_seconds >= 1.0

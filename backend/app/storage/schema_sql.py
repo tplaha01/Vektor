@@ -6,13 +6,25 @@ CREATE TABLE IF NOT EXISTS orders (
     qty         REAL NOT NULL,
     avg_price   REAL NOT NULL,
     status      TEXT NOT NULL,
-    created_at  TEXT NOT NULL
+    created_at  TEXT NOT NULL,
+    asset_class TEXT,
+    instrument_type TEXT,
+    routing_mode TEXT,
+    underlier_symbol TEXT,
+    contract_multiplier REAL,
+    metadata_json TEXT
 );
 
 CREATE TABLE IF NOT EXISTS positions (
     symbol      TEXT PRIMARY KEY,
     qty         REAL NOT NULL,
-    avg_price   REAL NOT NULL
+    avg_price   REAL NOT NULL,
+    asset_class TEXT,
+    instrument_type TEXT,
+    routing_mode TEXT,
+    underlier_symbol TEXT,
+    contract_multiplier REAL,
+    metadata_json TEXT
 );
 
 CREATE TABLE IF NOT EXISTS cash_snapshots (
@@ -168,6 +180,50 @@ CREATE INDEX IF NOT EXISTS idx_fund_performance_snapshots_recorded_at
 ON fund_performance_snapshots (recorded_at DESC);
 CREATE INDEX IF NOT EXISTS idx_fund_performance_snapshots_kind_recorded_at
 ON fund_performance_snapshots (snapshot_kind, recorded_at DESC);
+
+CREATE TABLE IF NOT EXISTS fund_allocation_policies (
+    policy_id             TEXT PRIMARY KEY,
+    run_id                TEXT,
+    agent_id              TEXT,
+    status                TEXT NOT NULL,
+    total_capital_usd     REAL NOT NULL,
+    reserve_cash_usd      REAL NOT NULL,
+    deployable_capital_usd REAL NOT NULL,
+    asset_weights_json    TEXT NOT NULL,
+    sleeve_weights_json   TEXT NOT NULL,
+    constraints_json      TEXT NOT NULL,
+    metadata_json         TEXT NOT NULL,
+    created_at            TEXT NOT NULL,
+    updated_at            TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_fund_allocation_policies_run_updated
+ON fund_allocation_policies (run_id, updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS fund_discovery_opportunities (
+    opportunity_id      TEXT PRIMARY KEY,
+    run_id              TEXT,
+    symbol              TEXT NOT NULL,
+    asset_class         TEXT NOT NULL,
+    strategy_family     TEXT,
+    direction           TEXT,
+    score               REAL NOT NULL,
+    confidence          REAL NOT NULL,
+    horizon             TEXT,
+    thesis              TEXT NOT NULL,
+    catalysts_json      TEXT NOT NULL,
+    evidence_json       TEXT NOT NULL,
+    ml_json             TEXT NOT NULL,
+    metadata_json       TEXT NOT NULL,
+    status              TEXT NOT NULL,
+    discovered_at       TEXT NOT NULL,
+    updated_at          TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_fund_discovery_opportunities_run_updated
+ON fund_discovery_opportunities (run_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_fund_discovery_opportunities_status_score
+ON fund_discovery_opportunities (status, score DESC);
 
 CREATE TABLE IF NOT EXISTS knowledge_events (
     event_id         TEXT PRIMARY KEY,

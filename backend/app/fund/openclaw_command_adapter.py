@@ -12,6 +12,7 @@ from uuid import uuid4
 from app.config import get_settings
 from app.fund.agent_runtime import FundAgentRuntime, fund_agent_runtime
 from app.fund.audit_log import AuditLog, audit_log
+from app.fund.decision_ledger import decision_ledger
 from app.fund.knowledge_graph import knowledge_graph
 from app.fund.orchestrator import FirmOrchestrator, firm_orchestrator
 from app.fund.runtime_guard import data_integrity_guard
@@ -127,9 +128,7 @@ def _extract_symbol(text: str) -> str | None:
 
 def _parse_control_command(command: str) -> dict[str, Any] | None:
     text = str(command or "").strip().lower()
-    normalized = re.sub(r"\s+", " ", text)
-    normalized = normalized.replace(",", " ")
-    normalized = re.sub(r"\s+", " ", normalized).strip()
+    normalized = re.sub(r"\s+", " ", text).strip()
 
     if not normalized:
         return None
@@ -203,6 +202,49 @@ def _parse_control_command(command: str) -> dict[str, Any] | None:
         "budgets sleeves",
         "/fund sleeves budgets",
     )
+    allocation_status_patterns = (
+        "allocation status",
+        "capital allocation",
+        "asset allocation",
+        "/fund allocation status",
+    )
+    allocation_update_patterns = (
+        "set allocation",
+        "update allocation",
+        "set capital allocation",
+        "/fund allocation set",
+    )
+    discovery_patterns = (
+        "discovery status",
+        "scanner status",
+        "world scanner",
+        "opportunity pipeline",
+        "/fund discovery status",
+    )
+    approve_patterns = (
+        "approve decision",
+        "approve trade",
+        "/fund decision approve",
+    )
+    reject_patterns = (
+        "reject decision",
+        "reject trade",
+        "/fund decision reject",
+    )
+    cancel_run_patterns = (
+        "cancel run",
+        "/fund run cancel",
+    )
+    cancel_pack_patterns = (
+        "cancel signal pack",
+        "cancel pack",
+        "/fund pack cancel",
+    )
+    reroute_pack_patterns = (
+        "reroute signal pack",
+        "reroute pack",
+        "/fund pack reroute",
+    )
     knowledge_stats_patterns = (
         "knowledge stats",
         "kb stats",
@@ -237,6 +279,30 @@ def _parse_control_command(command: str) -> dict[str, Any] | None:
         value = str(match.group(1)).strip()
         return value or None
 
+    def _parse_float_param(*keys: str) -> float | None:
+        for key in keys:
+            match = re.search(rf"(?:^|\s){re.escape(key)}\s*[:=]\s*(-?\d+(?:\.\d+)?)\b", normalized)
+            if not match:
+                continue
+            try:
+                return float(match.group(1))
+            except Exception:
+                continue
+        return None
+
+    def _normalize_weight(value: float | None) -> float | None:
+        if value is None:
+            return None
+        if value > 1.0:
+            return max(0.0, value / 100.0)
+        return max(0.0, value)
+
+    def _parse_roles_param() -> list[str]:
+        match = re.search(r"(?:^|\s)(?:roles|assigned_roles)\s*[:=]\s*([a-zA-Z0-9_, -]+)$", normalized)
+        if not match:
+            return []
+        return [part.strip().lower() for part in match.group(1).split(",") if part.strip()]
+
     if any(phrase in normalized for phrase in pause_patterns):
         return {"action": "pause_runtime"}
     if any(phrase in normalized for phrase in resume_patterns):
@@ -266,6 +332,56 @@ def _parse_control_command(command: str) -> dict[str, Any] | None:
         return {"action": "blocked_trades", "limit": _parse_int_param("limit", default=50, minimum=1, maximum=500)}
     if any(phrase in normalized for phrase in sleeve_budgets_patterns):
         return {"action": "sleeve_budgets", "run_id": _parse_text_param("run_id") or _parse_text_param("run")}
+    if any(phrase in normalized for phrase in allocation_status_patterns):
+        return {"action": "allocation_status", "run_id": _parse_text_param("run_id") or _parse_text_param("run")}
+    if any(phrase in normalized for phrase in allocation_update_patterns):
+        asset_weights = {}
+        for asset_class in ("equities", "options", "commodities", "forex", "crypto", "cash"):
+            value = _normalize_weight(_parse_float_param(asset_class))
+            if value is not None:
+                asset_weights[asset_class] = value
+        sleeve_weights = {}
+        for sleeve in ("long_term", "recurring", "tactical"):
+            value = _normalize_weight(_parse_float_param(sleeve))
+            if value is not None:
+                sleeve_weights[sleeve] = value
+        reserve_cash_usd = _parse_float_param("reserve_cash", "reservecash", "cash_reserve")
+        total_capital_usd = _parse_float_param("total_capital", "capital")
+        constraints: dict[str, Any] = {}
+        for key in ("min_cash_reserve_pct", "max_asset_class_exposure_pct", "max_single_trade_notional_pct"):
+            value = _normalize_weight(_parse_float_param(key))
+            if value is not None:
+                constraints[key] = value
+        return {
+            "action": "set_allocation_policy",
+            "run_id": _parse_text_param("run_id") or _parse_text_param("run"),
+            "asset_weights": asset_weights,
+            "sleeve_weights": sleeve_weights,
+            "reserve_cash_usd": reserve_cash_usd,
+            "total_capital_usd": total_capital_usd,
+            "constraints": constraints,
+        }
+    if any(phrase in normalized for phrase in discovery_patterns):
+        return {
+            "action": "discovery_status",
+            "run_id": _parse_text_param("run_id") or _parse_text_param("run"),
+            "asset_class": _parse_text_param("asset_class"),
+            "limit": _parse_int_param("limit", default=20, minimum=1, maximum=200),
+        }
+    if any(phrase in normalized for phrase in approve_patterns):
+        return {"action": "approve_decision", "decision_id": _parse_text_param("decision_id") or _parse_text_param("decision")}
+    if any(phrase in normalized for phrase in reject_patterns):
+        return {"action": "reject_decision", "decision_id": _parse_text_param("decision_id") or _parse_text_param("decision")}
+    if any(phrase in normalized for phrase in cancel_run_patterns):
+        return {"action": "cancel_run", "run_id": _parse_text_param("run_id") or _parse_text_param("run")}
+    if any(phrase in normalized for phrase in cancel_pack_patterns):
+        return {"action": "cancel_signal_pack", "signal_pack_id": _parse_text_param("signal_pack_id") or _parse_text_param("pack")}
+    if any(phrase in normalized for phrase in reroute_pack_patterns):
+        return {
+            "action": "reroute_signal_pack",
+            "signal_pack_id": _parse_text_param("signal_pack_id") or _parse_text_param("pack"),
+            "assigned_roles": _parse_roles_param(),
+        }
     if any(phrase in normalized for phrase in knowledge_stats_patterns):
         return {"action": "knowledge_stats"}
     if any(phrase in normalized for phrase in openclaw_health_patterns):
@@ -416,6 +532,14 @@ class OpenClawCommandAdapter:
                 "pending_decisions",
                 "blocked_trades",
                 "sleeve_budgets",
+                "allocation_status",
+                "set_allocation_policy",
+                "discovery_status",
+                "approve_decision",
+                "reject_decision",
+                "cancel_run",
+                "cancel_signal_pack",
+                "reroute_signal_pack",
                 "knowledge_stats",
                 "openclaw_health",
                 "openclaw_rejections",
@@ -861,6 +985,211 @@ class OpenClawCommandAdapter:
                 payload={"run_id_filter": run_id_filter},
             )
             return result
+
+        if clean_action == "allocation_status":
+            run_id_filter = control_payload.get("run_id")
+            allocation = self._orchestrator.allocation_policy_status(run_id=run_id_filter)
+            result = {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "allocation_status",
+                "status": "reported",
+                "run_id_filter": run_id_filter,
+                "allocation": allocation,
+            }
+            self._record_control_event(
+                action="allocation_status",
+                status="reported",
+                reason=clean_reason,
+                run_id=run_id,
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"run_id_filter": run_id_filter},
+            )
+            return result
+
+        if clean_action == "set_allocation_policy":
+            run_id_filter = str(control_payload.get("run_id") or run_id).strip() or run_id
+            allocation = self._orchestrator.set_allocation_policy(
+                run_id=run_id_filter,
+                agent_id=agent_id,
+                total_capital_usd=control_payload.get("total_capital_usd"),
+                reserve_cash_usd=control_payload.get("reserve_cash_usd"),
+                asset_weights=control_payload.get("asset_weights") if isinstance(control_payload.get("asset_weights"), dict) else None,
+                sleeve_weights=control_payload.get("sleeve_weights") if isinstance(control_payload.get("sleeve_weights"), dict) else None,
+                constraints=control_payload.get("constraints") if isinstance(control_payload.get("constraints"), dict) else None,
+                metadata={"source": "openclaw_command", "reason": clean_reason},
+            )
+            result = {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "set_allocation_policy",
+                "status": "updated",
+                "run_id_filter": run_id_filter,
+                "allocation": allocation,
+            }
+            self._record_control_event(
+                action="set_allocation_policy",
+                status="updated",
+                reason=clean_reason,
+                run_id=run_id_filter,
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={
+                    "asset_weight_count": len((control_payload.get("asset_weights") or {})),
+                    "sleeve_weight_count": len((control_payload.get("sleeve_weights") or {})),
+                },
+            )
+            return result
+
+        if clean_action == "discovery_status":
+            run_id_filter = control_payload.get("run_id")
+            asset_class_filter = control_payload.get("asset_class")
+            limit = int(control_payload.get("limit") or 20)
+            rows = self._orchestrator.list_discovery_opportunities(
+                limit=limit,
+                run_id=run_id_filter,
+                asset_class=asset_class_filter,
+            )
+            result = {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "discovery_status",
+                "status": "reported",
+                "run_id_filter": run_id_filter,
+                "asset_class_filter": asset_class_filter,
+                "count": len(rows),
+                "opportunities": rows,
+            }
+            self._record_control_event(
+                action="discovery_status",
+                status="reported",
+                reason=clean_reason,
+                run_id=run_id,
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"run_id_filter": run_id_filter, "asset_class_filter": asset_class_filter, "count": len(rows)},
+            )
+            return result
+
+        if clean_action == "approve_decision":
+            decision_id = str(control_payload.get("decision_id") or "").strip()
+            if not decision_id:
+                return {"accepted": False, "reason": "missing_decision_id", "control_id": control_id}
+            decision = next((item for item in decision_ledger.list_decisions() if item.decision_id == decision_id), None)
+            if decision is None:
+                return {"accepted": False, "reason": "decision_not_found", "control_id": control_id}
+            decision_ledger.update_status(
+                decision_id,
+                "approved",
+                {"approved_by": "openclaw", "approved_at": _to_iso(self._clock()), "decision_id": decision_id},
+            )
+            result = {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "approve_decision",
+                "status": "approved",
+                "decision_id": decision_id,
+            }
+            self._record_control_event(
+                action="approve_decision",
+                status="approved",
+                reason=clean_reason,
+                run_id=decision.run_id,
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"decision_id": decision_id},
+            )
+            return result
+
+        if clean_action == "reject_decision":
+            decision_id = str(control_payload.get("decision_id") or "").strip()
+            if not decision_id:
+                return {"accepted": False, "reason": "missing_decision_id", "control_id": control_id}
+            decision = next((item for item in decision_ledger.list_decisions() if item.decision_id == decision_id), None)
+            if decision is None:
+                return {"accepted": False, "reason": "decision_not_found", "control_id": control_id}
+            decision_ledger.update_status(
+                decision_id,
+                "blocked",
+                {"reason": "manual_reject", "rejected_by": "openclaw", "rejected_at": _to_iso(self._clock()), "decision_id": decision_id},
+            )
+            result = {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "reject_decision",
+                "status": "rejected",
+                "decision_id": decision_id,
+            }
+            self._record_control_event(
+                action="reject_decision",
+                status="rejected",
+                reason=clean_reason,
+                run_id=decision.run_id,
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"decision_id": decision_id},
+            )
+            return result
+
+        if clean_action == "cancel_run":
+            run_id_filter = str(control_payload.get("run_id") or "").strip()
+            if not run_id_filter:
+                return {"accepted": False, "reason": "missing_run_id", "control_id": control_id}
+            canceled = self._runtime.cancel_run(run_id=run_id_filter, reason=clean_reason)
+            if not canceled.get("accepted"):
+                return {**canceled, "control_id": control_id}
+            self._record_control_event(
+                action="cancel_run",
+                status="canceled",
+                reason=clean_reason,
+                run_id=run_id_filter,
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"blocked_task_count": canceled.get("blocked_task_count", 0)},
+            )
+            return {"accepted": True, "control_id": control_id, "action": "cancel_run", "status": "canceled", "result": canceled}
+
+        if clean_action == "cancel_signal_pack":
+            signal_pack_id = str(control_payload.get("signal_pack_id") or "").strip()
+            if not signal_pack_id:
+                return {"accepted": False, "reason": "missing_signal_pack_id", "control_id": control_id}
+            canceled = self._runtime.cancel_signal_pack(signal_pack_id=signal_pack_id, reason=clean_reason)
+            if not canceled.get("accepted"):
+                return {**canceled, "control_id": control_id}
+            self._record_control_event(
+                action="cancel_signal_pack",
+                status="canceled",
+                reason=clean_reason,
+                run_id=str(canceled.get("run_id") or run_id),
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"signal_pack_id": signal_pack_id, "blocked_task_count": canceled.get("blocked_task_count", 0)},
+            )
+            return {"accepted": True, "control_id": control_id, "action": "cancel_signal_pack", "status": "canceled", "result": canceled}
+
+        if clean_action == "reroute_signal_pack":
+            signal_pack_id = str(control_payload.get("signal_pack_id") or "").strip()
+            assigned_roles = control_payload.get("assigned_roles") if isinstance(control_payload.get("assigned_roles"), list) else []
+            if not signal_pack_id:
+                return {"accepted": False, "reason": "missing_signal_pack_id", "control_id": control_id}
+            rerouted = self._runtime.reroute_signal_pack(
+                signal_pack_id=signal_pack_id,
+                assigned_roles=assigned_roles,
+                reason=clean_reason,
+            )
+            if not rerouted.get("accepted"):
+                return {**rerouted, "control_id": control_id}
+            self._record_control_event(
+                action="reroute_signal_pack",
+                status="rerouted",
+                reason=clean_reason,
+                run_id=str(rerouted.get("run_id") or run_id),
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"signal_pack_id": signal_pack_id, "assigned_roles": list(assigned_roles)},
+            )
+            return {"accepted": True, "control_id": control_id, "action": "reroute_signal_pack", "status": "rerouted", "result": rerouted}
 
         if clean_action == "knowledge_stats":
             stats = self._orchestrator.knowledge_stats()

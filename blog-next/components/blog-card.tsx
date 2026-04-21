@@ -8,6 +8,9 @@ interface BlogCardProps {
   description: string;
   date: string;
   thumbnail?: string;
+  assetClass?: string;
+  filterLabel?: string;
+  filterKey?: string;
   showRightBorder?: boolean;
 }
 
@@ -17,8 +20,12 @@ export function BlogCard({
   description,
   date,
   thumbnail,
+  assetClass,
+  filterLabel,
+  filterKey,
   showRightBorder = true,
 }: BlogCardProps) {
+  const isMarketBrief = filterKey === "market-briefs";
   return (
     <Link
       href={url}
@@ -27,9 +34,9 @@ export function BlogCard({
         showRightBorder && "md:border-r border-border border-b-0"
       )}
     >
-      <div className="flex flex-col">
+      <div className={cn("flex h-full flex-col", isMarketBrief ? "bg-card/30" : "bg-background")}>
         {thumbnail && (
-          <div className="relative w-full h-48 overflow-hidden">
+          <div className={cn("relative w-full overflow-hidden", isMarketBrief ? "h-44" : "h-52")}>
             <Image
               src={thumbnail}
               alt={title}
@@ -40,14 +47,45 @@ export function BlogCard({
           </div>
         )}
 
-        <div className="p-6 flex flex-col gap-2">
-          <h3 className="text-xl font-semibold text-card-foreground group-hover:underline underline-offset-4">
+        <div className={cn("flex flex-1 flex-col gap-3 p-6", isMarketBrief ? "border-t border-border/60" : "")}>
+          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em]">
+            {filterLabel ? (
+              <span className={cn(
+                "rounded-full border px-2.5 py-1",
+                isMarketBrief
+                  ? "border-sky-400/30 bg-sky-500/10 text-sky-200"
+                  : "border-emerald-400/25 bg-emerald-500/10 text-emerald-200"
+              )}>
+                {filterLabel}
+              </span>
+            ) : null}
+            {assetClass ? (
+              <span className="text-muted-foreground">{assetClass}</span>
+            ) : null}
+          </div>
+          <h3 className={cn(
+            "font-semibold text-card-foreground group-hover:underline underline-offset-4",
+            isMarketBrief ? "text-2xl tracking-tight" : "text-xl"
+          )}>
             {title}
           </h3>
-          <p className="text-muted-foreground text-sm">{description}</p>
-          <time className="block text-sm font-medium text-muted-foreground">
-            {date}
-          </time>
+          <p className={cn(
+            "text-muted-foreground",
+            isMarketBrief ? "text-[15px] leading-6" : "text-sm leading-6"
+          )}>
+            {description}
+          </p>
+          <div className="mt-auto flex items-center justify-between pt-2">
+            <time className="block text-sm font-medium text-muted-foreground">
+              {date}
+            </time>
+            <span className={cn(
+              "text-xs uppercase tracking-[0.18em]",
+              isMarketBrief ? "text-sky-300" : "text-emerald-300"
+            )}>
+              {isMarketBrief ? "Session Note" : "Research Note"}
+            </span>
+          </div>
         </div>
       </div>
     </Link>

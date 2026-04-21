@@ -81,15 +81,30 @@ class PaperBroker:
 
     # Submit Order
 
-    def submit_order(self, symbol: str, side: str, qty: float, price: float) -> PaperOrder:
+    def submit_order(
+        self,
+        symbol: str,
+        side: str,
+        qty: float,
+        price: float,
+        *,
+        asset_class: str | None = None,
+        instrument_type: str | None = None,
+        routing_mode: str | None = None,
+        underlier_symbol: str | None = None,
+        contract_multiplier: float | None = None,
+        metadata: dict | None = None,
+    ) -> PaperOrder:
         symbol = symbol.upper()
         qty = float(qty)
         price = float(price)
+        multiplier = float(contract_multiplier or 1.0)
         filled_price = _fill_price(side, price)
-        commission = filled_price * qty * _COMMISSION_PCT
+        gross_notional = filled_price * qty * multiplier
+        commission = gross_notional * _COMMISSION_PCT
 
         if side == "buy":
-            cost = qty * filled_price + commission
+            cost = gross_notional + commission
             if cost > self.cash:
                 raise ValueError(f"Insufficient cash: need ${cost:.2f}, have ${self.cash:.2f}")
             self.cash -= cost
@@ -98,14 +113,31 @@ class PaperBroker:
                 total_qty = pos["qty"] + qty
                 pos["avg_price"] = ((pos["avg_price"] * pos["qty"]) + (filled_price * qty)) / total_qty
                 pos["qty"] = total_qty
+                pos["asset_class"] = asset_class or pos.get("asset_class")
+                pos["instrument_type"] = instrument_type or pos.get("instrument_type")
+                pos["routing_mode"] = routing_mode or pos.get("routing_mode")
+                pos["underlier_symbol"] = underlier_symbol or pos.get("underlier_symbol")
+                pos["contract_multiplier"] = multiplier
+                if metadata:
+                    pos["metadata"] = dict(metadata)
             else:
-                self.positions[symbol] = {"symbol": symbol, "qty": qty, "avg_price": filled_price}
+                self.positions[symbol] = {
+                    "symbol": symbol,
+                    "qty": qty,
+                    "avg_price": filled_price,
+                    "asset_class": asset_class or "equities",
+                    "instrument_type": instrument_type or "equity",
+                    "routing_mode": routing_mode or "paper_equity",
+                    "underlier_symbol": underlier_symbol,
+                    "contract_multiplier": multiplier,
+                    "metadata": dict(metadata or {}),
+                }
 
         elif side == "sell":
             pos = self.positions.get(symbol)
             if not pos or pos["qty"] < qty:
                 raise ValueError(f"Insufficient shares: have {pos['qty'] if pos else 0}, need {qty}")
-            self.cash += qty * filled_price - commission
+            self.cash += gross_notional - commission
             pos["qty"] -= qty
             if pos["qty"] <= 1e-9:
                 del self.positions[symbol]
@@ -121,6 +153,12 @@ class PaperBroker:
             "price": filled_price,
             "status": "filled",
             "created_at": now,
+            "asset_class": asset_class or "equities",
+            "instrument_type": instrument_type or "equity",
+            "routing_mode": routing_mode or "paper_equity",
+            "underlier_symbol": underlier_symbol,
+            "contract_multiplier": multiplier,
+            "metadata": dict(metadata or {}),
         }
         self.order_history.append(order_dict)
         self._persist(order_dict)
@@ -142,14 +180,19 @@ class PaperBroker:
             qty = float(pos["qty"])
             avg_price = float(pos["avg_price"])
             market_price = float(price_lookup(symbol))
+            multiplier = float(pos.get("contract_multiplier", 1.0) or 1.0)
             results.append(
                 {
                     "symbol": symbol,
                     "qty": qty,
                     "avg_price": round(avg_price, 4),
                     "market_price": round(market_price, 4),
-                    "market_value": round(qty * market_price, 2),
-                    "unrealized_pnl": round((market_price - avg_price) * qty, 2),
+                    "market_value": round(qty * market_price * multiplier, 2),
+                    "unrealized_pnl": round((market_price - avg_price) * qty * multiplier, 2),
+                    "asset_class": pos.get("asset_class", "equities"),
+                    "instrument_type": pos.get("instrument_type", "equity"),
+                    "routing_mode": pos.get("routing_mode", "paper_equity"),
+                    "underlier_symbol": pos.get("underlier_symbol"),
                 }
             )
         return results
@@ -166,7 +209,8 @@ class PaperBroker:
         positions_value = 0.0
         for symbol, pos in self.positions.items():
             qty = float(pos.get("qty", 0.0))
-            positions_value += qty * float(price_lookup(symbol))
+            multiplier = float(pos.get("contract_multiplier", 1.0) or 1.0)
+            positions_value += qty * float(price_lookup(symbol)) * multiplier
         return float(self.cash + positions_value)
 
     def list_symbols(self) -> list[str]:

@@ -152,6 +152,30 @@ export const adminAPI = {
   getSleevesBudgets: async () => {
     return fetchJson(`${API_BASE}/admin/sleeves/budgets`);
   },
+  getAllocationPolicy: async (runId = "") => {
+    const query = runId ? `?run_id=${encodeURIComponent(runId)}` : "";
+    return fetchJson(`${API_BASE}/admin/allocation/policy${query}`);
+  },
+  updateAllocationPolicy: async (payload) =>
+    fetchJson(`${API_BASE}/admin/allocation/policy`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  getDiscoveryOpportunities: async ({ limit = 100, runId = "", status = "", assetClass = "" } = {}) => {
+    const params = new URLSearchParams();
+    params.set("limit", String(limit));
+    if (runId) params.set("run_id", runId);
+    if (status) params.set("status", status);
+    if (assetClass) params.set("asset_class", assetClass);
+    return fetchJson(`${API_BASE}/admin/discovery/opportunities?${params.toString()}`);
+  },
+  getOperatorCrm: async ({ taskLimit = 60, opportunityLimit = 40 } = {}) => {
+    const params = new URLSearchParams();
+    params.set("task_limit", String(taskLimit));
+    params.set("opportunity_limit", String(opportunityLimit));
+    return fetchJson(`${API_BASE}/admin/operator/crm?${params.toString()}`);
+  },
 
   /**
    * Get audit trail for an order
@@ -181,6 +205,24 @@ export const adminAPI = {
   getFundSleevesBudgets: async (runId = "") => {
     const query = runId ? `?run_id=${encodeURIComponent(runId)}` : "";
     return fetchJson(`${FUND_BASE}/sleeves/budgets${query}`);
+  },
+  getFundAllocationPolicy: async (runId = "") => {
+    const query = runId ? `?run_id=${encodeURIComponent(runId)}` : "";
+    return fetchJson(`${FUND_BASE}/allocation/policy${query}`);
+  },
+  updateFundAllocationPolicy: async (payload) =>
+    fetchJson(`${FUND_BASE}/allocation/policy`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  getFundDiscoveryOpportunities: async ({ limit = 100, runId = "", status = "", assetClass = "" } = {}) => {
+    const params = new URLSearchParams();
+    params.set("limit", String(limit));
+    if (runId) params.set("run_id", runId);
+    if (status) params.set("status", status);
+    if (assetClass) params.set("asset_class", assetClass);
+    return fetchJson(`${FUND_BASE}/discovery/opportunities?${params.toString()}`);
   },
   getFundBlockedTrades: async (limit = 50) =>
     fetchJson(`${FUND_BASE}/trades/blocked?limit=${encodeURIComponent(limit)}`),
@@ -265,6 +307,7 @@ export const researchAPI = {
     if (options.status) params.append("status", options.status);
     if (options.agentRole) params.append("agent_role", options.agentRole);
     if (options.asset) params.append("asset", options.asset);
+    if (options.surface) params.append("surface", options.surface);
     if (options.limit) params.append("limit", options.limit);
     if (options.offset) params.append("offset", options.offset);
 
@@ -322,7 +365,11 @@ export const blogAPI = {
     if (options.offset) params.append("offset", options.offset);
 
     const url = `${API_BASE}/blog/posts?${params.toString()}`;
-    return fetchJson(url);
+    const payload = await fetchJson(url);
+    if (payload && Array.isArray(payload.blogs) && !Array.isArray(payload.posts)) {
+      return { ...payload, posts: payload.blogs };
+    }
+    return payload;
   },
 
   /**
