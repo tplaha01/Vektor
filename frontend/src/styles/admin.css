@@ -629,7 +629,7 @@
 
 .admin-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 330px;
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
   align-items: start;
 }
@@ -639,14 +639,6 @@
   flex-direction: column;
   gap: 14px;
   min-width: 0;
-}
-
-.admin-context-rail {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  position: sticky;
-  top: 0;
 }
 
 .context-panel {
@@ -818,37 +810,6 @@
   flex-wrap: wrap;
   gap: 6px;
   margin-top: 10px;
-}
-
-.context-rail-tabs {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-  margin-bottom: 12px;
-}
-
-.context-rail-tab {
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.02);
-  color: var(--txt2);
-  border-radius: var(--r-sm);
-  padding: 7px 8px;
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  cursor: pointer;
-}
-
-.context-rail-tab:hover {
-  color: var(--txt);
-  background: rgba(255, 255, 255, 0.035);
-}
-
-.context-rail-tab.active {
-  color: #f0ebff;
-  border-color: rgba(155, 127, 232, 0.28);
-  background: rgba(155, 127, 232, 0.14);
 }
 
 .context-audit-list {
@@ -1283,6 +1244,154 @@
   color: var(--txt3);
   text-transform: uppercase;
   letter-spacing: 0.08em;
+}
+
+.sidebar-collapsed.admin-container {
+  grid-template-columns: 78px 1fr;
+}
+
+.sidebar-collapsed .sidebar-command-summary,
+.sidebar-collapsed .sidebar-footer-dense strong,
+.sidebar-collapsed .sidebar-footer-label,
+.sidebar-collapsed .sidebar-link-item span,
+.sidebar-collapsed .nav-label,
+.sidebar-collapsed .nav-pill,
+.sidebar-collapsed .sidebar-logo span {
+  display: none;
+}
+
+.sidebar-collapsed .sidebar-logo {
+  justify-content: center;
+}
+
+.sidebar-collapsed .nav-item,
+.sidebar-collapsed .sidebar-link-item {
+  justify-content: center;
+}
+
+.sidebar-collapsed .admin-workspace {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.context-action-row,
+.ceo-brief-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.market-watch-shell {
+  display: grid;
+  gap: 14px;
+}
+
+.market-watch-top-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.8fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.market-watch-bottom-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.market-watch-panel {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.market-watch-chart-grid,
+.market-watch-mini-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.market-watch-chart-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.market-watch-mini-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.market-watch-chart-card,
+.market-watch-mini-card,
+.market-watch-video-card {
+  padding: 10px;
+  border-radius: var(--r);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.02);
+  min-width: 0;
+}
+
+.market-watch-chart-head {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+
+.market-watch-chart-head strong {
+  font-size: 12px;
+}
+
+.market-watch-chart-head span {
+  font-size: 11px;
+  color: var(--txt2);
+}
+
+.market-watch-video-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.market-watch-video-card strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.market-watch-video-card iframe {
+  width: 100%;
+  height: 210px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: #000;
+}
+
+.market-watch-chart-card .tv-wrap,
+.market-watch-mini-card .tv-wrap {
+  min-height: 0 !important;
+}
+
+@media (max-width: 1400px) {
+  .admin-workspace,
+  .sidebar-collapsed .admin-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .market-watch-top-grid,
+  .market-watch-bottom-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1100px) {
+  .admin-workspace,
+  .sidebar-collapsed .admin-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .market-watch-chart-grid,
+  .market-watch-mini-grid,
+  .ceo-brief-grid,
+  .context-action-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 @keyframes swarmPulse {

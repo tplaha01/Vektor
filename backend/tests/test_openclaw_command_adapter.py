@@ -3,7 +3,9 @@ from pathlib import Path
 
 import pytest
 
+from app.fund.contracts import DecisionRecord, Sleeve
 from app.fund.audit_log import AuditLog
+from app.fund.decision_ledger import decision_ledger
 import app.fund.openclaw_command_adapter as openclaw_adapter_module
 from app.fund.openclaw_command_adapter import OpenClawCommandAdapter
 
@@ -45,6 +47,29 @@ def _ensure_repo_knowledge_graph_is_unchanged():
     assert after == before
 
 
+@pytest.fixture(autouse=True)
+def _restore_decision_ledger_state():
+    before_decisions = dict(decision_ledger._decisions)
+    before_events = list(decision_ledger._events)
+    before_sink = decision_ledger._event_sink
+    yield
+    decision_ledger._decisions = before_decisions
+    decision_ledger._events = before_events
+    decision_ledger._event_sink = before_sink
+
+
+@pytest.fixture(autouse=True)
+def _stub_decision_ledger_side_effects(monkeypatch):
+    monkeypatch.setattr(decision_ledger, "_persist_decision", lambda record: None)
+    monkeypatch.setattr(decision_ledger, "_persist_event", lambda event: None)
+    monkeypatch.setattr(decision_ledger, "_emit_event", lambda event: None)
+
+
+@pytest.fixture(autouse=True)
+def _stub_knowledge_graph_side_effects(monkeypatch):
+    monkeypatch.setattr(openclaw_adapter_module.knowledge_graph, "ingest", lambda **kwargs: {"event_id": "kge-test"})
+
+
 def _stub_knowledge_graph(monkeypatch):
     captured: list[dict] = []
 
@@ -54,6 +79,22 @@ def _stub_knowledge_graph(monkeypatch):
 
     monkeypatch.setattr(openclaw_adapter_module.knowledge_graph, "ingest", _ingest)
     return captured
+
+
+def _seed_pending_decision() -> None:
+    decision_ledger._decisions = {}
+    decision_ledger._events = []
+    record = DecisionRecord(
+        decision_id="dec-1",
+        run_id="run-pack",
+        agent_id="fund_manager_agent",
+        sleeve=Sleeve.TACTICAL,
+        thesis_id="thesis-1",
+        risk_id="risk-1",
+        intent_id="intent-1",
+        status="proposed",
+    )
+    decision_ledger._decisions[record.decision_id] = record
 
 
 class _StubRuntime:
@@ -141,6 +182,7 @@ class _StubRuntime:
             "started": bool(self.started),
             "autopilot": {"enabled": True, "running": False},
             "data_integrity": {"halted": False, "halt_reason": None},
+            "signal_packs": [{"signal_pack_id": "sigpack-123", "run_id": "run-pack", "symbol": "AAPL"}],
         }
 
     def kick_autopilot(self, run_id: str | None = None) -> dict:
@@ -178,7 +220,7 @@ class _StubOrchestrator:
         return [{"task_id": "task-hist-1", "run_id": run_id or "run-h", "role": role or "fund_manager", "status": status or "completed"}]
 
     def list_pending_decisions(self):
-        return [{"decision_id": "dec-1", "status": "proposed"}]
+        return [{"decision_id": "dec-1", "status": "proposed", "run_id": "run-pack", "symbol": "AAPL", "thesis": "Awaiting approval"}]
 
     def list_blocked_trades(self, limit: int = 100):
         self.blocked_calls.append(limit)
@@ -643,6 +685,7 @@ def test_openclaw_command_adapter_routes_task_history_control(monkeypatch):
 
 
 def test_openclaw_command_adapter_routes_pending_decisions_control(monkeypatch):
+    _seed_pending_decision()
     runtime = _StubRuntime()
     orchestrator = _StubOrchestrator()
     knowledge_events = _stub_knowledge_graph(monkeypatch)
@@ -677,6 +720,75 @@ def test_openclaw_command_adapter_routes_pending_decisions_control(monkeypatch):
     assert route_result["count"] == 1
     assert route_result["decisions"][0]["decision_id"] == "dec-1"
     assert knowledge_events[-1]["event_type"] == "runtime.control.pending_decisions"
+
+
+def test_openclaw_command_adapter_resolves_decision_detail_by_pack(monkeypatch):
+    _seed_pending_decision()
+    runtime = _StubRuntime()
+    orchestrator = _StubOrchestrator()
+    knowledge_events = _stub_knowledge_graph(monkeypatch)
+    adapter = OpenClawCommandAdapter(
+        runtime=runtime,
+        orchestrator=orchestrator,
+        token="adapter-secret",
+        enabled=True,
+        channel_allowlist=["general"],
+        sender_allowlist=["ceo"],
+        fund_manager_mode=True,
+        log=AuditLog(),
+    )
+    monkeypatch.setattr(openclaw_adapter_module.data_integrity_guard, "halted", lambda: False)
+    monkeypatch.setattr(openclaw_adapter_module.data_integrity_guard, "halt_reason", lambda: None)
+
+    result = adapter.route_message(
+        {
+            "platform": "discord",
+            "channel_name": "general",
+            "sender_name": "ceo",
+            "text": "decision detail pack:sigpack-123",
+            "run_id": "run-ocmd-detail-1",
+        },
+        token="adapter-secret",
+    )
+
+    assert result["accepted"] is True
+    assert result["route_result"]["action"] == "decision_detail"
+    assert result["route_result"]["decision"]["decision_id"] == "dec-1"
+    assert result["route_result"]["resolution"] == "run_id"
+    assert knowledge_events[-1]["event_type"] == "runtime.control.decision_detail"
+
+
+def test_openclaw_command_adapter_approves_decision_by_run_reference(monkeypatch):
+    _seed_pending_decision()
+    runtime = _StubRuntime()
+    orchestrator = _StubOrchestrator()
+    adapter = OpenClawCommandAdapter(
+        runtime=runtime,
+        orchestrator=orchestrator,
+        token="adapter-secret",
+        enabled=True,
+        channel_allowlist=["general"],
+        sender_allowlist=["ceo"],
+        fund_manager_mode=True,
+        log=AuditLog(),
+    )
+    monkeypatch.setattr(openclaw_adapter_module.data_integrity_guard, "halted", lambda: False)
+    monkeypatch.setattr(openclaw_adapter_module.data_integrity_guard, "halt_reason", lambda: None)
+
+    result = adapter.route_message(
+        {
+            "platform": "discord",
+            "channel_name": "general",
+            "sender_name": "ceo",
+            "text": "approve decision run:run-pack",
+            "run_id": "run-ocmd-approve-1",
+        },
+        token="adapter-secret",
+    )
+
+    assert result["accepted"] is True
+    assert result["route_result"]["decision_id"] == "dec-1"
+    assert result["route_result"]["resolution"] == "run_id"
 
 
 def test_openclaw_command_adapter_reroutes_signal_pack_roles(monkeypatch):
@@ -760,3 +872,76 @@ def test_openclaw_command_adapter_cancels_run_and_pack(monkeypatch):
     assert runtime.cancel_pack_calls[0]["reason"].startswith("openclaw:")
     assert knowledge_events[-2]["event_type"] == "runtime.control.cancel_run"
     assert knowledge_events[-1]["event_type"] == "runtime.control.cancel_signal_pack"
+
+
+def test_openclaw_command_adapter_reports_position_brief(monkeypatch):
+    runtime = _StubRuntime()
+    adapter = OpenClawCommandAdapter(
+        runtime=runtime,
+        orchestrator=_StubOrchestrator(),
+        token="adapter-secret",
+        enabled=True,
+        channel_allowlist=["general"],
+        sender_allowlist=["ceo"],
+        fund_manager_mode=True,
+        log=AuditLog(),
+    )
+    monkeypatch.setattr(openclaw_adapter_module.data_integrity_guard, "halted", lambda: False)
+    monkeypatch.setattr(openclaw_adapter_module.data_integrity_guard, "halt_reason", lambda: None)
+    monkeypatch.setattr(
+        openclaw_adapter_module.vektor_ceo_service,
+        "position_brief",
+        lambda symbol: {"accepted": True, "symbol": symbol, "position": {"symbol": symbol}},
+    )
+
+    result = adapter.route_message(
+        {
+            "platform": "discord",
+            "channel_name": "general",
+            "sender_name": "ceo",
+            "text": "tell me about our nvidia position",
+        },
+        token="adapter-secret",
+    )
+    assert result["accepted"] is True
+    assert result["role"] == "runtime_control"
+    assert result["route_result"]["action"] == "position_brief"
+    assert result["route_result"]["briefing"]["symbol"] == "NVDA"
+
+
+def test_openclaw_command_adapter_approves_editorial(monkeypatch):
+    runtime = _StubRuntime()
+    adapter = OpenClawCommandAdapter(
+        runtime=runtime,
+        orchestrator=_StubOrchestrator(),
+        token="adapter-secret",
+        enabled=True,
+        channel_allowlist=["general"],
+        sender_allowlist=["ceo"],
+        fund_manager_mode=True,
+        log=AuditLog(),
+    )
+    monkeypatch.setattr(openclaw_adapter_module.data_integrity_guard, "halted", lambda: False)
+    monkeypatch.setattr(openclaw_adapter_module.data_integrity_guard, "halt_reason", lambda: None)
+    monkeypatch.setattr(
+        openclaw_adapter_module.vektor_ceo_service,
+        "approve_editorial",
+        lambda post_id, approved_by, notes=None: {
+            "accepted": True,
+            "status": "approved",
+            "editorial": {"id": post_id, "sourceRunId": "run-blog"},
+        },
+    )
+
+    result = adapter.route_message(
+        {
+            "platform": "discord",
+            "channel_name": "general",
+            "sender_name": "ceo",
+            "text": "approve blog slug:premarket-report-april-21-2026",
+        },
+        token="adapter-secret",
+    )
+    assert result["accepted"] is True
+    assert result["route_result"]["action"] == "approve_editorial"
+    assert result["route_result"]["status"] == "approved"

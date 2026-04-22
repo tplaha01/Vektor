@@ -252,12 +252,24 @@ def save_blog_post(post: Dict[str, Any]) -> None:
         )
 
 
-def load_blog_posts(*, limit: int = 50, offset: int = 0, category: str | None = None) -> List[Dict[str, Any]]:
+def load_blog_posts(
+    *,
+    limit: int = 50,
+    offset: int = 0,
+    category: str | None = None,
+    status: str | None = None,
+) -> List[Dict[str, Any]]:
     query = "SELECT * FROM blog_posts"
     params: list[Any] = []
+    clauses: list[str] = []
     if category:
-        query += " WHERE category = ?"
+        clauses.append("category = ?")
         params.append(category)
+    if status:
+        clauses.append("status = ?")
+        params.append(status)
+    if clauses:
+        query += " WHERE " + " AND ".join(clauses)
     query += " ORDER BY published_at DESC LIMIT ? OFFSET ?"
     params.extend([int(limit), int(offset)])
     with get_db() as db:
@@ -265,12 +277,18 @@ def load_blog_posts(*, limit: int = 50, offset: int = 0, category: str | None = 
     return [_normalize_blog_row(dict(r)) for r in rows]
 
 
-def count_blog_posts(*, category: str | None = None) -> int:
+def count_blog_posts(*, category: str | None = None, status: str | None = None) -> int:
     query = "SELECT COUNT(*) AS c FROM blog_posts"
     params: list[Any] = []
+    clauses: list[str] = []
     if category:
-        query += " WHERE category = ?"
+        clauses.append("category = ?")
         params.append(category)
+    if status:
+        clauses.append("status = ?")
+        params.append(status)
+    if clauses:
+        query += " WHERE " + " AND ".join(clauses)
     with get_db() as db:
         row = db.execute(query, params).fetchone()
     return int(row["c"] if row else 0)

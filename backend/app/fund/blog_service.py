@@ -699,6 +699,7 @@ class BlogService:
         report: ContractResearchReport | dict[str, Any],
         command: str | None = None,
         trigger_source: str = "agent_runtime",
+        require_review: bool = True,
     ) -> dict[str, Any]:
         report_row = _to_report_dict(report)
         report_id = str(report_row.get("report_id") or "").strip()
@@ -800,7 +801,7 @@ class BlogService:
             "tags": final_tags,
             "views": 0,
             "read_time_minutes": read_time,
-            "status": "published",
+            "status": "pending_review" if require_review else "published",
             "metadata": {
                 "trigger_source": trigger_source,
                 "command": command,
@@ -811,6 +812,9 @@ class BlogService:
                 "image_query": image_query,
                 "hero_image_url": hero_url,
                 "ai": ai_metadata,
+                "approval_required": require_review,
+                "approval_state": "pending_review" if require_review else "published",
+                "approval_notes": [],
             },
             "created_at": now,
             "published_at": now,
@@ -919,6 +923,7 @@ class BlogService:
         symbols: Iterable[str],
         command: str,
         trigger_source: str = "scheduled_market_report",
+        require_review: bool = True,
     ) -> dict[str, Any]:
         normalized_kind = str(schedule_kind or "").strip().lower()
         normalized_key = str(schedule_key or "").strip()
@@ -1024,7 +1029,7 @@ class BlogService:
             "tags": list(dict.fromkeys(["market brief", normalized_kind.replace("_", "-"), *normalized_symbols[:4], "vektor"]))[:12],
             "views": 0,
             "read_time_minutes": read_time,
-            "status": "published",
+            "status": "pending_review" if require_review else "published",
             "metadata": {
                 "trigger_source": trigger_source,
                 "command": command,
@@ -1036,6 +1041,9 @@ class BlogService:
                 "hero_image_url": hero_url,
                 "image_query": image_query,
                 "ai": ai_metadata,
+                "approval_required": require_review,
+                "approval_state": "pending_review" if require_review else "published",
+                "approval_notes": [],
             },
             "created_at": now,
             "published_at": now,
@@ -1044,15 +1052,30 @@ class BlogService:
         storage_db.save_blog_post(post)
         return storage_db.load_blog_post(str(post["id"])) or post
 
-    def list_posts(self, *, limit: int = 50, offset: int = 0, category: str | None = None) -> dict[str, Any]:
-        rows = storage_db.load_blog_posts(limit=limit, offset=offset, category=category)
-        total = storage_db.count_blog_posts(category=category)
+    def list_posts(
+        self,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+        category: str | None = None,
+        status: str = "published",
+    ) -> dict[str, Any]:
+        rows = storage_db.load_blog_posts(limit=limit, offset=offset, category=category, status=status if status != "all" else None)
+        total = storage_db.count_blog_posts(category=category, status=status if status != "all" else None)
         blogs = [self._to_blog_list_item(row) for row in rows]
-        return {"blogs": blogs, "total": total, "limit": limit, "offset": offset}
+        return {"blogs": blogs, "total": total, "limit": limit, "offset": offset, "status": status}
 
-    def get_post_detail(self, post_id_or_slug: str, *, increment_views: bool = True) -> dict[str, Any] | None:
+    def get_post_detail(
+        self,
+        post_id_or_slug: str,
+        *,
+        increment_views: bool = True,
+        include_unpublished: bool = False,
+    ) -> dict[str, Any] | None:
         row = storage_db.load_blog_post(post_id_or_slug)
         if row is None:
+            return None
+        if not include_unpublished and str(row.get("status") or "").strip().lower() != "published":
             return None
         if increment_views:
             storage_db.increment_blog_post_views(str(row["id"]))
@@ -1074,11 +1097,56 @@ class BlogService:
                         report=report,
                         command=command,
                         trigger_source=trigger_source,
+                        require_review=True,
                     )
                 )
             except Exception:
                 continue
         return published
+
+    def approve_post(self, post_id_or_slug: str, *, approved_by: str, notes: str | None = None) -> dict[str, Any] | None:
+        row = storage_db.load_blog_post(post_id_or_slug)
+        if row is None:
+            return None
+        metadata = dict(row.get("metadata") or {})
+        approval_notes = list(metadata.get("approval_notes") or [])
+        approval_notes.append(
+            {
+                "action": "approved",
+                "actor": approved_by,
+                "notes": notes or "",
+                "at": _utc_iso(),
+            }
+        )
+        metadata["approval_state"] = "published"
+        metadata["approval_notes"] = approval_notes
+        row["status"] = "published"
+        row["metadata"] = metadata
+        row["updated_at"] = _utc_iso()
+        storage_db.save_blog_post(row)
+        return storage_db.load_blog_post(str(row["id"]))
+
+    def reject_post(self, post_id_or_slug: str, *, rejected_by: str, notes: str | None = None) -> dict[str, Any] | None:
+        row = storage_db.load_blog_post(post_id_or_slug)
+        if row is None:
+            return None
+        metadata = dict(row.get("metadata") or {})
+        approval_notes = list(metadata.get("approval_notes") or [])
+        approval_notes.append(
+            {
+                "action": "changes_requested",
+                "actor": rejected_by,
+                "notes": notes or "",
+                "at": _utc_iso(),
+            }
+        )
+        metadata["approval_state"] = "needs_revision"
+        metadata["approval_notes"] = approval_notes
+        row["status"] = "needs_revision"
+        row["metadata"] = metadata
+        row["updated_at"] = _utc_iso()
+        storage_db.save_blog_post(row)
+        return storage_db.load_blog_post(str(row["id"]))
 
     def _to_blog_list_item(self, row: dict[str, Any]) -> dict[str, Any]:
         metadata = dict(row.get("metadata") or {})
@@ -1095,6 +1163,7 @@ class BlogService:
             "publishedAt": row.get("published_at"),
             "views": int(row.get("views") or 0),
             "readTime": int(row.get("read_time_minutes") or 3),
+            "status": row.get("status"),
             "tags": list(row.get("tags") or []),
             "heroImageUrl": metadata.get("hero_image_url"),
             "providerUsed": provider_used,

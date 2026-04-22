@@ -24,6 +24,7 @@ from app.fund.ai_role_adapter import ai_role_adapter
 from app.fund.agent_runtime import fund_agent_runtime
 from app.fund.audit_log import audit_log
 from app.fund.blog_service import blog_service
+from app.fund.ceo_service import vektor_ceo_service
 from app.fund.contracts import ProvenanceRef, ResearchReport as ContractResearchReport
 from app.fund.decision_ledger import decision_ledger
 from app.fund.knowledge_graph import knowledge_graph
@@ -2279,10 +2280,14 @@ async def get_sentiment_history(
 @blog_router.get("/posts", response_model=dict)
 async def get_blog_posts(
     category: Optional[str] = Query(None),
+    status: Optional[str] = Query("published"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ):
-    return blog_service.list_posts(limit=limit, offset=offset, category=category)
+    normalized_status = str(status or "published").strip().lower()
+    if normalized_status not in {"published", "pending_review", "needs_revision", "all"}:
+        raise HTTPException(status_code=400, detail="invalid_blog_status")
+    return blog_service.list_posts(limit=limit, offset=offset, category=category, status=normalized_status)
 
 
 @blog_router.get("/posts/{post_id}", response_model=dict)
@@ -2314,3 +2319,55 @@ async def generate_blog_post(body: BlogGenerateIn):
         "run_id": run_id,
         "queued": queue_result,
     }
+
+
+@router.get("/ceo/digest", response_model=dict)
+async def get_ceo_digest():
+    return vektor_ceo_service.digest()
+
+
+@router.get("/ceo/position/{symbol}", response_model=dict)
+async def get_ceo_position(symbol: str):
+    result = vektor_ceo_service.position_brief(symbol)
+    if not result.get("accepted"):
+        raise HTTPException(status_code=404, detail=result.get("reason") or "position_not_found")
+    return result
+
+
+@router.get("/ceo/performance-breakdown", response_model=dict)
+async def get_ceo_performance_breakdown():
+    return vektor_ceo_service.portfolio_performance_breakdown()
+
+
+@router.get("/ceo/editorial/pending", response_model=dict)
+async def get_pending_editorial():
+    return vektor_ceo_service.pending_editorial_queue()
+
+
+@router.get("/ceo/editorial/{post_id}", response_model=dict)
+async def get_editorial_detail(post_id: str):
+    result = vektor_ceo_service.editorial_detail(post_id)
+    if not result.get("accepted"):
+        raise HTTPException(status_code=404, detail=result.get("reason") or "editorial_not_found")
+    return result
+
+
+@router.post("/ceo/editorial/{post_id}/approve", response_model=dict)
+async def approve_editorial(post_id: str, body: RuntimeControlIn):
+    result = vektor_ceo_service.approve_editorial(post_id, approved_by="api.admin", notes=body.reason)
+    if not result.get("accepted"):
+        raise HTTPException(status_code=404, detail=result.get("reason") or "editorial_not_found")
+    return result
+
+
+@router.post("/ceo/editorial/{post_id}/reject", response_model=dict)
+async def reject_editorial(post_id: str, body: RuntimeControlIn):
+    result = vektor_ceo_service.reject_editorial(post_id, rejected_by="api.admin", notes=body.reason)
+    if not result.get("accepted"):
+        raise HTTPException(status_code=404, detail=result.get("reason") or "editorial_not_found")
+    return result
+
+
+@router.get("/ceo/market-watch", response_model=dict)
+async def get_market_watch():
+    return vektor_ceo_service.market_watch()

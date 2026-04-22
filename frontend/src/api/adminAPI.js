@@ -176,6 +176,24 @@ export const adminAPI = {
     params.set("opportunity_limit", String(opportunityLimit));
     return fetchJson(`${API_BASE}/admin/operator/crm?${params.toString()}`);
   },
+  getCeoDigest: async () => fetchJson(`${API_BASE}/admin/ceo/digest`),
+  getCeoPositionBrief: async (symbol) => fetchJson(`${API_BASE}/admin/ceo/position/${encodeURIComponent(symbol)}`),
+  getCeoPerformanceBreakdown: async () => fetchJson(`${API_BASE}/admin/ceo/performance-breakdown`),
+  getPendingEditorial: async () => fetchJson(`${API_BASE}/admin/ceo/editorial/pending`),
+  getEditorialDetail: async (postId) => fetchJson(`${API_BASE}/admin/ceo/editorial/${encodeURIComponent(postId)}`),
+  approveEditorial: async (postId, reason = "Approved by CEO") =>
+    fetchJson(`${API_BASE}/admin/ceo/editorial/${encodeURIComponent(postId)}/approve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason }),
+    }),
+  rejectEditorial: async (postId, reason = "Changes requested by CEO") =>
+    fetchJson(`${API_BASE}/admin/ceo/editorial/${encodeURIComponent(postId)}/reject`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason }),
+    }),
+  getMarketWatch: async () => fetchJson(`${API_BASE}/admin/ceo/market-watch`),
 
   /**
    * Get audit trail for an order
@@ -361,6 +379,7 @@ export const blogAPI = {
   getPosts: async (options = {}) => {
     const params = new URLSearchParams();
     if (options.category) params.append("category", options.category);
+    if (options.status) params.append("status", options.status);
     if (options.limit) params.append("limit", options.limit);
     if (options.offset) params.append("offset", options.offset);
 

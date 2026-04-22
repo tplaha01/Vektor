@@ -41,6 +41,16 @@ def _safe_float(value: Any, default: float = 0.0) -> float:
         return float(default)
 
 
+def _parse_csv(value: Any) -> set[str]:
+    if not value:
+        return set()
+    return {
+        str(item).strip().upper()
+        for item in str(value).split(",")
+        if str(item).strip()
+    }
+
+
 @dataclass(frozen=True)
 class TraceIds:
     data_id: str
@@ -136,6 +146,7 @@ class AlpacaTradingVenueAdapter:
 
     def __init__(self) -> None:
         self._settings = get_settings()
+        self._allowlist = _parse_csv(self._settings.LIVE_TRADING_SYMBOL_ALLOWLIST)
 
     def supports(self, intent: ExecutionIntent) -> bool:
         return intent.routing_mode in self.supported_routes
@@ -145,12 +156,16 @@ class AlpacaTradingVenueAdapter:
             return "intent_not_approved"
         if not self._settings.LIVE_TRADING_ENABLED:
             return "live_trading_disabled"
+        if not self._settings.LIVE_TRADING_ALPACA_ENABLED:
+            return "alpaca_live_trading_not_enabled"
         if not self._settings.ALPACA_API_KEY or not self._settings.ALPACA_SECRET_KEY:
             return "alpaca_credentials_missing"
         if intent.side not in _ALLOWED_SIDES:
             return "invalid_side"
         if intent.quantity <= 0:
             return "invalid_quantity"
+        if self._settings.LIVE_TRADING_REQUIRE_ALLOWLIST and self._allowlist and intent.symbol.upper().strip() not in self._allowlist:
+            return "live_symbol_not_allowlisted"
         if not self.supports(intent):
             return f"unsupported_execution_route:{intent.routing_mode}"
         return None
@@ -202,6 +217,7 @@ class OandaForexVenueAdapter:
 
     def __init__(self) -> None:
         self._settings = get_settings()
+        self._allowlist = _parse_csv(self._settings.LIVE_TRADING_SYMBOL_ALLOWLIST)
 
     def supports(self, intent: ExecutionIntent) -> bool:
         return intent.routing_mode in self.supported_routes and intent.asset_class == "forex"
@@ -211,6 +227,8 @@ class OandaForexVenueAdapter:
             return "intent_not_approved"
         if not self._settings.LIVE_TRADING_ENABLED:
             return "live_trading_disabled"
+        if not self._settings.LIVE_TRADING_OANDA_ENABLED:
+            return "oanda_live_trading_not_enabled"
         if not self._settings.OANDA_API_TOKEN or not self._settings.OANDA_ACCOUNT_ID:
             return "oanda_credentials_missing"
         if intent.side not in _ALLOWED_SIDES:
@@ -219,6 +237,8 @@ class OandaForexVenueAdapter:
             return "invalid_quantity"
         if "/" not in intent.symbol:
             return "invalid_forex_symbol"
+        if self._settings.LIVE_TRADING_REQUIRE_ALLOWLIST and self._allowlist and intent.symbol.upper().strip() not in self._allowlist:
+            return "live_symbol_not_allowlisted"
         return None
 
     def submit(self, *, intent: ExecutionIntent) -> dict[str, Any]:
@@ -365,7 +385,7 @@ class PaperExecutionAdapter:
             "run_id": trace.run_id,
             "agent_id": intent.agent_id,
             "sleeve": intent.sleeve,
-            "broker_mode": "paper",
+            "broker_mode": intent.broker_mode,
             "started_at": started_at,
             "asset_class": intent.asset_class,
             "instrument_type": intent.instrument_type,

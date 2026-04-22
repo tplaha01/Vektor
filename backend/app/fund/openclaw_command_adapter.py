@@ -12,6 +12,7 @@ from uuid import uuid4
 from app.config import get_settings
 from app.fund.agent_runtime import FundAgentRuntime, fund_agent_runtime
 from app.fund.audit_log import AuditLog, audit_log
+from app.fund.ceo_service import vektor_ceo_service
 from app.fund.decision_ledger import decision_ledger
 from app.fund.knowledge_graph import knowledge_graph
 from app.fund.orchestrator import FirmOrchestrator, firm_orchestrator
@@ -40,6 +41,20 @@ ANALYST_ROLES: tuple[str, ...] = (
     "insight_researcher",
     "hedge_fund_researcher",
 )
+
+COMPANY_SYMBOL_ALIASES: dict[str, str] = {
+    "nvidia": "NVDA",
+    "apple": "AAPL",
+    "microsoft": "MSFT",
+    "amazon": "AMZN",
+    "alphabet": "GOOGL",
+    "google": "GOOGL",
+    "meta": "META",
+    "tesla": "TSLA",
+    "amd": "AMD",
+    "spy": "SPY",
+    "qqq": "QQQ",
+}
 
 
 def _utc_now() -> datetime:
@@ -106,6 +121,10 @@ def _infer_role(command: str) -> str:
 
 
 def _extract_symbol(text: str) -> str | None:
+    lowered = str(text or "").strip().lower()
+    for name, symbol in COMPANY_SYMBOL_ALIASES.items():
+        if re.search(rf"\b{re.escape(name)}\b", lowered):
+            return symbol
     tokens = re.findall(r"\b[A-Z]{1,6}\b", str(text or "").upper())
     ignored = {
         "RUN",
@@ -220,6 +239,54 @@ def _parse_control_command(command: str) -> dict[str, Any] | None:
         "world scanner",
         "opportunity pipeline",
         "/fund discovery status",
+    )
+    decision_detail_patterns = (
+        "decision detail",
+        "decision status",
+        "/fund decision detail",
+    )
+    digest_patterns = (
+        "portfolio digest",
+        "daily digest",
+        "ceo digest",
+        "brief me",
+        "/fund digest",
+    )
+    position_brief_patterns = (
+        "position brief",
+        "tell me about our",
+        "our position",
+        "/fund position",
+    )
+    portfolio_performance_patterns = (
+        "best and worst",
+        "portfolio performance breakdown",
+        "best performing",
+        "worst performing",
+        "/fund portfolio performance",
+    )
+    editorial_pending_patterns = (
+        "pending editorials",
+        "pending editorial",
+        "editorial queue",
+        "pending blogs",
+        "/fund editorial pending",
+    )
+    editorial_detail_patterns = (
+        "editorial detail",
+        "blog detail",
+        "/fund editorial detail",
+    )
+    editorial_approve_patterns = (
+        "approve blog",
+        "approve editorial",
+        "/fund editorial approve",
+    )
+    editorial_reject_patterns = (
+        "reject blog",
+        "reject editorial",
+        "request changes",
+        "/fund editorial reject",
     )
     approve_patterns = (
         "approve decision",
@@ -368,10 +435,55 @@ def _parse_control_command(command: str) -> dict[str, Any] | None:
             "asset_class": _parse_text_param("asset_class"),
             "limit": _parse_int_param("limit", default=20, minimum=1, maximum=200),
         }
+    if any(phrase in normalized for phrase in digest_patterns):
+        return {"action": "portfolio_digest"}
+    if any(phrase in normalized for phrase in position_brief_patterns) and "position" in normalized:
+        return {"action": "position_brief", "symbol": _extract_symbol(command)}
+    if any(phrase in normalized for phrase in portfolio_performance_patterns):
+        return {"action": "portfolio_performance"}
+    if any(phrase in normalized for phrase in editorial_pending_patterns):
+        return {"action": "pending_editorial"}
+    if any(phrase in normalized for phrase in editorial_detail_patterns):
+        return {
+            "action": "editorial_detail",
+            "post_id": _parse_text_param("post") or _parse_text_param("slug") or _parse_text_param("id"),
+        }
+    if any(phrase in normalized for phrase in editorial_approve_patterns):
+        return {
+            "action": "approve_editorial",
+            "post_id": _parse_text_param("post") or _parse_text_param("slug") or _parse_text_param("id"),
+            "reason": _parse_text_param("reason"),
+        }
+    if any(phrase in normalized for phrase in editorial_reject_patterns):
+        return {
+            "action": "reject_editorial",
+            "post_id": _parse_text_param("post") or _parse_text_param("slug") or _parse_text_param("id"),
+            "reason": _parse_text_param("reason"),
+        }
+    if any(phrase in normalized for phrase in decision_detail_patterns):
+        return {
+            "action": "decision_detail",
+            "decision_id": _parse_text_param("decision_id") or _parse_text_param("decision"),
+            "run_id": _parse_text_param("run_id") or _parse_text_param("run"),
+            "signal_pack_id": _parse_text_param("signal_pack_id") or _parse_text_param("pack"),
+            "symbol": (_parse_text_param("symbol") or "").upper() or None,
+        }
     if any(phrase in normalized for phrase in approve_patterns):
-        return {"action": "approve_decision", "decision_id": _parse_text_param("decision_id") or _parse_text_param("decision")}
+        return {
+            "action": "approve_decision",
+            "decision_id": _parse_text_param("decision_id") or _parse_text_param("decision"),
+            "run_id": _parse_text_param("run_id") or _parse_text_param("run"),
+            "signal_pack_id": _parse_text_param("signal_pack_id") or _parse_text_param("pack"),
+            "symbol": (_parse_text_param("symbol") or "").upper() or None,
+        }
     if any(phrase in normalized for phrase in reject_patterns):
-        return {"action": "reject_decision", "decision_id": _parse_text_param("decision_id") or _parse_text_param("decision")}
+        return {
+            "action": "reject_decision",
+            "decision_id": _parse_text_param("decision_id") or _parse_text_param("decision"),
+            "run_id": _parse_text_param("run_id") or _parse_text_param("run"),
+            "signal_pack_id": _parse_text_param("signal_pack_id") or _parse_text_param("pack"),
+            "symbol": (_parse_text_param("symbol") or "").upper() or None,
+        }
     if any(phrase in normalized for phrase in cancel_run_patterns):
         return {"action": "cancel_run", "run_id": _parse_text_param("run_id") or _parse_text_param("run")}
     if any(phrase in normalized for phrase in cancel_pack_patterns):
@@ -535,6 +647,14 @@ class OpenClawCommandAdapter:
                 "allocation_status",
                 "set_allocation_policy",
                 "discovery_status",
+                "portfolio_digest",
+                "position_brief",
+                "portfolio_performance",
+                "pending_editorial",
+                "editorial_detail",
+                "approve_editorial",
+                "reject_editorial",
+                "decision_detail",
                 "approve_decision",
                 "reject_decision",
                 "cancel_run",
@@ -1072,13 +1192,174 @@ class OpenClawCommandAdapter:
             )
             return result
 
+        if clean_action == "portfolio_digest":
+            digest = vektor_ceo_service.digest()
+            result = {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "portfolio_digest",
+                "status": "reported",
+                "digest": digest,
+            }
+            self._record_control_event(
+                action="portfolio_digest",
+                status="reported",
+                reason=clean_reason,
+                run_id=run_id,
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"pending_decisions": digest.get("summary", {}).get("pending_decisions", 0)},
+            )
+            return result
+
+        if clean_action == "position_brief":
+            symbol = str(control_payload.get("symbol") or "").strip().upper()
+            briefing = vektor_ceo_service.position_brief(symbol)
+            if not briefing.get("accepted"):
+                return {**briefing, "control_id": control_id}
+            result = {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "position_brief",
+                "status": "reported",
+                "briefing": briefing,
+            }
+            self._record_control_event(
+                action="position_brief",
+                status="reported",
+                reason=clean_reason,
+                run_id=run_id,
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"symbol": symbol},
+            )
+            return result
+
+        if clean_action == "portfolio_performance":
+            breakdown = vektor_ceo_service.portfolio_performance_breakdown()
+            result = {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "portfolio_performance",
+                "status": "reported",
+                "breakdown": breakdown,
+            }
+            self._record_control_event(
+                action="portfolio_performance",
+                status="reported",
+                reason=clean_reason,
+                run_id=run_id,
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"areas": len(breakdown.get("areas") or [])},
+            )
+            return result
+
+        if clean_action == "pending_editorial":
+            queue = vektor_ceo_service.pending_editorial_queue()
+            result = {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "pending_editorial",
+                "status": "reported",
+                "queue": queue,
+            }
+            self._record_control_event(
+                action="pending_editorial",
+                status="reported",
+                reason=clean_reason,
+                run_id=run_id,
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"count": queue.get("count", 0)},
+            )
+            return result
+
+        if clean_action == "editorial_detail":
+            post_id = str(control_payload.get("post_id") or "").strip()
+            detail = vektor_ceo_service.editorial_detail(post_id)
+            if not detail.get("accepted"):
+                return {**detail, "control_id": control_id}
+            result = {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "editorial_detail",
+                "status": "reported",
+                "editorial": detail.get("editorial"),
+            }
+            self._record_control_event(
+                action="editorial_detail",
+                status="reported",
+                reason=clean_reason,
+                run_id=run_id,
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"post_id": post_id},
+            )
+            return result
+
+        if clean_action == "approve_editorial":
+            post_id = str(control_payload.get("post_id") or "").strip()
+            result = vektor_ceo_service.approve_editorial(post_id, approved_by="openclaw", notes=control_payload.get("reason"))
+            if not result.get("accepted"):
+                return {**result, "control_id": control_id}
+            self._record_control_event(
+                action="approve_editorial",
+                status="approved",
+                reason=clean_reason,
+                run_id=str(result.get("editorial", {}).get("sourceRunId") or run_id),
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"post_id": post_id},
+            )
+            return {**result, "control_id": control_id, "action": "approve_editorial"}
+
+        if clean_action == "reject_editorial":
+            post_id = str(control_payload.get("post_id") or "").strip()
+            result = vektor_ceo_service.reject_editorial(post_id, rejected_by="openclaw", notes=control_payload.get("reason"))
+            if not result.get("accepted"):
+                return {**result, "control_id": control_id}
+            self._record_control_event(
+                action="reject_editorial",
+                status="rejected",
+                reason=clean_reason,
+                run_id=str(result.get("editorial", {}).get("sourceRunId") or run_id),
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"post_id": post_id},
+            )
+            return {**result, "control_id": control_id, "action": "reject_editorial"}
+
+        if clean_action == "decision_detail":
+            resolved = self._resolve_decision_reference(control_payload)
+            if not resolved.get("accepted"):
+                return {**resolved, "control_id": control_id}
+            decision = resolved["decision"]
+            result = {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "decision_detail",
+                "status": "reported",
+                "decision": decision,
+                "resolution": resolved.get("resolution"),
+            }
+            self._record_control_event(
+                action="decision_detail",
+                status="reported",
+                reason=clean_reason,
+                run_id=str(decision.get("run_id") or run_id),
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"decision_id": decision.get("decision_id"), "resolution": resolved.get("resolution")},
+            )
+            return result
+
         if clean_action == "approve_decision":
-            decision_id = str(control_payload.get("decision_id") or "").strip()
-            if not decision_id:
-                return {"accepted": False, "reason": "missing_decision_id", "control_id": control_id}
-            decision = next((item for item in decision_ledger.list_decisions() if item.decision_id == decision_id), None)
-            if decision is None:
-                return {"accepted": False, "reason": "decision_not_found", "control_id": control_id}
+            resolved = self._resolve_decision_reference(control_payload)
+            if not resolved.get("accepted"):
+                return {**resolved, "control_id": control_id}
+            decision = resolved["record"]
+            decision_id = decision.decision_id
             decision_ledger.update_status(
                 decision_id,
                 "approved",
@@ -1090,6 +1371,7 @@ class OpenClawCommandAdapter:
                 "action": "approve_decision",
                 "status": "approved",
                 "decision_id": decision_id,
+                "resolution": resolved.get("resolution"),
             }
             self._record_control_event(
                 action="approve_decision",
@@ -1103,12 +1385,11 @@ class OpenClawCommandAdapter:
             return result
 
         if clean_action == "reject_decision":
-            decision_id = str(control_payload.get("decision_id") or "").strip()
-            if not decision_id:
-                return {"accepted": False, "reason": "missing_decision_id", "control_id": control_id}
-            decision = next((item for item in decision_ledger.list_decisions() if item.decision_id == decision_id), None)
-            if decision is None:
-                return {"accepted": False, "reason": "decision_not_found", "control_id": control_id}
+            resolved = self._resolve_decision_reference(control_payload)
+            if not resolved.get("accepted"):
+                return {**resolved, "control_id": control_id}
+            decision = resolved["record"]
+            decision_id = decision.decision_id
             decision_ledger.update_status(
                 decision_id,
                 "blocked",
@@ -1120,6 +1401,7 @@ class OpenClawCommandAdapter:
                 "action": "reject_decision",
                 "status": "rejected",
                 "decision_id": decision_id,
+                "resolution": resolved.get("resolution"),
             }
             self._record_control_event(
                 action="reject_decision",
@@ -1419,6 +1701,72 @@ class OpenClawCommandAdapter:
         candidate = requested or set(self._fund_manager_assigned_roles)
         candidate = {role for role in candidate if role in ANALYST_ROLES}
         return candidate or set(self._fund_manager_assigned_roles)
+
+    def _resolve_decision_reference(self, control_payload: dict[str, Any]) -> dict[str, Any]:
+        pending = self._orchestrator.list_pending_decisions()
+        pending_by_id = {
+            str(item.get("decision_id") or "").strip(): item
+            for item in pending
+            if str(item.get("decision_id") or "").strip()
+        }
+        records = {item.decision_id: item for item in decision_ledger.list_decisions()}
+
+        decision_id = str(control_payload.get("decision_id") or "").strip()
+        if decision_id:
+            record = records.get(decision_id)
+            if record is None:
+                return {"accepted": False, "reason": "decision_not_found"}
+            return {
+                "accepted": True,
+                "record": record,
+                "decision": pending_by_id.get(decision_id) or record.model_dump(mode="json"),
+                "resolution": "decision_id",
+            }
+
+        run_id = str(control_payload.get("run_id") or "").strip()
+        signal_pack_id = str(control_payload.get("signal_pack_id") or "").strip()
+        symbol = str(control_payload.get("symbol") or "").strip().upper()
+
+        if signal_pack_id:
+            runtime = self._runtime.status()
+            pack = next(
+                (item for item in (runtime.get("signal_packs") or []) if str(item.get("signal_pack_id") or "").strip() == signal_pack_id),
+                None,
+            )
+            if pack is None:
+                return {"accepted": False, "reason": "signal_pack_not_found"}
+            run_id = run_id or str(pack.get("run_id") or "").strip()
+
+        candidates = pending
+        resolution = None
+        if run_id:
+            candidates = [item for item in candidates if str(item.get("run_id") or "").strip() == run_id]
+            resolution = "run_id"
+        if symbol:
+            candidates = [item for item in candidates if str(item.get("symbol") or "").strip().upper() == symbol]
+            if resolution is None:
+                resolution = "symbol"
+
+        if not candidates:
+            return {"accepted": False, "reason": "pending_decision_not_found"}
+        if len(candidates) > 1:
+            return {
+                "accepted": False,
+                "reason": "decision_reference_ambiguous",
+                "matches": [item.get("decision_id") for item in candidates[:5]],
+            }
+
+        decision = candidates[0]
+        resolved_id = str(decision.get("decision_id") or "").strip()
+        record = records.get(resolved_id)
+        if record is None:
+            return {"accepted": False, "reason": "decision_not_found"}
+        return {
+            "accepted": True,
+            "record": record,
+            "decision": decision,
+            "resolution": resolution or "latest_pending",
+        }
 
     def _is_authorized(self, token: str) -> bool:
         return bool(self._token) and bool(token) and secrets.compare_digest(str(token), self._token)

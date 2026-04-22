@@ -447,6 +447,11 @@ class FundAgentRuntime:
                 "last_queue_drain_reason": self._last_halt_drain_reason,
             }
         with self._signal_pack_lock:
+            active_pack_count = sum(
+                1
+                for state in self._signal_packs.values()
+                if state.status != "canceled" and set(state.outputs.keys()) != set(state.expected_roles)
+            )
             packs = [
                 {
                     "signal_pack_id": state.signal_pack_id,
@@ -454,6 +459,8 @@ class FundAgentRuntime:
                     "symbol": state.symbol,
                     "expected_roles": sorted(state.expected_roles),
                     "completed_roles": sorted(state.outputs.keys()),
+                    "missing_roles": sorted(set(state.expected_roles) - set(state.outputs.keys())),
+                    "progress_ratio": round(len(state.outputs) / max(len(state.expected_roles), 1), 3),
                     "dispatched": state.dispatched,
                     "composite_report_id": state.composite_report_id,
                     "fund_manager_task_id": state.fund_manager_task_id,
@@ -463,6 +470,51 @@ class FundAgentRuntime:
                 }
                 for state in self._signal_packs.values()
             ]
+            swarm_waves = []
+            now = datetime.now(timezone.utc)
+            for wave in self._scheduled_swarm_waves:
+                scheduled_raw = str(wave.get("scheduled_for") or now.isoformat())
+                scheduled_for = datetime.fromisoformat(scheduled_raw.replace("Z", "+00:00"))
+                due_in_seconds = max(0.0, round((scheduled_for - now).total_seconds(), 1))
+                active_symbols = {
+                    state.symbol.upper().strip()
+                    for state in self._signal_packs.values()
+                    if state.run_id == str(wave.get("run_id") or "").strip() and state.status != "canceled"
+                }
+                matched_pack_ids = [
+                    state.signal_pack_id
+                    for state in self._signal_packs.values()
+                    if state.run_id == str(wave.get("run_id") or "").strip()
+                    and state.symbol.upper().strip() in {str(item).upper().strip() for item in (wave.get("symbols") or [])}
+                ]
+                if due_in_seconds <= 0 and active_pack_count >= self._swarm_max_active_packs:
+                    dispatch_status = "deferred"
+                elif due_in_seconds <= 0:
+                    dispatch_status = "due"
+                elif due_in_seconds <= self._swarm_wave_spacing_seconds:
+                    dispatch_status = "imminent"
+                else:
+                    dispatch_status = "queued"
+                swarm_waves.append(
+                    {
+                        **wave,
+                        "dispatch_status": dispatch_status,
+                        "due_in_seconds": due_in_seconds,
+                        "active_symbol_count": len(active_symbols),
+                        "matched_signal_pack_ids": matched_pack_ids,
+                        "capacity_remaining": max(0, self._swarm_max_active_packs - active_pack_count),
+                    }
+                )
+            swarm_scheduler = {
+                "scheduled_count": len(swarm_waves),
+                "due_count": sum(1 for wave in swarm_waves if wave.get("dispatch_status") == "due"),
+                "deferred_count": sum(1 for wave in swarm_waves if wave.get("dispatch_status") == "deferred"),
+                "imminent_count": sum(1 for wave in swarm_waves if wave.get("dispatch_status") == "imminent"),
+                "active_pack_count": active_pack_count,
+                "max_active_packs": self._swarm_max_active_packs,
+                "capacity_remaining": max(0, self._swarm_max_active_packs - active_pack_count),
+            }
+        pending_decisions = self._orchestrator.list_pending_decisions()
         active_contexts = []
         for item in self._orchestrator.list_active_tasks():
             payload = item.get("payload") if isinstance(item.get("payload"), dict) else {}
@@ -487,10 +539,12 @@ class FundAgentRuntime:
             "workers": workers,
             "autopilot": autopilot,
             "signal_packs": packs,
-            "swarm_waves": list(self._scheduled_swarm_waves),
+            "swarm_waves": swarm_waves,
+            "swarm_scheduler": swarm_scheduler,
             "canceled_runs": list(self._canceled_runs.values()),
             "canceled_signal_packs": list(self._canceled_signal_packs.values()),
             "active_contexts": active_contexts,
+            "pending_decisions": pending_decisions[:8],
             "discovery": {
                 "count": len(discovery_rows),
                 "top": discovery_rows[:6],

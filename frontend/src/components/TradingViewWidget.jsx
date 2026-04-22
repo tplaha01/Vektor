@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useId } from "react"
+import React, { useEffect, useRef } from "react"
 
-export default function TradingViewWidget({ symbol }) {
+export default function TradingViewWidget({ symbol, height = 280 }) {
   const ref  = useRef()
   const uid  = useRef(`tv_${Math.random().toString(36).slice(2,9)}`)
 
@@ -68,6 +68,6 @@ export default function TradingViewWidget({ symbol }) {
   }, [symbol])
 
   return (
-    <div ref={ref} className="tv-wrap" style={{ height:"calc(100vh - 200px)", minHeight:340 }} />
+    <div ref={ref} className="tv-wrap" style={{ height, minHeight: Math.min(height, 220) }} />
   )
 }

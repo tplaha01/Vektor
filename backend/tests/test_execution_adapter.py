@@ -80,10 +80,16 @@ def test_execute_approved_intent_supports_paper_options():
 def test_execute_approved_intent_routes_live_crypto_to_alpaca(monkeypatch):
     settings = get_settings()
     old_enabled = settings.LIVE_TRADING_ENABLED
+    old_alpaca_enabled = settings.LIVE_TRADING_ALPACA_ENABLED
+    old_require_allowlist = settings.LIVE_TRADING_REQUIRE_ALLOWLIST
+    old_allowlist = settings.LIVE_TRADING_SYMBOL_ALLOWLIST
     old_key = settings.ALPACA_API_KEY
     old_secret = settings.ALPACA_SECRET_KEY
     old_base = settings.ALPACA_LIVE_BASE_URL
     settings.LIVE_TRADING_ENABLED = True
+    settings.LIVE_TRADING_ALPACA_ENABLED = True
+    settings.LIVE_TRADING_REQUIRE_ALLOWLIST = True
+    settings.LIVE_TRADING_SYMBOL_ALLOWLIST = "BTC/USD"
     settings.ALPACA_API_KEY = "alpaca-key"
     settings.ALPACA_SECRET_KEY = "alpaca-secret"
     settings.ALPACA_LIVE_BASE_URL = "https://example.alpaca"
@@ -130,6 +136,9 @@ def test_execute_approved_intent_routes_live_crypto_to_alpaca(monkeypatch):
         )
     finally:
         settings.LIVE_TRADING_ENABLED = old_enabled
+        settings.LIVE_TRADING_ALPACA_ENABLED = old_alpaca_enabled
+        settings.LIVE_TRADING_REQUIRE_ALLOWLIST = old_require_allowlist
+        settings.LIVE_TRADING_SYMBOL_ALLOWLIST = old_allowlist
         settings.ALPACA_API_KEY = old_key
         settings.ALPACA_SECRET_KEY = old_secret
         settings.ALPACA_LIVE_BASE_URL = old_base
@@ -142,10 +151,16 @@ def test_execute_approved_intent_routes_live_crypto_to_alpaca(monkeypatch):
 def test_execute_approved_intent_routes_live_forex_to_oanda(monkeypatch):
     settings = get_settings()
     old_enabled = settings.LIVE_TRADING_ENABLED
+    old_oanda_enabled = settings.LIVE_TRADING_OANDA_ENABLED
+    old_require_allowlist = settings.LIVE_TRADING_REQUIRE_ALLOWLIST
+    old_allowlist = settings.LIVE_TRADING_SYMBOL_ALLOWLIST
     old_token = settings.OANDA_API_TOKEN
     old_account = settings.OANDA_ACCOUNT_ID
     old_base = settings.OANDA_LIVE_BASE_URL
     settings.LIVE_TRADING_ENABLED = True
+    settings.LIVE_TRADING_OANDA_ENABLED = True
+    settings.LIVE_TRADING_REQUIRE_ALLOWLIST = True
+    settings.LIVE_TRADING_SYMBOL_ALLOWLIST = "EUR/USD"
     settings.OANDA_API_TOKEN = "oanda-token"
     settings.OANDA_ACCOUNT_ID = "acct-1"
     settings.OANDA_LIVE_BASE_URL = "https://example.oanda"
@@ -192,6 +207,9 @@ def test_execute_approved_intent_routes_live_forex_to_oanda(monkeypatch):
         )
     finally:
         settings.LIVE_TRADING_ENABLED = old_enabled
+        settings.LIVE_TRADING_OANDA_ENABLED = old_oanda_enabled
+        settings.LIVE_TRADING_REQUIRE_ALLOWLIST = old_require_allowlist
+        settings.LIVE_TRADING_SYMBOL_ALLOWLIST = old_allowlist
         settings.OANDA_API_TOKEN = old_token
         settings.OANDA_ACCOUNT_ID = old_account
         settings.OANDA_LIVE_BASE_URL = old_base
@@ -199,3 +217,47 @@ def test_execute_approved_intent_routes_live_forex_to_oanda(monkeypatch):
     assert result["status"] == "executed"
     assert captured["url"] == "https://example.oanda/v3/accounts/acct-1/orders"
     assert captured["json"]["order"]["instrument"] == "EUR_USD"
+
+
+def test_execute_approved_intent_rejects_live_symbol_when_not_allowlisted():
+    settings = get_settings()
+    old_enabled = settings.LIVE_TRADING_ENABLED
+    old_alpaca_enabled = settings.LIVE_TRADING_ALPACA_ENABLED
+    old_require_allowlist = settings.LIVE_TRADING_REQUIRE_ALLOWLIST
+    old_allowlist = settings.LIVE_TRADING_SYMBOL_ALLOWLIST
+    old_key = settings.ALPACA_API_KEY
+    old_secret = settings.ALPACA_SECRET_KEY
+    settings.LIVE_TRADING_ENABLED = True
+    settings.LIVE_TRADING_ALPACA_ENABLED = True
+    settings.LIVE_TRADING_REQUIRE_ALLOWLIST = True
+    settings.LIVE_TRADING_SYMBOL_ALLOWLIST = "AAPL"
+    settings.ALPACA_API_KEY = "alpaca-key"
+    settings.ALPACA_SECRET_KEY = "alpaca-secret"
+
+    try:
+        result = execute_approved_intent(
+            {
+                "symbol": "BTC/USD",
+                "side": "buy",
+                "quantity": 0.01,
+                "approved": True,
+                "decision_id": "dec-live-guard",
+                "risk_id": "risk-live-guard",
+                "broker_mode": "live",
+                "price": 64000.0,
+                "asset_class": "crypto",
+                "routing_mode": "paper_crypto",
+                "instrument_type": "crypto_spot",
+            },
+            broker=_broker(),
+        )
+    finally:
+        settings.LIVE_TRADING_ENABLED = old_enabled
+        settings.LIVE_TRADING_ALPACA_ENABLED = old_alpaca_enabled
+        settings.LIVE_TRADING_REQUIRE_ALLOWLIST = old_require_allowlist
+        settings.LIVE_TRADING_SYMBOL_ALLOWLIST = old_allowlist
+        settings.ALPACA_API_KEY = old_key
+        settings.ALPACA_SECRET_KEY = old_secret
+
+    assert result["status"] == "rejected"
+    assert result["reason"] == "live_symbol_not_allowlisted"

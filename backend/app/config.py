@@ -7,6 +7,10 @@ class Settings(BaseSettings):
     ENV: str = "dev"
     BROKER: str = "paper"
     LIVE_TRADING_ENABLED: bool = False
+    LIVE_TRADING_REQUIRE_ALLOWLIST: bool = True
+    LIVE_TRADING_SYMBOL_ALLOWLIST: str = ""
+    LIVE_TRADING_ALPACA_ENABLED: bool = False
+    LIVE_TRADING_OANDA_ENABLED: bool = False
     DATA_MODE: str = "live"
     REAL_DATA_STRICT_MODE: bool = False
 

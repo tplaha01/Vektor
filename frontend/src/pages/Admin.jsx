@@ -47,6 +47,7 @@ import RiskGauges from '../components/admin/RiskGauges';
 import PositionsPanel from '../components/admin/PositionsPanel';
 import LineagePanel from '../components/admin/LineagePanel';
 import KnowledgeTraceGraph from '../components/admin/KnowledgeTraceGraph';
+import TradingViewWidget from '../components/TradingViewWidget';
 
 const badgeTone = (status) => {
   const normalized = String(status || '').toLowerCase();
@@ -133,6 +134,12 @@ const TICKER_LABELS = {
   XLK: 'Technology Select Sector SPDR Fund',
 };
 
+const FINANCE_VIDEO_FEEDS = [
+  { id: 'stream-bloomberg', title: 'Bloomberg Television', src: 'https://www.youtube-nocookie.com/embed/live_stream?channel=UCIALMKvObZNtJ6AmdCLP7Lg&autoplay=0' },
+  { id: 'stream-cnbc', title: 'CNBC Television', src: 'https://www.youtube-nocookie.com/embed/live_stream?channel=UCrp_UI8XtuYfpiqluWLD7Lw&autoplay=0' },
+  { id: 'stream-yahoo-finance', title: 'Yahoo Finance', src: 'https://www.youtube-nocookie.com/embed/live_stream?channel=UCEAZeUIeJs0IjQiqTCdVSIg&autoplay=0' },
+];
+
 const tickerFullName = (symbol) => {
   const normalized = String(symbol || '').trim().toUpperCase();
   if (!normalized) return 'Multi-asset context';
@@ -183,6 +190,10 @@ const Admin = () => {
   const [paperPositions, setPaperPositions] = useState([]);
   const [performanceSummary, setPerformanceSummary] = useState(null);
   const [performanceSnapshots, setPerformanceSnapshots] = useState([]);
+  const [ceoDigest, setCeoDigest] = useState(null);
+  const [portfolioBreakdown, setPortfolioBreakdown] = useState(null);
+  const [pendingEditorial, setPendingEditorial] = useState([]);
+  const [marketWatch, setMarketWatch] = useState(null);
   const [reports, setReports] = useState([]);
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -241,6 +252,7 @@ const Admin = () => {
     { id: 'decisions', label: 'Decisions', icon: TrendingUp, description: 'Pending approvals and lineage' },
     { id: 'risk', label: 'Risk', icon: Shield, description: 'Limits, controls, runtime status' },
     { id: 'positions', label: 'Positions', icon: Activity, description: 'Portfolio exposure and holdings' },
+    { id: 'marketwatch', label: 'Market Watch', icon: Globe, description: 'Live news flow, charts, and focus markets' },
     { id: 'settings', label: 'Settings', icon: Settings, description: 'Runtime controls and KB policy' },
   ];
 
@@ -266,8 +278,12 @@ const Admin = () => {
         adminAPI.getPaperPositions(),
         adminAPI.getPerformanceSummary(),
         adminAPI.getPerformanceSnapshots({ limit: 240 }),
+        adminAPI.getCeoDigest(),
+        adminAPI.getCeoPerformanceBreakdown(),
+        adminAPI.getPendingEditorial(),
+        adminAPI.getMarketWatch(),
         researchAPI.getReports({ surface: 'kb', limit: 24 }),
-        blogAPI.getPosts({ limit: 24 }),
+        blogAPI.getPosts({ limit: 24, status: 'published' }),
       ]);
 
       if (!isMounted.current) return;
@@ -292,6 +308,10 @@ const Admin = () => {
         positionsResult,
         performanceSummaryResult,
         performanceSnapshotsResult,
+        ceoDigestResult,
+        performanceBreakdownResult,
+        pendingEditorialResult,
+        marketWatchResult,
         reportsResult,
         postsResult,
       ] = results;
@@ -313,6 +333,10 @@ const Admin = () => {
       if (positionsResult.status === 'fulfilled') setPaperPositions(adminAPI.normalizeArray(positionsResult.value, 'value'));
       if (performanceSummaryResult.status === 'fulfilled') setPerformanceSummary(performanceSummaryResult.value);
       if (performanceSnapshotsResult.status === 'fulfilled') setPerformanceSnapshots(adminAPI.normalizeArray(performanceSnapshotsResult.value, 'snapshots'));
+      if (ceoDigestResult.status === 'fulfilled') setCeoDigest(ceoDigestResult.value);
+      if (performanceBreakdownResult.status === 'fulfilled') setPortfolioBreakdown(performanceBreakdownResult.value);
+      if (pendingEditorialResult.status === 'fulfilled') setPendingEditorial(adminAPI.normalizeArray(pendingEditorialResult.value, 'items'));
+      if (marketWatchResult.status === 'fulfilled') setMarketWatch(marketWatchResult.value);
       if (reportsResult.status === 'fulfilled') setReports(adminAPI.normalizeArray(reportsResult.value, 'reports'));
       if (postsResult.status === 'fulfilled') setPosts(adminAPI.normalizeArray(postsResult.value, 'posts'));
 
@@ -420,7 +444,7 @@ const Admin = () => {
             `${Math.round(Number(report.confidence || 0) * 100)}% confidence`,
             report.provider_used,
             report.model_used,
-          ].filter(Boolean).join(' · '),
+          ].filter(Boolean).join(' Ãƒâ€šÃ‚Â· '),
           timestamp: report.published_at || report.created_at,
           href: report.surface === 'public' ? deliverableHref('research', report.report_id) : '',
           preview: summarizeText(report.summary || report.thesis || report.executive_summary, 180),
@@ -442,16 +466,38 @@ const Admin = () => {
           subtitle: `${post.category || 'Research'} | ${post.author_role || 'editorial'}`,
           detail: [
             `${Number(post.views || 0)} views`,
+            post.status,
             post.providerUsed,
             post.modelUsed,
-          ].filter(Boolean).join(' · '),
+          ].filter(Boolean).join(' Â· '),
           timestamp: post.published_at || post.created_at,
-          href: deliverableHref('blog', post.id),
+          href: String(post.status || '').toLowerCase() === 'published' ? deliverableHref('blog', post.id) : '',
           preview: summarizeText(post.excerpt || post.summary || post.content, 180),
           metaBadges: [post.providerUsed, post.modelUsed].filter(Boolean),
+          status: post.status || 'published',
+          data: post,
         }))
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
     [posts]
+  );
+
+  const pendingEditorialRows = useMemo(
+    () =>
+      pendingEditorial.map((post) => ({
+        id: post.id,
+        kind: 'blog',
+        type: 'Editorial Review',
+        title: post.title,
+        subtitle: `${post.category || 'Research'} | ${post.authorRole || post.author_role || 'editorial'}`,
+        detail: [post.status || 'pending_review', post.providerUsed, post.modelUsed].filter(Boolean).join(' Ã‚Â· '),
+        timestamp: post.publishedAt || post.createdAt || new Date().toISOString(),
+        href: '',
+        preview: summarizeText(post.excerpt || post.summary || post.content, 180),
+        metaBadges: [post.providerUsed, post.modelUsed].filter(Boolean),
+        status: post.status || 'pending_review',
+        data: post,
+      })),
+    [pendingEditorial]
   );
 
   const missionStats = [
@@ -485,8 +531,26 @@ const Admin = () => {
     decisions: Number(metrics?.decisionQueue?.pending ?? 0),
     risk: Number(systemStatus?.halt?.halted ? 1 : 0),
     positions: Number(metrics?.portfolio?.positions ?? metrics?.portfolio?.holdings ?? 0),
+    marketwatch: Number((marketWatch?.news || []).length || 0),
     settings: Number(controlHistory.length || 0),
-  }), [activeTasks.length, blogDeliverables.length, controlHistory.length, metrics, performanceSummary?.snapshot_count, reportDeliverables.length, systemStatus, workerRows.length]);
+  }), [activeTasks.length, blogDeliverables.length, controlHistory.length, marketWatch?.news, metrics, performanceSummary?.snapshot_count, reportDeliverables.length, systemStatus, workerRows.length]);
+
+  const marketChartSymbols = useMemo(() => {
+    const chartSymbols = Array.isArray(marketWatch?.chart_symbols) ? marketWatch.chart_symbols : [];
+    return chartSymbols.slice(0, 8);
+  }, [marketWatch]);
+
+  const marketNewsRows = useMemo(
+    () =>
+      (Array.isArray(marketWatch?.news) ? marketWatch.news : []).map((row, index) => ({
+        id: `${row.symbol || 'news'}-${index}`,
+        title: row.headline || 'Market headline',
+        subtitle: `${row.symbol || 'Market'} | ${row.source || 'source unknown'}`,
+        detail: formatDateTime(row.published_at),
+        href: row.url || '#',
+      })),
+    [marketWatch]
+  );
 
   const broadcastRows = useMemo(
     () =>
@@ -614,6 +678,11 @@ const Admin = () => {
     [systemStatus]
   );
 
+  const swarmScheduler = useMemo(
+    () => workersStatus?.swarm_scheduler || {},
+    [workersStatus]
+  );
+
   const scheduledWaveRows = useMemo(
     () =>
       Array.isArray(workersStatus?.swarm_waves)
@@ -622,8 +691,12 @@ const Admin = () => {
             runId: wave.run_id,
             title: `Wave ${wave.wave_index || index + 1}/${wave.total_waves || '?'}`,
             subtitle: (wave.symbols || []).join(', ') || 'no symbols',
-            detail: `Dispatch ${formatDateTime(wave.scheduled_for)} (${formatCountdown(wave.scheduled_for, nowTick)})`,
-            status: new Date(wave.scheduled_for).getTime() <= nowTick ? 'running' : 'queued',
+            detail: [
+              `Dispatch ${formatDateTime(wave.scheduled_for)} (${formatCountdown(wave.scheduled_for, nowTick)})`,
+              `${wave.matched_signal_pack_ids?.length || 0} packs`,
+              `${wave.capacity_remaining ?? 0} slots free`,
+            ].join(' Ãƒâ€šÃ‚Â· '),
+            status: wave.dispatch_status || (new Date(wave.scheduled_for).getTime() <= nowTick ? 'running' : 'queued'),
             data: wave,
           }))
         : [],
@@ -644,6 +717,21 @@ const Admin = () => {
                 : `Waiting for ${Math.max((pack.expected_roles?.length || 0) - (pack.completed_roles?.length || 0), 0)} roles`,
             status: pack.status || (pack.dispatched ? 'running' : 'queued'),
             data: pack,
+          }))
+        : [],
+    [workersStatus]
+  );
+
+  const pendingDecisionRows = useMemo(
+    () =>
+      Array.isArray(workersStatus?.pending_decisions)
+        ? workersStatus.pending_decisions.map((decision) => ({
+            id: decision.decision_id,
+            title: `${String(decision.symbol || 'multi-asset').toUpperCase()} decision`,
+            subtitle: `${decision.side || 'buy'} Ãƒâ€šÃ‚Â· ${decision.sleeve || 'tactical'} Ãƒâ€šÃ‚Â· ${Math.round(Number(decision.confidence || 0) * 100)}%`,
+            detail: `${decision.thesis || 'Pending fund-manager decision'} Ãƒâ€šÃ‚Â· ${formatDateTime(decision.created_at)}`,
+            status: decision.status || 'proposed',
+            data: decision,
           }))
         : [],
     [workersStatus]
@@ -715,7 +803,7 @@ const Admin = () => {
         type: 'JSON Packet',
         title: `${pack.symbol} signal pack`,
         subtitle: `${pack.completed_roles?.length || 0}/${pack.expected_roles?.length || 0} specialist roles complete`,
-        detail: `Run ${pack.run_id || 'n/a'} · report ${String(pack.composite_report_id || '').slice(0, 8) || 'pending'}`,
+        detail: `Run ${pack.run_id || 'n/a'} Ãƒâ€šÃ‚Â· report ${String(pack.composite_report_id || '').slice(0, 8) || 'pending'}`,
         timestamp: workersStatus?.autopilot?.last_run_at || lastUpdate.toISOString(),
         preview: jsonPreview(pack, 240),
         data: pack,
@@ -964,6 +1052,18 @@ const Admin = () => {
     });
   }, []);
 
+  const openDecisionContext = useCallback((decision) => {
+    setContextRailTab('focus');
+    setSelectedContext({
+      kind: 'decision',
+      id: decision.id,
+      title: decision.title,
+      subtitle: decision.subtitle,
+      preview: decision.detail,
+      data: decision.data,
+    });
+  }, []);
+
   const openTimelineContext = useCallback((item, index) => {
     setTimelineIndex(index);
     setContextRailTab('focus');
@@ -1006,7 +1106,9 @@ const Admin = () => {
     try {
       const detail = item.kind === 'research'
         ? await researchAPI.getReportDetail(item.id)
-        : await blogAPI.getPostDetail(item.id);
+        : ['pending_review', 'needs_revision'].includes(String(item.status || '').toLowerCase())
+          ? (await adminAPI.getEditorialDetail(item.id)).editorial
+          : await blogAPI.getPostDetail(item.id);
       const lineageRow = lineageRows.find((row) => {
         const reportIds = Array.isArray(row.report_ids) ? row.report_ids : [];
         const blogIds = Array.isArray(row.blog_post_ids) ? row.blog_post_ids : [];
@@ -1047,6 +1149,36 @@ const Admin = () => {
       setContextBusy(false);
     }
   }, [lineageRows, showError]);
+
+  const approveSelectedEditorial = useCallback(async () => {
+    const postId = selectedContext?.id;
+    if (!postId) return;
+    try {
+      setContextBusy(true);
+      await adminAPI.approveEditorial(postId, 'Approved by CEO in admin rail');
+      await fetchAdminState();
+      success('Editorial approved and published');
+    } catch (err) {
+      showError(`Unable to approve editorial: ${err.message}`);
+    } finally {
+      setContextBusy(false);
+    }
+  }, [fetchAdminState, selectedContext?.id, showError, success]);
+
+  const rejectSelectedEditorial = useCallback(async () => {
+    const postId = selectedContext?.id;
+    if (!postId) return;
+    try {
+      setContextBusy(true);
+      await adminAPI.rejectEditorial(postId, 'CEO requested revisions in admin rail');
+      await fetchAdminState();
+      success('Editorial returned for revision');
+    } catch (err) {
+      showError(`Unable to request changes: ${err.message}`);
+    } finally {
+      setContextBusy(false);
+    }
+  }, [fetchAdminState, selectedContext?.id, showError, success]);
 
   const openArtifactContext = useCallback((item) => {
     setDeliverableDrawerOpen(false);
@@ -1360,6 +1492,24 @@ const Admin = () => {
         </div>
       );
     }
+    if (selectedContext.kind === 'decision') {
+      const decision = selectedContext.data || {};
+      return (
+        <div className="context-block">
+          <div className="context-title-row">
+            <span className={`ops-role-chip ops-role-chip-${badgeTone(decision.status)}`}>{decision.status || 'proposed'}</span>
+            <strong>{String(decision.symbol || 'multi-asset').toUpperCase()}</strong>
+          </div>
+          <p>{decision.thesis || 'Pending decision awaiting explicit operator action.'}</p>
+          <div className="context-kv-list">
+            <div><span>Decision</span><strong>{decision.decision_id ? String(decision.decision_id).slice(0, 12) : 'n/a'}</strong></div>
+            <div><span>Side</span><strong>{decision.side || 'n/a'}</strong></div>
+            <div><span>Qty</span><strong>{decision.quantity || 'n/a'}</strong></div>
+            <div><span>Created</span><strong>{formatRelative(decision.created_at)}</strong></div>
+          </div>
+        </div>
+      );
+    }
     if (selectedContext.kind === 'timeline') {
       const item = selectedContext.data || {};
       return (
@@ -1404,10 +1554,11 @@ const Admin = () => {
     }
     if (selectedContext.kind === 'blog') {
       const detail = selectedContext.data || {};
+      const blogStatus = detail.status || 'published';
       return (
         <div className="context-block">
           <div className="context-title-row">
-            <span className="ops-role-chip ops-role-chip-wait">Blog</span>
+            <span className={`ops-role-chip ops-role-chip-${badgeTone(blogStatus)}`}>{blogStatus}</span>
             <strong>{detail.read_time || detail.readTime || 'n/a'} min</strong>
           </div>
           <p>{summarizeText(detail.excerpt || detail.summary || detail.content || selectedContext.preview, 360)}</p>
@@ -1415,8 +1566,18 @@ const Admin = () => {
             <div><span>Category</span><strong>{detail.category || 'research'}</strong></div>
             <div><span>Author</span><strong>{detail.author || detail.author_role || 'Vektor'}</strong></div>
             <div><span>Views</span><strong>{detail.views || 0}</strong></div>
-            <div><span>Published</span><strong>{formatRelative(detail.publishedAt || detail.published_at || detail.created_at)}</strong></div>
+            <div><span>Updated</span><strong>{formatRelative(detail.updatedAt || detail.updated_at || detail.created_at)}</strong></div>
           </div>
+          {['pending_review', 'needs_revision'].includes(String(blogStatus).toLowerCase()) ? (
+            <div className="context-action-row">
+              <button type="button" className="btn-secondary" onClick={approveSelectedEditorial} disabled={contextBusy}>
+                Approve publish
+              </button>
+              <button type="button" className="btn-secondary danger" onClick={rejectSelectedEditorial} disabled={contextBusy}>
+                Request changes
+              </button>
+            </div>
+          ) : null}
           {selectedContext.href ? (
             <a className="context-link" href={selectedContext.href} target="_blank" rel="noreferrer">
               Open full blog page <ExternalLink size={14} />
@@ -1616,7 +1777,7 @@ const Admin = () => {
               {taskEvents.map((event, index) => (
                 <div key={`${event.task_id || event.timestamp || index}`} className="drawer-audit-row">
                   <div>
-                    <strong>{event.role || 'agent'} · {event.status || 'status'}</strong>
+                    <strong>{event.role || 'agent'} Ãƒâ€šÃ‚Â· {event.status || 'status'}</strong>
                     <span>{event.event || 'task event'}</span>
                   </div>
                   <small>{formatRelative(event.timestamp)}</small>
@@ -1738,7 +1899,7 @@ const Admin = () => {
                   onClick={() => {
                     setActiveTab(item.id);
                   }}
-                  title={`${item.label} · ${item.description}`}
+                  title={`${item.label} Ãƒâ€šÃ‚Â· ${item.description}`}
                 >
                   <Icon size={16} className="nav-icon" />
                   <span className="nav-label">{item.label}</span>
@@ -1998,6 +2159,66 @@ const Admin = () => {
                         <div className="content-grid two-up-tight">
                           <section className="content-section">
                             <div className="section-header section-header-tight">
+                              <h3 className="section-subtitle">CEO digest</h3>
+                            </div>
+                            <div className="theater-meta-grid theater-meta-grid-tight">
+                              <div className="theater-meta-card">
+                                <span>Positions</span>
+                                <strong>{ceoDigest?.summary?.positions_count ?? paperSummary.count}</strong>
+                              </div>
+                              <div className="theater-meta-card">
+                                <span>Pending decisions</span>
+                                <strong>{ceoDigest?.summary?.pending_decisions ?? pendingDecisionRows.length}</strong>
+                              </div>
+                              <div className="theater-meta-card">
+                                <span>Pending editorial</span>
+                                <strong>{ceoDigest?.summary?.pending_editorial ?? pendingEditorialRows.length}</strong>
+                              </div>
+                              <div className="theater-meta-card">
+                                <span>Total PnL</span>
+                                <strong>{currency(ceoDigest?.summary?.total_pnl ?? performanceLatest?.total_pnl)}</strong>
+                              </div>
+                            </div>
+                            <div className="ceo-brief-grid">
+                              <article className="deliverable-card">
+                                <div className="deliverable-head">
+                                  <div>
+                                    <strong>Best area</strong>
+                                    <span>{portfolioBreakdown?.best_area?.asset_class || 'n/a'}</span>
+                                  </div>
+                                  <span className="deliverable-pill">{currency(portfolioBreakdown?.best_area?.unrealized_pnl)}</span>
+                                </div>
+                                <p>{(portfolioBreakdown?.best_area?.symbols || []).join(', ') || 'No grouped performance yet.'}</p>
+                              </article>
+                              <article className="deliverable-card">
+                                <div className="deliverable-head">
+                                  <div>
+                                    <strong>Worst area</strong>
+                                    <span>{portfolioBreakdown?.worst_area?.asset_class || 'n/a'}</span>
+                                  </div>
+                                  <span className="deliverable-pill">{currency(portfolioBreakdown?.worst_area?.unrealized_pnl)}</span>
+                                </div>
+                                <p>{(portfolioBreakdown?.worst_area?.symbols || []).join(', ') || 'No grouped performance yet.'}</p>
+                              </article>
+                            </div>
+                          </section>
+
+                          <section className="content-section">
+                            <div className="section-header section-header-tight">
+                              <h3 className="section-subtitle">Editorial approval queue</h3>
+                            </div>
+                            {renderFeedRows(pendingEditorialRows.slice(0, 4), 'No editorial items waiting for review.', {
+                              selectable: true,
+                              onSelect: openDeliverable,
+                              selectedId: selectedContext?.id,
+                              openLabel: 'Review',
+                            })}
+                          </section>
+                        </div>
+
+                        <div className="content-grid two-up-tight">
+                          <section className="content-section">
+                            <div className="section-header section-header-tight">
                               <h3 className="section-subtitle">Capital policy</h3>
                             </div>
                             <div className="deliverable-list">
@@ -2026,7 +2247,7 @@ const Admin = () => {
                                   <div className="deliverable-head">
                                     <div>
                                       <strong>{row.symbol}</strong>
-                                      <span>{row.asset_class || 'equities'} · {row.direction || 'candidate'}</span>
+                                      <span>{row.asset_class || 'equities'} Ãƒâ€šÃ‚Â· {row.direction || 'candidate'}</span>
                                     </div>
                                     <span className="deliverable-pill">{Number(row.score || 0).toFixed(2)}</span>
                                   </div>
@@ -2043,6 +2264,23 @@ const Admin = () => {
                           </div>
                           <div className="warroom-tree-preview">
                             {renderArchitectureBoard(hierarchyTree, { compact: true })}
+                          </div>
+                          <div className="theater-meta-grid theater-meta-grid-tight">
+                            <div className="theater-meta-card">
+                              <span>Scheduled Waves</span>
+                              <strong>{swarmScheduler.scheduled_count ?? scheduledWaveRows.length}</strong>
+                              <small>{swarmScheduler.imminent_count ?? 0} imminent</small>
+                            </div>
+                            <div className="theater-meta-card">
+                              <span>Wave Pressure</span>
+                              <strong>{swarmScheduler.deferred_count ?? 0}</strong>
+                              <small>{swarmScheduler.due_count ?? 0} due now</small>
+                            </div>
+                            <div className="theater-meta-card">
+                              <span>Pack Capacity</span>
+                              <strong>{swarmScheduler.active_pack_count ?? 0}/{swarmScheduler.max_active_packs ?? 0}</strong>
+                              <small>{swarmScheduler.capacity_remaining ?? 0} slots free</small>
+                            </div>
                           </div>
                           <div className="content-grid two-up-tight">
                             <div>
@@ -2092,25 +2330,45 @@ const Admin = () => {
                               )}
                             </div>
                           </div>
-                          <div className="feed-stack">
-                            {renderFeedRows(
-                              swarmActiveContexts.slice(0, 6).map((ctx) => ({
-                                id: ctx.task_id,
-                                type: 'task',
-                                title: ctx.role || ctx.agent_id || 'active_context',
-                                subtitle: [ctx.symbol, ctx.run_id].filter(Boolean).join(' · '),
-                                summary: ctx.command || JSON.stringify(ctx.context || {}),
-                                badge: 'Live context',
-                                data: ctx,
-                              })),
-                              'No live agent contexts.',
-                              {
-                                selectable: true,
-                                onSelect: openTaskContext,
-                                selectedId: selectedContext?.id,
-                                openLabel: 'Inspect',
-                              }
-                            )}
+                          <div className="content-grid two-up-tight">
+                            <div>
+                              <div className="section-header section-header-tight">
+                                <h3 className="section-subtitle">Pending approvals</h3>
+                              </div>
+                              {renderFeedRows(
+                                pendingDecisionRows,
+                                'No pending decisions.',
+                                {
+                                  selectable: true,
+                                  onSelect: openDecisionContext,
+                                  selectedId: selectedContext?.id,
+                                  openLabel: 'Pin',
+                                }
+                              )}
+                            </div>
+                            <div>
+                              <div className="section-header section-header-tight">
+                                <h3 className="section-subtitle">Live agent contexts</h3>
+                              </div>
+                              {renderFeedRows(
+                                swarmActiveContexts.slice(0, 6).map((ctx) => ({
+                                  id: ctx.task_id,
+                                  type: 'task',
+                                  title: ctx.role || ctx.agent_id || 'active_context',
+                                  subtitle: [ctx.symbol, ctx.run_id].filter(Boolean).join(' Ãƒâ€šÃ‚Â· '),
+                                  summary: ctx.command || JSON.stringify(ctx.context || {}),
+                                  badge: 'Live context',
+                                  data: ctx,
+                                })),
+                                'No live agent contexts.',
+                                {
+                                  selectable: true,
+                                  onSelect: openTaskContext,
+                                  selectedId: selectedContext?.id,
+                                  openLabel: 'Inspect',
+                                }
+                              )}
+                            </div>
                           </div>
                         </section>
 
@@ -2241,7 +2499,7 @@ const Admin = () => {
                             </div>
                             <div className="openclaw-layer-card">
                               <span>LLM stack</span>
-                              <strong>{workersStatus?.ai_role_adapter?.provider || 'n/a'} · {workersStatus?.ai_role_adapter?.default_model || 'n/a'}</strong>
+                              <strong>{workersStatus?.ai_role_adapter?.provider || 'n/a'} Ãƒâ€šÃ‚Â· {workersStatus?.ai_role_adapter?.default_model || 'n/a'}</strong>
                               <small>{workersStatus?.ai_role_adapter?.last_error || 'No adapter error reported'}</small>
                             </div>
                           </div>
@@ -2586,6 +2844,15 @@ const Admin = () => {
                           })}
                         </section>
                         <section className="content-section">
+                          <h2 className="section-title">Editorial Review Queue</h2>
+                          {renderFeedRows(pendingEditorialRows, 'No editorial review items waiting.', {
+                            selectable: true,
+                            onSelect: openDeliverable,
+                            selectedId: selectedContext?.id,
+                            openLabel: 'Review',
+                          })}
+                        </section>
+                        <section className="content-section">
                           <h2 className="section-title">Editorial Output</h2>
                           {renderFeedRows(blogDeliverables, 'No blog output available.', {
                             selectable: true,
@@ -2645,6 +2912,75 @@ const Admin = () => {
                         <section className="content-section">
                           <h2 className="section-title">Portfolio Positions</h2>
                           <PositionsPanel />
+                        </section>
+                      </div>
+                    )}
+
+                    {activeTab === 'marketwatch' && (
+                      <div className="tab-positions">
+                        <section className="content-section market-watch-shell">
+                          <div className="section-header section-header-tight">
+                            <div>
+                              <div className="theater-kicker">Market Watch</div>
+                              <h2 className="section-title">Live markets and news flow</h2>
+                            </div>
+                          </div>
+                          <div className="market-watch-top-grid">
+                            <div className="market-watch-panel">
+                              <h3 className="section-subtitle">Focus charts</h3>
+                              <div className="market-watch-chart-grid">
+                                {marketChartSymbols.slice(0, 4).map((symbol) => (
+                                  <div key={symbol} className="market-watch-chart-card">
+                                    <div className="market-watch-chart-head">
+                                      <strong>{symbol}</strong>
+                                      <span>{tickerFullName(symbol)}</span>
+                                    </div>
+                                    <TradingViewWidget symbol={symbol} height={300} />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="market-watch-panel">
+                              <h3 className="section-subtitle">Live finance video</h3>
+                              <div className="market-watch-video-stack">
+                                {FINANCE_VIDEO_FEEDS.map((feed) => (
+                                  <article key={feed.id} className="market-watch-video-card">
+                                    <strong>{feed.title}</strong>
+                                    <iframe
+                                      src={feed.src}
+                                      title={feed.title}
+                                      loading="lazy"
+                                      allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
+                                      allowFullScreen
+                                    />
+                                  </article>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="market-watch-bottom-grid">
+                            <section className="market-watch-panel">
+                              <h3 className="section-subtitle">Portfolio and index news</h3>
+                              {renderFeedRows(marketNewsRows, 'No live news rows available.', {
+                                selectable: false,
+                                openLabel: 'Open',
+                              })}
+                            </section>
+                            <section className="market-watch-panel">
+                              <h3 className="section-subtitle">Chart rack</h3>
+                              <div className="market-watch-mini-grid">
+                                {marketChartSymbols.slice(4, 8).map((symbol) => (
+                                  <div key={`mini-${symbol}`} className="market-watch-mini-card">
+                                    <div className="market-watch-chart-head">
+                                      <strong>{symbol}</strong>
+                                      <span>{tickerFullName(symbol)}</span>
+                                    </div>
+                                    <TradingViewWidget symbol={symbol} height={220} />
+                                  </div>
+                                ))}
+                              </div>
+                            </section>
+                          </div>
                         </section>
                       </div>
                     )}
@@ -2789,52 +3125,6 @@ const Admin = () => {
                     )}
                   </div>
 
-                  <aside className="admin-context-rail">
-                    <section className="context-panel">
-                      <div className="context-panel-head">
-                        <div>
-                          <div className="context-kicker">Persistent Rail</div>
-                          <h3>Command Context</h3>
-                        </div>
-                        <button type="button" className="context-clear-btn" onClick={() => setSelectedContext(null)}>
-                          Clear
-                        </button>
-                      </div>
-                      <div className="context-rail-tabs">
-                        <button type="button" className={`context-rail-tab ${contextRailTab === 'focus' ? 'active' : ''}`} onClick={() => setContextRailTab('focus')}>Focus</button>
-                        <button type="button" className={`context-rail-tab ${contextRailTab === 'audit' ? 'active' : ''}`} onClick={() => setContextRailTab('audit')}>Audit</button>
-                        <button type="button" className={`context-rail-tab ${contextRailTab === 'memory' ? 'active' : ''}`} onClick={() => setContextRailTab('memory')}>Memory</button>
-                      </div>
-                      <div className="context-selected-title">
-                        {contextRailTab === 'focus' ? (selectedContext?.title || 'No focus selected') : contextRailTab === 'audit' ? 'Operator audit stream' : 'Knowledge and memory'}
-                      </div>
-                      <div className="context-selected-subtitle">
-                        {contextRailTab === 'focus'
-                          ? (selectedContext?.subtitle || 'Pin any item from the main canvas')
-                          : contextRailTab === 'audit'
-                            ? 'Recent control decisions, halt state, and queue pressure'
-                            : 'Canonical KB status, projection health, and memory load'}
-                      </div>
-                      {contextRailTab === 'focus' ? renderContextBody() : null}
-                      {contextRailTab === 'audit' ? renderAuditRail() : null}
-                      {contextRailTab === 'memory' ? renderMemoryRail() : null}
-                    </section>
-
-                    <section className="context-panel">
-                      <div className="context-panel-head">
-                        <div>
-                          <div className="context-kicker">Pinned Streams</div>
-                          <h3>Live Queue</h3>
-                        </div>
-                      </div>
-                      {renderFeedRows(recentTaskRows.slice(0, 5), 'No active tasks.', {
-                        selectable: true,
-                        onSelect: (row) => openTaskContext(row.data),
-                        selectedId: selectedContext?.id,
-                        openLabel: 'Pin',
-                      })}
-                    </section>
-                  </aside>
                 </div>
               </>
             )}
