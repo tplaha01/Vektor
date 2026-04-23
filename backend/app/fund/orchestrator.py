@@ -431,6 +431,28 @@ class FirmOrchestrator:
         except RuntimeError:
             return []
 
+    def latest_discovery_opportunity(
+        self,
+        *,
+        symbol: str,
+        run_id: str | None = None,
+    ) -> dict[str, Any] | None:
+        normalized_symbol = str(symbol or "").upper().strip()
+        if not normalized_symbol:
+            return None
+        rows = self.list_discovery_opportunities(limit=100, run_id=run_id)
+        matches = [
+            row for row in rows
+            if str(row.get("symbol") or "").upper().strip() == normalized_symbol
+        ]
+        if not matches:
+            return None
+        matches.sort(
+            key=lambda row: str(row.get("updated_at") or row.get("discovered_at") or ""),
+            reverse=True,
+        )
+        return matches[0]
+
     def submit_research(self, report: ContractResearchReport | dict[str, Any]) -> dict[str, Any]:
         model = report if isinstance(report, ContractResearchReport) else ContractResearchReport.model_validate(report)
         with self._lock:
@@ -712,6 +734,28 @@ class FirmOrchestrator:
         instrument_type = infer_instrument_type(normalized_symbol, asset_class)
         routing_mode = infer_routing_mode(normalized_symbol, asset_class)
         underlier_symbol = infer_underlier_symbol(normalized_symbol, asset_class)
+        discovery_snapshot = self.latest_discovery_opportunity(run_id=run_id, symbol=normalized_symbol)
+        discovery_ml = dict(discovery_snapshot.get("ml") or {}) if isinstance(discovery_snapshot, dict) else {}
+        decision_scoring = {
+            "symbol": normalized_symbol,
+            "asset_class": asset_class,
+            "strategy_family": discovery_snapshot.get("strategy_family") if isinstance(discovery_snapshot, dict) else None,
+            "score": float(discovery_snapshot.get("score") or 0.0) if isinstance(discovery_snapshot, dict) else None,
+            "confidence": float(discovery_snapshot.get("confidence") or 0.0) if isinstance(discovery_snapshot, dict) else None,
+            "direction": discovery_snapshot.get("direction") if isinstance(discovery_snapshot, dict) else None,
+            "horizon": discovery_snapshot.get("horizon") if isinstance(discovery_snapshot, dict) else None,
+            "math_summary": discovery_ml.get("math_summary") if discovery_ml else None,
+            "metrics": {
+                "directional_probability_up": discovery_ml.get("directional_probability_up"),
+                "technical_confidence": discovery_ml.get("technical_confidence"),
+                "ml_confidence": discovery_ml.get("ml_confidence"),
+                "sentiment_normalized": discovery_ml.get("sentiment_normalized"),
+                "liquidity_score": discovery_ml.get("liquidity_score"),
+                "volatility_score": discovery_ml.get("volatility_score"),
+                "news_intensity_count": discovery_ml.get("news_intensity_count"),
+                "regime_alignment": discovery_ml.get("regime_alignment"),
+            },
+        }
         positions = self._broker.list_positions(self._price_lookup)
         equity = self._current_equity(positions)
         intent = AdapterExecutionIntent(
@@ -831,6 +875,19 @@ class FirmOrchestrator:
                         "estimated_notional_usd": estimated_notional,
                         "thesis_id": thesis_id,
                         "asset_class": asset_class,
+                        "decision_scoring": decision_scoring,
+                        "discovery_opportunity": discovery_snapshot,
+                        "risk_gate": {
+                            "policy_version": self._policy_version,
+                            "asset_class_budget_allocated_usd": asset_budget_state.get("allocated_usd", 0.0),
+                            "asset_class_budget_used_usd": asset_budget_state.get("used_usd", 0.0),
+                            "asset_class_budget_remaining_usd": asset_budget_state.get("remaining_usd", 0.0),
+                            "sleeve_budget_allocated_usd": budget_state["allocated_usd"],
+                            "sleeve_budget_used_usd": budget_state["used_usd"],
+                            "sleeve_budget_remaining_usd": budget_state["remaining_usd"],
+                            "approved": approved,
+                            "reasons": list(reasons),
+                        },
                         "metadata": dict(metadata or {}),
                     },
                 )

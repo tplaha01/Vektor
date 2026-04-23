@@ -2050,6 +2050,8 @@ const Admin = () => {
       const review = payload.review || {};
       const intent = payload.intent || {};
       const metadata = payload.metadata || {};
+      const scoring = approval.decision_scoring || payload.decision_scoring || {};
+      const scoringMetrics = scoring.metrics || {};
       const symbol = String(intent.symbol || metadata.symbol || payload.signal_pack_id || approval.subject_id || 'multi-asset').toUpperCase();
       return (
         <div className="context-block">
@@ -2072,6 +2074,30 @@ const Admin = () => {
               <strong>{intent.thesis || payload.reason || metadata.reason}</strong>
               <small>{payload.estimated_notional_usd ? `Estimated notional ${currency(payload.estimated_notional_usd)}` : 'No notional estimate stored.'}</small>
             </div>
+          ) : null}
+          {scoring && (scoring.score !== null && scoring.score !== undefined) ? (
+            <>
+              <div className="context-kv-list">
+                <div><span>Composite score</span><strong>{Number(scoring.score || 0).toFixed(3)}</strong></div>
+                <div><span>Confidence</span><strong>{Math.round(Number(scoring.confidence || 0) * 100)}%</strong></div>
+                <div><span>Direction</span><strong>{scoring.direction || 'n/a'}</strong></div>
+                <div><span>Strategy</span><strong>{scoring.strategy_family || scoring.asset_class || 'n/a'}</strong></div>
+              </div>
+              <div className="context-memory-card">
+                <span>ML decision basis</span>
+                <strong>{scoring.math_summary || 'No ML math summary recorded.'}</strong>
+                <small>
+                  {[
+                    scoringMetrics.directional_probability_up !== undefined ? `Regression: ${Math.round(Number(scoringMetrics.directional_probability_up || 0) * 100)}% up` : '',
+                    scoringMetrics.ml_confidence !== undefined ? `Classification: ${Math.round(Number(scoringMetrics.ml_confidence || 0) * 100)}%` : '',
+                    scoringMetrics.regime_alignment !== undefined ? `Regime: ${Math.round(Number(scoringMetrics.regime_alignment || 0) * 100)}%` : '',
+                    scoringMetrics.liquidity_score !== undefined ? `Liquidity: ${Math.round(Number(scoringMetrics.liquidity_score || 0) * 100)}%` : '',
+                    scoringMetrics.volatility_score !== undefined ? `Volatility: ${Math.round(Number(scoringMetrics.volatility_score || 0) * 100)}%` : '',
+                    scoringMetrics.news_intensity_count !== undefined ? `News: ${Number(scoringMetrics.news_intensity_count || 0)} catalysts` : '',
+                  ].filter(Boolean).join(' · ')}
+                </small>
+              </div>
+            </>
           ) : null}
           {approval.status === 'pending' ? (
             <div className="settings-actions">

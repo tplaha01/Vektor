@@ -1573,6 +1573,10 @@ async def get_decision_detail(decision_id: str):
 
     audit_timeline_path = f"/api/admin/audit/orders/{order_id}/timeline" if order_id else None
     pending_approval = firm_orchestrator.find_pending_trade_approval(decision_id=key)
+    discovery_snapshot = firm_orchestrator.latest_discovery_opportunity(
+        run_id=decision.run_id,
+        symbol=(context or {}).get("symbol") or "",
+    )
     return {
         "decision_id": decision.decision_id,
         "run_id": decision.run_id,
@@ -1586,6 +1590,16 @@ async def get_decision_detail(decision_id: str):
         "blocked_reasons": blocked_reasons,
         "order_id": order_id,
         "approval_request_id": pending_approval.get("request_id") if pending_approval else None,
+        "decision_scoring": {
+            "score": discovery_snapshot.get("score"),
+            "confidence": discovery_snapshot.get("confidence"),
+            "direction": discovery_snapshot.get("direction"),
+            "asset_class": discovery_snapshot.get("asset_class"),
+            "strategy_family": discovery_snapshot.get("strategy_family"),
+            "horizon": discovery_snapshot.get("horizon"),
+            "math_summary": (discovery_snapshot.get("ml") or {}).get("math_summary"),
+            "metrics": dict((discovery_snapshot.get("ml") or {})),
+        } if discovery_snapshot else None,
         "audit_timeline_path": audit_timeline_path,
         "lineage_detail_path": f"/api/admin/lineage/run/{decision.run_id}",
         "events": timeline,
@@ -2360,6 +2374,38 @@ async def get_approval_detail(request_id: str):
     approval = firm_orchestrator.get_approval_request(request_id)
     if approval is None:
         raise HTTPException(status_code=404, detail="approval_request_not_found")
+    payload = dict(approval.get("payload") or {})
+    decision_id = str(payload.get("decision_id") or "").strip()
+    if decision_id:
+        decision = next((item for item in decision_ledger.list_decisions() if item.decision_id == decision_id), None)
+        if decision is not None:
+            discovery_snapshot = firm_orchestrator.latest_discovery_opportunity(
+                run_id=decision.run_id,
+                symbol=(payload.get("intent") or {}).get("symbol") or "",
+            )
+            approval = {
+                **approval,
+                "decision": {
+                    "decision_id": decision.decision_id,
+                    "run_id": decision.run_id,
+                    "status": decision.status,
+                    "sleeve": decision.sleeve.value,
+                },
+                "decision_scoring": payload.get("decision_scoring") or (
+                    {
+                        "score": discovery_snapshot.get("score"),
+                        "confidence": discovery_snapshot.get("confidence"),
+                        "direction": discovery_snapshot.get("direction"),
+                        "asset_class": discovery_snapshot.get("asset_class"),
+                        "strategy_family": discovery_snapshot.get("strategy_family"),
+                        "horizon": discovery_snapshot.get("horizon"),
+                        "math_summary": (discovery_snapshot.get("ml") or {}).get("math_summary"),
+                        "metrics": dict((discovery_snapshot.get("ml") or {})),
+                    }
+                    if discovery_snapshot
+                    else None
+                ),
+            }
     return approval
 
 
