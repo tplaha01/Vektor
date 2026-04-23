@@ -564,7 +564,14 @@ class FundAgentRuntime:
                     "context": payload,
                 }
             )
-        discovery_rows = self._orchestrator.list_discovery_opportunities(limit=12)
+        discovery_rows = self._orchestrator.list_discovery_opportunities(limit=24)
+        discovery_status_counts: dict[str, int] = {}
+        latest_no_trade = None
+        for row in discovery_rows:
+            status = str(row.get("status") or "candidate")
+            discovery_status_counts[status] = int(discovery_status_counts.get(status, 0)) + 1
+            if latest_no_trade is None and status == "no_trade":
+                latest_no_trade = row
         return {
             "enabled": self._enabled,
             "started": self._started,
@@ -580,7 +587,9 @@ class FundAgentRuntime:
             "pending_decisions": pending_decisions[:8],
             "discovery": {
                 "count": len(discovery_rows),
-                "top": discovery_rows[:6],
+                "top": discovery_rows[:8],
+                "status_counts": discovery_status_counts,
+                "latest_no_trade": latest_no_trade,
             },
             "ai_role_adapter": ai_role_adapter.health(),
             "data_integrity": data_integrity_guard.status(),
@@ -1185,6 +1194,86 @@ class FundAgentRuntime:
     def _market_session(self) -> dict[str, Any]:
         return market_session_status(get_settings())
 
+    def _record_discovery_status(
+        self,
+        opportunity: dict[str, Any],
+        *,
+        status: str,
+        reason: str,
+        rank: int | None = None,
+        selected: bool = False,
+        threshold_passed: bool | None = None,
+        extra_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        metadata = dict(opportunity.get("metadata") or {})
+        metadata.update(
+            {
+                "discovery_status": status,
+                "discovery_reason": reason,
+                "selected_for_wave": selected,
+            }
+        )
+        if rank is not None:
+            metadata["discovery_rank"] = int(rank)
+        if threshold_passed is not None:
+            metadata["threshold_passed"] = bool(threshold_passed)
+            metadata["thresholds"] = {
+                "min_score": self._discovery_min_score,
+                "min_confidence": self._discovery_min_confidence,
+            }
+        if extra_metadata:
+            metadata.update(dict(extra_metadata))
+        return self._orchestrator.record_discovery_opportunity(
+            {
+                **dict(opportunity),
+                "metadata": metadata,
+                "status": status,
+            }
+        )
+
+    def _record_no_trade_discovery(
+        self,
+        *,
+        run_id: str,
+        reason: str,
+        candidate_count: int,
+        top_scores: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        now = datetime.now(timezone.utc).replace(microsecond=0)
+        return self._orchestrator.record_discovery_opportunity(
+            {
+                "opportunity_id": f"opportunity-no-trade-{run_id}-{now.strftime('%Y%m%d%H%M%S')}",
+                "run_id": run_id,
+                "agent_id": "world_scanner",
+                "symbol": "CASH",
+                "asset_class": "equities",
+                "strategy_family": "capital_preservation",
+                "direction": "hold_cash",
+                "score": 0.0,
+                "confidence": 1.0,
+                "horizon": "intraday",
+                "thesis": "Dynamic scout did not find any symbol that cleared the current discovery thresholds, so Vektor is holding cash.",
+                "catalysts": ["capital_preservation", "no_trade"],
+                "evidence": [
+                    f"Discovery selected no symbols because {reason}.",
+                    f"Candidate count: {candidate_count}.",
+                ],
+                "ml": {
+                    "math_summary": f"no_trade because {reason}",
+                    "candidate_count": int(candidate_count),
+                },
+                "metadata": {
+                    "source": "autopilot_dynamic_universe",
+                    "discovery_status": "no_trade",
+                    "discovery_reason": reason,
+                    "candidate_count": int(candidate_count),
+                    "top_scores": list(top_scores or []),
+                },
+                "status": "no_trade",
+                "discovered_at": now.isoformat().replace("+00:00", "Z"),
+            }
+        )
+
     def _resolve_autopilot_symbols(self) -> tuple[tuple[str, ...], dict[str, Any]]:
         if not self._autopilot_dynamic_universe_enabled:
             selected = tuple(self._autopilot_symbols[: self._autopilot_scout_max_symbols])
@@ -1201,58 +1290,133 @@ class FundAgentRuntime:
                 continue
             scored.append(opportunity)
 
+        run_id = self._autopilot_last_run_id or "autopilot-discovery"
+        thresholds = {
+            "min_score": self._discovery_min_score,
+            "min_confidence": self._discovery_min_confidence,
+        }
+
         if not scored:
             fallback = tuple(self._autopilot_symbols[: self._autopilot_scout_max_symbols]) if not self._allow_cash_hold else ()
+            if not fallback:
+                self._record_no_trade_discovery(
+                    run_id=run_id,
+                    reason="scout_no_scores",
+                    candidate_count=len(self._autopilot_scout_symbols),
+                )
             return fallback, {
                 "dynamic_universe_enabled": True,
                 "candidate_count": len(self._autopilot_scout_symbols),
                 "selected_symbols": list(fallback),
                 "reason": "scout_no_scores_fallback_to_seed" if fallback else "no_trade_candidates_meet_threshold",
+                "thresholds": thresholds,
             }
 
         scored.sort(key=lambda item: (-float(item.get("score") or 0.0), str(item.get("symbol") or "")))
-        qualified = [
-            item
-            for item in scored
-            if float(item.get("score") or 0.0) >= self._discovery_min_score
-            and float(item.get("confidence") or 0.0) >= self._discovery_min_confidence
+        qualified: list[dict[str, Any]] = []
+        pruned_threshold = 0
+        for index, item in enumerate(scored, start=1):
+            score_ok = float(item.get("score") or 0.0) >= self._discovery_min_score
+            confidence_ok = float(item.get("confidence") or 0.0) >= self._discovery_min_confidence
+            if score_ok and confidence_ok:
+                qualified.append(item)
+                item.update(self._record_discovery_status(
+                    item,
+                    status="qualified",
+                    reason="passed_thresholds",
+                    rank=index,
+                    threshold_passed=True,
+                ))
+                continue
+            pruned_threshold += 1
+            prune_reason = "score_below_threshold" if not score_ok else "confidence_below_threshold"
+            item.update(self._record_discovery_status(
+                item,
+                status="pruned_threshold",
+                reason=prune_reason,
+                rank=index,
+                threshold_passed=False,
+            ))
+
+        top_scored = [
+            {
+                "symbol": str(item.get("symbol") or ""),
+                "score": round(float(item.get("score") or 0.0), 4),
+                "confidence": round(float(item.get("confidence") or 0.0), 4),
+                "asset_class": item.get("asset_class"),
+                "direction": item.get("direction"),
+                "status": item.get("status"),
+            }
+            for item in scored[:5]
         ]
         if (
             not qualified
             and self._allow_cash_hold
             and len(self._autopilot_scout_symbols) > self._autopilot_scout_max_symbols
         ):
+            self._record_no_trade_discovery(
+                run_id=run_id,
+                reason="thresholds_not_met",
+                candidate_count=len(scored),
+                top_scores=top_scored,
+            )
             return (), {
                 "dynamic_universe_enabled": True,
                 "candidate_count": len(self._autopilot_scout_symbols),
                 "selected_symbols": [],
                 "reason": "no_trade_candidates_meet_threshold",
-                "thresholds": {
-                    "min_score": self._discovery_min_score,
-                    "min_confidence": self._discovery_min_confidence,
+                "thresholds": thresholds,
+                "top_scores": top_scored,
+                "qualified_count": 0,
+                "pruned_threshold_count": pruned_threshold,
+                "status_counts": {
+                    "qualified": 0,
+                    "pruned_threshold": pruned_threshold,
+                    "candidate": len(scored),
+                    "no_trade": 1,
                 },
-                "top_scores": [
-                    {
-                        "symbol": str(item.get("symbol") or ""),
-                        "score": round(float(item.get("score") or 0.0), 4),
-                        "confidence": round(float(item.get("confidence") or 0.0), 4),
-                        "asset_class": item.get("asset_class"),
-                        "direction": item.get("direction"),
-                    }
-                    for item in scored[:5]
-                ],
             }
 
         pool = qualified or scored
         selected = tuple(str(item.get("symbol") or "") for item in pool[: self._autopilot_scout_max_symbols])
+        selected_set = {symbol for symbol in selected if symbol}
+        selected_count = 0
+        pruned_capacity = 0
+        for index, item in enumerate(pool, start=1):
+            symbol = str(item.get("symbol") or "")
+            if symbol in selected_set:
+                selected_count += 1
+                item.update(self._record_discovery_status(
+                    item,
+                    status="selected",
+                    reason="queued_for_wave",
+                    rank=index,
+                    selected=True,
+                    threshold_passed=item in qualified if qualified else None,
+                    extra_metadata={"selected_rank": selected_count},
+                ))
+                continue
+            pruned_capacity += 1
+            item.update(self._record_discovery_status(
+                item,
+                status="pruned_capacity",
+                reason="wave_capacity_limit",
+                rank=index,
+                threshold_passed=item in qualified if qualified else None,
+            ))
         return selected, {
             "dynamic_universe_enabled": True,
             "candidate_count": len(self._autopilot_scout_symbols),
             "selected_symbols": list(selected),
             "qualified_count": len(qualified),
-            "thresholds": {
-                "min_score": self._discovery_min_score,
-                "min_confidence": self._discovery_min_confidence,
+            "pruned_threshold_count": pruned_threshold,
+            "pruned_capacity_count": pruned_capacity,
+            "thresholds": thresholds,
+            "status_counts": {
+                "selected": selected_count,
+                "qualified": len(qualified),
+                "pruned_threshold": pruned_threshold,
+                "pruned_capacity": pruned_capacity,
             },
             "top_scores": [
                 {
@@ -1261,6 +1425,8 @@ class FundAgentRuntime:
                     "confidence": round(float(item.get("confidence") or 0.0), 4),
                     "asset_class": item.get("asset_class"),
                     "direction": item.get("direction"),
+                    "status": item.get("status"),
+                    "reason": (item.get("metadata") or {}).get("discovery_reason"),
                 }
                 for item in pool[:5]
             ],

@@ -6769,3 +6769,14 @@ button.kb-trace-card:hover {
   font-size: 12px;
   color: var(--txt2);
 }
+
+.discovery-notice-card {
+  margin-bottom: 12px;
+  border-color: rgba(255, 196, 87, 0.18);
+  background: linear-gradient(180deg, rgba(255, 196, 87, 0.08), rgba(255, 255, 255, 0.02));
+}
+
+.deliverable-pill.is-good {
+  border-color: rgba(62, 207, 142, 0.28);
+  color: #8ef0bc;
+}

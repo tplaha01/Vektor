@@ -1,6 +1,6 @@
 # ALPHA-002 Discovery and World Scanner Hardening
 
-Status: open
+Status: in_progress
 Priority: high
 Depends on: `ALPHA-001`
 Blocks: `ALPHA-006`
@@ -29,6 +29,8 @@ Make Vektor's discovery layer credible as a real source of trade candidates rath
 - [ ] Add explicit prune reasons for rejected candidates
 - [ ] Add explicit `no_trade` / `cash_hold` outcome when nothing clears threshold
 - [ ] Expose ranked candidate list and prune reasons in admin/OpenClaw
+  - 2026-04-23: discovery statuses now persist as `selected`, `qualified`, `pruned_threshold`, `pruned_capacity`, and `no_trade`
+  - 2026-04-23: admin ML scoring panel now shows selected/not-selected state, prune reason, and the latest cash-hold directive
 - [ ] Verify wave scheduling reflects ranked priority and backlog state
 
 ## Acceptance Criteria

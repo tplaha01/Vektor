@@ -1078,6 +1078,16 @@ const Admin = () => {
     [systemStatus]
   );
 
+  const discoveryStatusCounts = useMemo(
+    () => systemStatus?.discovery?.status_counts || {},
+    [systemStatus]
+  );
+
+  const latestNoTradeDiscovery = useMemo(
+    () => systemStatus?.discovery?.latest_no_trade || null,
+    [systemStatus]
+  );
+
   const decisionScoringRows = useMemo(
     () =>
       discoveryRows.slice(0, 8).map((row) => ({
@@ -1089,6 +1099,9 @@ const Admin = () => {
         direction: row.direction || 'neutral',
         thesis: row.thesis || 'No thesis recorded.',
         mathSummary: row.ml?.math_summary || row.math_summary || 'No ML math summary recorded.',
+        status: row.status || row.metadata?.discovery_status || 'candidate',
+        reason: row.metadata?.discovery_reason || 'No explicit reason recorded.',
+        selected: Boolean(row.metadata?.selected_for_wave),
         metrics: [
           { label: 'Regression', value: `${Math.round(Number(row.ml?.directional_probability_up || 0) * 100)}% up` },
           { label: 'Classification', value: `${Math.round(Number(row.ml?.technical_confidence || 0) * 100)}% technical` },
@@ -2978,17 +2991,60 @@ const Admin = () => {
                             <div className="section-header section-header-tight">
                               <h3 className="section-subtitle">ML decision scoring</h3>
                             </div>
+                            <div className="theater-meta-grid theater-meta-grid-tight">
+                              <div className="theater-meta-card">
+                                <span>Selected</span>
+                                <strong>{discoveryStatusCounts.selected || 0}</strong>
+                                <small>{discoveryStatusCounts.qualified || 0} qualified</small>
+                              </div>
+                              <div className="theater-meta-card">
+                                <span>Pruned</span>
+                                <strong>{(discoveryStatusCounts.pruned_threshold || 0) + (discoveryStatusCounts.pruned_capacity || 0)}</strong>
+                                <small>{discoveryStatusCounts.pruned_threshold || 0} threshold · {discoveryStatusCounts.pruned_capacity || 0} capacity</small>
+                              </div>
+                              <div className="theater-meta-card">
+                                <span>No-trade events</span>
+                                <strong>{discoveryStatusCounts.no_trade || 0}</strong>
+                                <small>{latestNoTradeDiscovery?.metadata?.discovery_reason || 'No cash-hold event recorded'}</small>
+                              </div>
+                            </div>
+                            {latestNoTradeDiscovery ? (
+                              <div className="deliverable-card discovery-notice-card">
+                                <div className="deliverable-head">
+                                  <div>
+                                    <strong>Cash hold directive</strong>
+                                    <span>{formatDateTime(latestNoTradeDiscovery.updated_at || latestNoTradeDiscovery.discovered_at)}</span>
+                                  </div>
+                                  <span className="deliverable-pill subdued">no_trade</span>
+                                </div>
+                                <p>{latestNoTradeDiscovery.thesis || 'Vektor held cash because the discovery thresholds were not met.'}</p>
+                                <div className="deliverable-meta-row">
+                                  <span className="deliverable-pill subdued">
+                                    Reason: {latestNoTradeDiscovery.metadata?.discovery_reason || 'thresholds_not_met'}
+                                  </span>
+                                  <span className="deliverable-pill subdued">
+                                    Candidates: {Number(latestNoTradeDiscovery.metadata?.candidate_count || 0)}
+                                  </span>
+                                </div>
+                              </div>
+                            ) : null}
                             <div className="deliverable-list">
                               {decisionScoringRows.length ? decisionScoringRows.slice(0, 5).map((row) => (
                                 <article key={row.id} className="deliverable-card">
                                   <div className="deliverable-head">
                                     <div>
                                       <strong>{row.symbol}</strong>
-                                      <span>{row.assetClass || 'equities'} · {row.direction || 'candidate'}</span>
+                                      <span>{row.assetClass || 'equities'} · {row.direction || 'candidate'} · {row.status}</span>
                                     </div>
                                     <span className="deliverable-pill">{Number(row.score || 0).toFixed(3)}</span>
                                   </div>
                                   <p>{row.mathSummary}</p>
+                                  <div className="deliverable-meta-row">
+                                    <span className={`deliverable-pill subdued ${row.selected ? 'is-good' : ''}`}>
+                                      {row.selected ? 'Selected for wave' : 'Not selected'}
+                                    </span>
+                                    <span className="deliverable-pill subdued">{row.reason}</span>
+                                  </div>
                                   <div className="deliverable-meta-row">
                                     {row.metrics.slice(0, 4).map((metric) => (
                                       <span key={`${row.id}-${metric.label}`} className="deliverable-pill subdued">

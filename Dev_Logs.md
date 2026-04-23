@@ -6099,3 +6099,23 @@ files:
 - docs/issues/alpha/ALPHA-006-alpha-exit-validation-and-signoff.md
 validation: passed
 notes: Added soak inspection helper, launched 48h soak run 20260423-035739, queued autopilot run run-autopilot-f1080c540308, and converted remaining Alpha work into executable repo issues.
+
+[2026-04-23T11:35:00Z] [END]
+entry_id: devlog-20260423-codex-discovery-outcomes
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-codex-20260423-discovery-outcomes
+git_branch: main
+git_commit_start: 609c37e5dfbb42c8eaeb76a3d6bc3c4e7fc3a6fb
+git_commit_end: 
+scope: Alpha discovery hardening with explicit prune/no-trade outcomes and admin operator visibility
+files:
+- backend/app/fund/agent_runtime.py
+- backend/tests/test_fund_agent_runtime.py
+- frontend/src/pages/Admin.jsx
+- frontend/src/styles/admin.css
+- docs/issues/alpha/ALPHA-002-discovery-and-world-scanner-hardening.md
+validation: passed
+notes: Added selected/pruned/no-trade discovery statuses, persisted prune reasons, surfaced cash-hold directive and discovery reasons in admin, and validated with targeted backend tests plus frontend build.

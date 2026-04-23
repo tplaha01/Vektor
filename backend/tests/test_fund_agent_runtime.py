@@ -51,6 +51,37 @@ def _build_stack():
     return bus, orchestrator, runtime
 
 
+def _stub_discovery_opportunity(symbol: str, *, score: float, confidence: float) -> dict:
+    return {
+        "opportunity_id": f"opp-{symbol.lower()}",
+        "run_id": "run-discovery-test",
+        "agent_id": "world_scanner",
+        "symbol": symbol,
+        "asset_class": "equities",
+        "strategy_family": "multi_signal_scout",
+        "direction": "long_bias",
+        "score": score,
+        "confidence": confidence,
+        "horizon": "swing",
+        "thesis": f"{symbol} thesis",
+        "catalysts": [f"{symbol} catalyst"],
+        "evidence": [f"{symbol} evidence"],
+        "ml": {
+            "directional_probability_up": score,
+            "technical_confidence": confidence,
+            "ml_confidence": confidence,
+            "sentiment_normalized": 0.5,
+            "liquidity_score": 0.7,
+            "volatility_score": 0.6,
+            "news_intensity_count": 2,
+            "regime_alignment": 0.7,
+            "math_summary": f"{symbol} math",
+        },
+        "metadata": {"source": "test"},
+        "status": "candidate",
+    }
+
+
 def test_ceo_command_endpoint_queues_role_task():
     _, orchestrator, runtime = _build_stack()
     app = FastAPI()
@@ -132,6 +163,97 @@ def test_development_log_endpoint_graphifies_structured_entry():
 
     events = client.get("/fund/knowledge/events?namespace=development&limit=20").json()
     assert any(row["event_type"] == "development.devlog.start" for row in events)
+
+
+def test_resolve_autopilot_symbols_marks_selected_and_pruned_capacity(monkeypatch):
+    bus, orchestrator, _runtime = _build_stack()
+    runtime = FundAgentRuntime(
+        orchestrator=orchestrator,
+        task_bus_service=bus,
+        enabled=True,
+        autopilot_dynamic_universe_enabled=True,
+        autopilot_scout_symbols=("NVDA", "AAPL", "MSFT"),
+        autopilot_scout_max_symbols=2,
+        allow_cash_hold=True,
+    )
+    runtime._autopilot_last_run_id = "run-discovery-test"  # noqa: SLF001
+    runtime._autopilot_scout_symbols = ("NVDA", "AAPL", "MSFT")  # noqa: SLF001
+
+    opportunities = {
+        "NVDA": _stub_discovery_opportunity("NVDA", score=0.88, confidence=0.82),
+        "AAPL": _stub_discovery_opportunity("AAPL", score=0.79, confidence=0.76),
+        "MSFT": _stub_discovery_opportunity("MSFT", score=0.74, confidence=0.72),
+    }
+
+    monkeypatch.setattr(runtime, "_score_autopilot_symbol", lambda symbol: dict(opportunities.get(symbol)))
+
+    recorded: list[dict] = []
+    original_record = orchestrator.record_discovery_opportunity
+
+    def _capture(payload):  # noqa: ANN001
+        result = original_record(payload)
+        recorded.append(dict(result))
+        return result
+
+    monkeypatch.setattr(orchestrator, "record_discovery_opportunity", _capture)
+
+    selected, scout_meta = runtime._resolve_autopilot_symbols()  # noqa: SLF001
+
+    assert selected == ("NVDA", "AAPL")
+    assert scout_meta["status_counts"]["selected"] == 2
+    assert scout_meta["status_counts"]["pruned_capacity"] == 1
+
+    latest_by_symbol = {row["symbol"]: row for row in recorded if row.get("symbol") != "CASH"}
+    assert latest_by_symbol["NVDA"]["status"] == "selected"
+    assert latest_by_symbol["AAPL"]["status"] == "selected"
+    assert latest_by_symbol["MSFT"]["status"] == "pruned_capacity"
+    assert latest_by_symbol["MSFT"]["metadata"]["discovery_reason"] == "wave_capacity_limit"
+
+
+def test_resolve_autopilot_symbols_records_no_trade_when_thresholds_fail(monkeypatch):
+    bus, orchestrator, _runtime = _build_stack()
+    runtime = FundAgentRuntime(
+        orchestrator=orchestrator,
+        task_bus_service=bus,
+        enabled=True,
+        autopilot_dynamic_universe_enabled=True,
+        autopilot_scout_symbols=("NVDA", "AAPL", "MSFT"),
+        autopilot_scout_max_symbols=2,
+        allow_cash_hold=True,
+    )
+    runtime._autopilot_last_run_id = "run-discovery-test"  # noqa: SLF001
+    runtime._autopilot_scout_symbols = ("NVDA", "AAPL", "MSFT")  # noqa: SLF001
+
+    opportunities = {
+        "NVDA": _stub_discovery_opportunity("NVDA", score=0.41, confidence=0.45),
+        "AAPL": _stub_discovery_opportunity("AAPL", score=0.38, confidence=0.40),
+        "MSFT": _stub_discovery_opportunity("MSFT", score=0.36, confidence=0.35),
+    }
+
+    monkeypatch.setattr(runtime, "_score_autopilot_symbol", lambda symbol: dict(opportunities.get(symbol)))
+
+    recorded: list[dict] = []
+    original_record = orchestrator.record_discovery_opportunity
+
+    def _capture(payload):  # noqa: ANN001
+        result = original_record(payload)
+        recorded.append(dict(result))
+        return result
+
+    monkeypatch.setattr(orchestrator, "record_discovery_opportunity", _capture)
+
+    selected, scout_meta = runtime._resolve_autopilot_symbols()  # noqa: SLF001
+
+    assert selected == ()
+    assert scout_meta["reason"] == "no_trade_candidates_meet_threshold"
+    assert scout_meta["status_counts"]["no_trade"] == 1
+
+    latest_by_symbol = {row["symbol"]: row for row in recorded}
+    assert latest_by_symbol["NVDA"]["status"] == "pruned_threshold"
+    assert latest_by_symbol["AAPL"]["status"] == "pruned_threshold"
+    assert latest_by_symbol["MSFT"]["status"] == "pruned_threshold"
+    assert latest_by_symbol["CASH"]["status"] == "no_trade"
+    assert latest_by_symbol["CASH"]["metadata"]["discovery_reason"] == "thresholds_not_met"
 
 
 @pytest.mark.anyio
