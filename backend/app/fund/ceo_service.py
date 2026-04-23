@@ -34,6 +34,32 @@ def _brief_number(value: float) -> float:
     return round(_safe_float(value), 2)
 
 
+def _score_bucket(score: float | None) -> str:
+    value = _safe_float(score, 0.0)
+    if value >= 0.8:
+        return "0.80+"
+    if value >= 0.7:
+        return "0.70-0.79"
+    if value >= 0.6:
+        return "0.60-0.69"
+    if value >= 0.5:
+        return "0.50-0.59"
+    return "<0.50"
+
+
+def _confidence_bucket(confidence: float | None) -> str:
+    value = _safe_float(confidence, 0.0)
+    if value >= 0.8:
+        return "0.80+"
+    if value >= 0.7:
+        return "0.70-0.79"
+    if value >= 0.6:
+        return "0.60-0.69"
+    if value >= 0.5:
+        return "0.50-0.59"
+    return "<0.50"
+
+
 def _runtime_status() -> dict[str, Any]:
     from app.fund.agent_runtime import fund_agent_runtime
 
@@ -257,6 +283,110 @@ class VektorCeoService:
             "alerts": alerts,
         }
 
+    def ml_effectiveness_snapshot(self) -> dict[str, Any]:
+        positions = {
+            _symbol_key(row.get("symbol")): row
+            for row in self._positions()
+            if _symbol_key(row.get("symbol"))
+        }
+        latest_order_by_symbol: dict[str, dict[str, Any]] = {}
+        for order in self._orders():
+            metadata = order.get("metadata") if isinstance(order.get("metadata"), dict) else {}
+            if not isinstance(metadata.get("decision_scoring"), dict):
+                continue
+            symbol = _symbol_key(order.get("symbol"))
+            if not symbol:
+                continue
+            existing = latest_order_by_symbol.get(symbol)
+            current_ts = str(order.get("created_at") or "")
+            if existing is None or current_ts >= str(existing.get("created_at") or ""):
+                latest_order_by_symbol[symbol] = order
+
+        rows: list[dict[str, Any]] = []
+        score_buckets: dict[str, dict[str, Any]] = {}
+        confidence_buckets: dict[str, dict[str, Any]] = {}
+        strategy_families: dict[str, dict[str, Any]] = {}
+        asset_classes: dict[str, dict[str, Any]] = {}
+
+        def _accumulate(target: dict[str, dict[str, Any]], key: str, pnl: float) -> None:
+            bucket = target.setdefault(key, {"bucket": key, "count": 0, "unrealized_pnl": 0.0, "wins": 0, "losses": 0})
+            bucket["count"] += 1
+            bucket["unrealized_pnl"] += pnl
+            if pnl > 0:
+                bucket["wins"] += 1
+            elif pnl < 0:
+                bucket["losses"] += 1
+
+        for symbol, order in latest_order_by_symbol.items():
+            metadata = order.get("metadata") if isinstance(order.get("metadata"), dict) else {}
+            decision_scoring = dict(metadata.get("decision_scoring") or {})
+            threshold_profile = dict(metadata.get("ml_threshold_profile") or {})
+            position = positions.get(symbol) or {}
+            unrealized_pnl = _safe_float(position.get("unrealized_pnl"), 0.0)
+            market_value = _safe_float(position.get("market_value"), 0.0)
+            score = _safe_float(decision_scoring.get("score"), 0.0)
+            confidence = _safe_float(decision_scoring.get("confidence"), 0.0)
+            strategy_family = str(metadata.get("strategy_family") or decision_scoring.get("strategy_family") or "unknown")
+            asset_class = str(metadata.get("asset_class") or order.get("asset_class") or "equities")
+            row = {
+                "symbol": symbol,
+                "asset_class": asset_class,
+                "strategy_family": strategy_family,
+                "score": round(score, 4),
+                "confidence": round(confidence, 4),
+                "score_bucket": _score_bucket(score),
+                "confidence_bucket": _confidence_bucket(confidence),
+                "direction": decision_scoring.get("direction") or "unknown",
+                "execution_status": str(order.get("status") or "unknown"),
+                "market_value": _brief_number(market_value),
+                "unrealized_pnl": _brief_number(unrealized_pnl),
+                "opportunity_id": metadata.get("discovery_opportunity_id"),
+                "threshold_profile": {
+                    "min_score": threshold_profile.get("min_score"),
+                    "min_confidence": threshold_profile.get("min_confidence"),
+                    "min_regime_alignment": threshold_profile.get("min_regime_alignment"),
+                    "min_liquidity_score": threshold_profile.get("min_liquidity_score"),
+                    "max_news_intensity_count": threshold_profile.get("max_news_intensity_count"),
+                    "adjustments": list(threshold_profile.get("adjustments") or []),
+                },
+                "math_summary": decision_scoring.get("math_summary"),
+            }
+            rows.append(row)
+            _accumulate(score_buckets, row["score_bucket"], unrealized_pnl)
+            _accumulate(confidence_buckets, row["confidence_bucket"], unrealized_pnl)
+            _accumulate(strategy_families, strategy_family, unrealized_pnl)
+            _accumulate(asset_classes, asset_class, unrealized_pnl)
+
+        def _finalize(items: dict[str, dict[str, Any]], key_name: str) -> list[dict[str, Any]]:
+            out = []
+            for key, payload in items.items():
+                count = max(1, int(payload.get("count") or 0))
+                out.append(
+                    {
+                        key_name: key,
+                        "count": count,
+                        "unrealized_pnl": _brief_number(payload.get("unrealized_pnl")),
+                        "avg_unrealized_pnl": _brief_number(_safe_float(payload.get("unrealized_pnl")) / count),
+                        "wins": int(payload.get("wins") or 0),
+                        "losses": int(payload.get("losses") or 0),
+                    }
+                )
+            out.sort(key=lambda item: item["unrealized_pnl"], reverse=True)
+            return out
+
+        rows.sort(key=lambda item: item["unrealized_pnl"], reverse=True)
+        return {
+            "accepted": True,
+            "briefed_at": _utc_iso(),
+            "count": len(rows),
+            "positions_with_ml_context": rows,
+            "score_buckets": _finalize(score_buckets, "score_bucket"),
+            "confidence_buckets": _finalize(confidence_buckets, "confidence_bucket"),
+            "strategy_families": _finalize(strategy_families, "strategy_family"),
+            "asset_classes": _finalize(asset_classes, "asset_class"),
+            "note": "This is an open-position effectiveness snapshot from executed paper orders with ML context. It is not a realized closed-trade attribution report yet.",
+        }
+
     def command_help(self) -> dict[str, Any]:
         command_groups = {
             "ceo_queries": [
@@ -266,6 +396,7 @@ class VektorCeoService:
                 "show winners and losers",
                 "what area of our portfolio is performing the best and the worst",
                 "show exposure by asset class",
+                "show ml effectiveness",
                 "show pending approvals",
                 "show risk alerts",
                 "recent digests",

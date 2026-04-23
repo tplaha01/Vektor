@@ -2345,6 +2345,11 @@ async def get_ceo_risk_alerts():
     return vektor_ceo_service.risk_alerts()
 
 
+@router.get("/ceo/ml-effectiveness", response_model=dict)
+async def get_ceo_ml_effectiveness():
+    return vektor_ceo_service.ml_effectiveness_snapshot()
+
+
 @router.get("/ceo/command-help", response_model=dict)
 async def get_ceo_command_help():
     return vektor_ceo_service.command_help()

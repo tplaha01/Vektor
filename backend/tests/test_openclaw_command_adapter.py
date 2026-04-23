@@ -1022,6 +1022,46 @@ def test_openclaw_command_adapter_reports_position_brief(monkeypatch):
     assert result["route_result"]["briefing"]["symbol"] == "NVDA"
 
 
+def test_openclaw_command_adapter_reports_ml_effectiveness(monkeypatch):
+    runtime = _StubRuntime()
+    adapter = OpenClawCommandAdapter(
+        runtime=runtime,
+        orchestrator=_StubOrchestrator(),
+        token="adapter-secret",
+        enabled=True,
+        channel_allowlist=["general"],
+        sender_allowlist=["ceo"],
+        fund_manager_mode=True,
+        log=AuditLog(),
+    )
+    monkeypatch.setattr(openclaw_adapter_module.data_integrity_guard, "halted", lambda: False)
+    monkeypatch.setattr(openclaw_adapter_module.data_integrity_guard, "halt_reason", lambda: None)
+    monkeypatch.setattr(
+        openclaw_adapter_module.vektor_ceo_service,
+        "ml_effectiveness_snapshot",
+        lambda: {
+            "accepted": True,
+            "count": 2,
+            "positions_with_ml_context": [{"symbol": "NVDA"}, {"symbol": "AAPL"}],
+            "score_buckets": [{"score_bucket": "0.80+", "count": 1}],
+        },
+    )
+
+    result = adapter.route_message(
+        {
+            "platform": "discord",
+            "channel_name": "general",
+            "sender_name": "ceo",
+            "text": "show ml effectiveness",
+        },
+        token="adapter-secret",
+    )
+
+    assert result["accepted"] is True
+    assert result["route_result"]["action"] == "ml_effectiveness"
+    assert result["route_result"]["summary"]["count"] == 2
+
+
 def test_openclaw_command_adapter_approves_editorial(monkeypatch):
     runtime = _StubRuntime()
     adapter = OpenClawCommandAdapter(

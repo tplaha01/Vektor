@@ -287,6 +287,12 @@ def _parse_control_command(command: str) -> dict[str, Any] | None:
         "portfolio exposure",
         "/fund exposure",
     )
+    ml_effectiveness_patterns = (
+        "ml effectiveness",
+        "model effectiveness",
+        "show ml effectiveness",
+        "/fund ml effectiveness",
+    )
     pending_approvals_patterns = (
         "pending approvals",
         "approvals pending",
@@ -509,6 +515,8 @@ def _parse_control_command(command: str) -> dict[str, Any] | None:
         return {"action": "winners_losers"}
     if any(phrase in normalized for phrase in exposure_patterns):
         return {"action": "exposure_by_asset_class"}
+    if any(phrase in normalized for phrase in ml_effectiveness_patterns):
+        return {"action": "ml_effectiveness"}
     if any(phrase in normalized for phrase in pending_approvals_patterns):
         return {"action": "pending_approvals", "limit": _parse_int_param("limit", default=25, minimum=1, maximum=200)}
     if any(phrase in normalized for phrase in approval_detail_patterns):
@@ -735,6 +743,7 @@ class OpenClawCommandAdapter:
                 "positions_summary",
                 "winners_losers",
                 "exposure_by_asset_class",
+                "ml_effectiveness",
                 "pending_approvals",
                 "approval_detail",
                 "approve_request",
@@ -1388,6 +1397,26 @@ class OpenClawCommandAdapter:
                 agent_id=agent_id,
                 control_id=control_id,
                 payload={"asset_class_count": len(summary.get("asset_classes") or [])},
+            )
+            return result
+
+        if clean_action == "ml_effectiveness":
+            summary = vektor_ceo_service.ml_effectiveness_snapshot()
+            result = {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "ml_effectiveness",
+                "status": "reported",
+                "summary": summary,
+            }
+            self._record_control_event(
+                action="ml_effectiveness",
+                status="reported",
+                reason=clean_reason,
+                run_id=run_id,
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"count": summary.get("count", 0)},
             )
             return result
 

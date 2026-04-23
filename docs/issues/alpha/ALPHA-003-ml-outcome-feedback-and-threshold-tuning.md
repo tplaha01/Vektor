@@ -1,6 +1,6 @@
 # ALPHA-003 ML Outcome Feedback and Threshold Tuning
 
-Status: open
+Status: in_progress
 Priority: high
 Depends on: `ALPHA-001`, `ALPHA-002`
 Blocks: `ALPHA-006`
@@ -21,6 +21,8 @@ Turn ML from a mostly static decision aid into an empirically tuned gate driven 
 
 - [ ] Persist realized outcome summaries against prior discovery/decision scoring packets
 - [ ] Build attribution between ML predictions and final trade results
+  - 2026-04-23: executed order metadata now carries `decision_scoring`, `ml_threshold_profile`, `strategy_family`, and `discovery_opportunity_id`
+  - 2026-04-23: CEO/OpenClaw surface now exposes an initial ML effectiveness snapshot from executed paper orders and open-position PnL
 - [ ] Add score/confidence bucket outcome analysis
 - [ ] Add strategy-family and asset-class outcome analysis
 - [ ] Expose threshold tuning evidence in admin

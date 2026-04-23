@@ -6137,3 +6137,25 @@ files:
 - docs/issues/alpha/ALPHA-002-discovery-and-world-scanner-hardening.md
 validation: passed
 notes: Extended discovery status responses with status counts, selected/pruned symbol summaries, and latest no-trade event; validated OpenClaw command routing and confirmed the active soak remains healthy with no halts or probe failures.
+
+[2026-04-23T11:25:00Z] [END]
+entry_id: devlog-20260423-codex-ml-effectiveness
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-codex-20260423-ml-effectiveness
+git_branch: main
+git_commit_start: ad757b98f2c7844e9d5b31a1783d3d00a280438b
+git_commit_end: 
+scope: Alpha ML outcome capture and CEO/OpenClaw effectiveness reporting
+files:
+- backend/app/fund/orchestrator.py
+- backend/app/fund/ceo_service.py
+- backend/app/fund/openclaw_command_adapter.py
+- backend/app/admin_research_routes.py
+- backend/tests/test_openclaw_command_adapter.py
+- frontend/src/api/adminAPI.js
+- docs/issues/alpha/ALPHA-003-ml-outcome-feedback-and-threshold-tuning.md
+validation: passed
+notes: Executed order metadata now carries ML threshold and discovery context, Vektor/OpenClaw can report an initial ML effectiveness snapshot, and the tranche was validated without restarting the backend so the active soak remains uninterrupted.
