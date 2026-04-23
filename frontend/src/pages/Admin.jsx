@@ -1120,6 +1120,102 @@ const Admin = () => {
     [systemStatus]
   );
 
+  const latestTaskEventByRole = useMemo(() => {
+    const map = new Map();
+    taskHistoryRows.forEach((row) => {
+      const role = String(row.role || '').trim();
+      if (!role || map.has(role)) return;
+      map.set(role, row);
+    });
+    return map;
+  }, [taskHistoryRows]);
+
+  const agentProcessRows = useMemo(() => {
+    const contextByRole = new Map();
+    swarmActiveContexts.forEach((ctx) => {
+      const role = String(ctx.role || ctx.agent_id || '').trim();
+      if (!role || contextByRole.has(role)) return;
+      contextByRole.set(role, ctx);
+    });
+
+    return workerRows
+      .map((worker) => {
+        const activeTask =
+          activeTaskMap.get(worker.role) ||
+          activeTasks.find(
+            (task) =>
+              String(task.role || '').trim() === worker.role ||
+              String(task.agent_id || '').trim() === worker.id
+          ) ||
+          null;
+        const liveContext =
+          contextByRole.get(worker.role) ||
+          (activeTask ? swarmActiveContexts.find((ctx) => ctx.task_id === activeTask.task_id) : null) ||
+          null;
+        const lastEvent = latestTaskEventByRole.get(worker.role) || null;
+        const symbol = String(
+          liveContext?.symbol ||
+          activeTask?.payload?.symbol ||
+          activeTask?.details?.symbol ||
+          lastEvent?.symbol ||
+          ''
+        ).toUpperCase() || 'MULTI-ASSET';
+        const nextAttemptAt =
+          activeTask?.payload?._scheduler?.next_attempt_at ||
+          liveContext?.payload?._scheduler?.next_attempt_at ||
+          lastEvent?.nextAttemptAt ||
+          '';
+        const retryCount = Number(
+          activeTask?.payload?._scheduler?.retry_count ||
+          liveContext?.payload?._scheduler?.retry_count ||
+          lastEvent?.retryCount ||
+          0
+        );
+        const latestAt =
+          liveContext?.updated_at ||
+          activeTask?.ts ||
+          activeTask?.created_at ||
+          lastEvent?.timestamp ||
+          worker.lastHeartbeat ||
+          '';
+        return {
+          id: `${worker.id}-process`,
+          role: worker.role,
+          status: worker.taskStatus || worker.status,
+          symbol,
+          symbolName: tickerFullName(symbol),
+          runId: activeTask?.run_id || liveContext?.run_id || lastEvent?.runId || '',
+          command: summarizeText(
+            liveContext?.command ||
+            activeTask?.payload?.command ||
+            lastEvent?.detail ||
+            worker.lastError ||
+            'No live command assigned.',
+            180
+          ),
+          contextSummary: summarizeText(
+            liveContext?.context
+              ? JSON.stringify(liveContext.context)
+              : activeTask?.details
+                ? JSON.stringify(activeTask.details)
+                : lastEvent?.deferReason || worker.lastError || 'No structured context available.',
+            140
+          ),
+          latestEvent: lastEvent?.event || activeTask?.event || (liveContext ? 'live_context' : 'idle'),
+          latestAt,
+          nextAttemptAt,
+          retryCount,
+          worker,
+          activeTask,
+          liveContext,
+        };
+      })
+      .sort((a, b) => {
+        const rank = (row) => (row.activeTask || row.liveContext ? 0 : row.status === 'running' ? 1 : row.status === 'idle' ? 2 : 3);
+        return rank(a) - rank(b) || roleLabel(a.role).localeCompare(roleLabel(b.role));
+      });
+  }, [activeTaskMap, activeTasks, latestTaskEventByRole, swarmActiveContexts, workerRows]);
+
   const swarmScheduler = useMemo(
     () => workersStatus?.swarm_scheduler || {},
     [workersStatus]
@@ -3238,6 +3334,67 @@ const Admin = () => {
                                   <span>{row.tickerName}</span>
                                 </div>
                                 <div className="agent-overview-detail">{row.overview}</div>
+                              </button>
+                            ))}
+                          </div>
+                        </section>
+
+                        <section className="content-section">
+                          <div className="section-header section-header-tight">
+                            <div>
+                              <div className="theater-kicker">1A) Process Board</div>
+                              <h2 className="section-title">Per-agent live process lanes</h2>
+                            </div>
+                            <span className="command-pill">
+                              <Activity size={13} />
+                              {agentProcessRows.filter((row) => row.activeTask || row.liveContext).length} active contexts
+                            </span>
+                          </div>
+                          <div className="agent-process-grid">
+                            {agentProcessRows.map((row) => (
+                              <button
+                                key={row.id}
+                                type="button"
+                                className={`agent-process-card ${selectedContext?.id === (row.activeTask?.task_id || row.worker.id) ? 'active' : ''}`}
+                                onClick={() => {
+                                  if (row.activeTask) {
+                                    openTaskContext(row.activeTask);
+                                    return;
+                                  }
+                                  openWorkerContext(row.worker);
+                                }}
+                              >
+                                <div className="agent-process-head">
+                                  <div>
+                                    <span className="agent-process-role">{roleLabel(row.role)}</span>
+                                    <strong>{row.symbol}</strong>
+                                  </div>
+                                  <span className={`ops-role-chip ops-role-chip-${badgeTone(row.status)}`}>{row.status}</span>
+                                </div>
+                                <div className="agent-process-run">
+                                  <span>{row.symbolName}</span>
+                                  <span>{row.runId ? `Run ${row.runId.slice(0, 16)}` : 'No run bound'}</span>
+                                </div>
+                                <p className="agent-process-command">{row.command}</p>
+                                <div className="agent-process-meta">
+                                  <div>
+                                    <span>Latest event</span>
+                                    <strong>{String(row.latestEvent || 'idle').replace(/_/g, ' ')}</strong>
+                                  </div>
+                                  <div>
+                                    <span>Updated</span>
+                                    <strong>{formatRelative(row.latestAt)}</strong>
+                                  </div>
+                                  <div>
+                                    <span>Retry</span>
+                                    <strong>{row.nextAttemptAt ? formatCountdown(row.nextAttemptAt, nowTick) : 'n/a'}</strong>
+                                  </div>
+                                  <div>
+                                    <span>Attempts</span>
+                                    <strong>{row.retryCount || 0}</strong>
+                                  </div>
+                                </div>
+                                <div className="agent-process-context">{row.contextSummary}</div>
                               </button>
                             ))}
                           </div>

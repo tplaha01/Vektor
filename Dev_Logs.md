@@ -6223,3 +6223,20 @@ files:
 - blog-next/lib/site.ts
 validation: passed (frontend npm run build, landing-next npm run build, blog-next npm run build)
 notes: Added a shared Vite workspace navigation shell across public board and detail views, integrated the subagent landing/blog UI pass, fixed a landing-next syntax regression, and validated builds for frontend, landing-next, and blog-next before push.
+
+[2026-04-23T17:47:37Z] [END]
+entry_id: devlog-20260423-codex-admin-process-board
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-codex-20260423-admin-process-board
+git_branch: main
+git_commit_start: 8384227a6b3cf234e54c47c550a82fa2b8b7a1a6
+git_commit_end: 
+scope: Alpha admin operator visibility pass with per-agent live process lanes in the Agents workspace
+files:
+- frontend/src/pages/Admin.jsx
+- frontend/src/styles/admin.css
+validation: passed (frontend npm run build)
+notes: Added a process-board section to the admin Agents tab using existing worker, active-task, history, and swarm-context runtime data so the operator can see per-agent live command, symbol, run, latest event, retry window, and context summary without hopping across tabs.
