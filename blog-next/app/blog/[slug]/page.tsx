@@ -9,6 +9,7 @@ import React from "react";
 
 import { FlickeringGrid } from "@/components/magicui/flickering-grid";
 import { HashScrollHandler } from "@/components/hash-scroll-handler";
+import { siteConfig } from "@/lib/site";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -37,79 +38,118 @@ export default async function BlogPost({ params }: PageProps) {
 
   const date = new Date(post.date);
   const formattedDate = formatDate(date);
+  const tags = Array.isArray(post.tags)
+    ? post.tags
+    : post.tags
+      ? [post.tags]
+      : [];
 
   return (
-    <div className="min-h-screen bg-background relative">
+    <div className="relative min-h-screen bg-background">
       <HashScrollHandler />
-      <div className="absolute top-0 left-0 z-0 w-full h-[200px] [mask-image:linear-gradient(to_top,transparent_25%,black_95%)]">
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[320px] [mask-image:linear-gradient(to_top,transparent_18%,black_88%)]">
         <FlickeringGrid
-          className="absolute top-0 left-0 size-full"
+          className="absolute inset-0 size-full"
           squareSize={4}
           gridGap={6}
           color="#6B7280"
-          maxOpacity={0.2}
-          flickerChance={0.15}
+          maxOpacity={0.18}
+          flickerChance={0.12}
         />
       </div>
 
-      <div className="space-y-4 border-b border-border relative z-10">
-        <div className="max-w-7xl mx-auto flex flex-col gap-6 p-6">
-          <div className="flex flex-wrap items-center gap-3 gap-y-5 text-sm text-muted-foreground">
-            <Button variant="outline" asChild className="h-6 w-6">
+      <section className="relative z-10 border-b border-border/70">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-6 py-10 lg:py-14">
+          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+            <Button variant="outline" asChild className="rounded-full bg-card/60">
               <Link href="/">
-                <ArrowLeft className="w-4 h-4" />
-                <span className="sr-only">Back to all articles</span>
+                <ArrowLeft data-icon="inline-start" />
+                Back to archive
               </Link>
             </Button>
-            {post.tags && post.tags.length > 0 && (
-              <div className="flex flex-wrap gap-3 text-muted-foreground">
-                {post.tags.map((tag: string) => (
-                  <span
-                    key={tag}
-                    className="h-6 w-fit px-3 text-sm font-medium bg-muted text-muted-foreground rounded-md border flex items-center justify-center"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            )}
-            <time className="font-medium text-muted-foreground">
-              {formattedDate}
-            </time>
+            {tags.map((tag: string) => (
+              <span
+                key={tag}
+                className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-primary"
+              >
+                {tag}
+              </span>
+            ))}
           </div>
 
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-medium tracking-tighter text-balance">
-            {post.title}
-          </h1>
-
-          {post.description && (
-            <p className="text-muted-foreground max-w-4xl md:text-lg md:text-balance">
-              {post.description}
-            </p>
-          )}
-        </div>
-      </div>
-      <div className="flex divide-x divide-border relative max-w-7xl mx-auto px-4 md:px-0 z-10">
-        <div className="absolute max-w-7xl mx-auto left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] lg:w-full h-full border-x border-border p-0 pointer-events-none" />
-        <main className="w-full p-0 overflow-hidden">
-          {post.thumbnail && (
-            <div className="relative w-full h-[500px] overflow-hidden object-cover border border-transparent">
-              <Image
-                src={post.thumbnail}
-                alt={post.title}
-                fill
-                className="object-cover"
-                priority
-              />
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(260px,0.45fr)] lg:items-end">
+            <div className="flex flex-col gap-5">
+              <h1 className="max-w-5xl text-4xl font-semibold tracking-[-0.08em] text-balance sm:text-5xl lg:text-7xl">
+                {post.title}
+              </h1>
+              {post.description ? (
+                <p className="max-w-3xl text-base leading-7 text-muted-foreground md:text-lg">
+                  {post.description}
+                </p>
+              ) : null}
             </div>
-          )}
-          <div className="p-6 lg:p-10">
-            <div className="prose dark:prose-invert max-w-none prose-headings:scroll-mt-8 prose-headings:font-semibold prose-a:no-underline prose-headings:tracking-tight prose-headings:text-balance prose-p:tracking-tight prose-p:text-balance prose-lg">
+
+            <aside className="rounded-[28px] border border-border bg-card/60 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.15)] backdrop-blur-sm">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">Article facts</p>
+              <dl className="mt-5 grid gap-4 text-sm">
+                <div className="flex items-center justify-between gap-4 border-b border-border/70 pb-3">
+                  <dt className="text-muted-foreground">Published</dt>
+                  <dd className="font-medium text-foreground">{formattedDate}</dd>
+                </div>
+                {post.author ? (
+                  <div className="flex items-center justify-between gap-4 border-b border-border/70 pb-3">
+                    <dt className="text-muted-foreground">Author</dt>
+                    <dd className="font-medium text-foreground">{post.author}</dd>
+                  </div>
+                ) : null}
+                {post.readTime ? (
+                  <div className="flex items-center justify-between gap-4 border-b border-border/70 pb-3">
+                    <dt className="text-muted-foreground">Read time</dt>
+                    <dd className="font-medium text-foreground">{post.readTime} min</dd>
+                  </div>
+                ) : null}
+                <div className="flex flex-col gap-3 pt-1">
+                  <a
+                    href={`${siteConfig.links.product}/admin`}
+                    className="inline-flex min-h-11 items-center justify-center rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm transition-transform hover:-translate-y-0.5"
+                  >
+                    Open admin console
+                  </a>
+                  <a
+                    href={siteConfig.links.product}
+                    className="inline-flex min-h-11 items-center justify-center rounded-full border border-border bg-background/70 px-5 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
+                  >
+                    View live PnL
+                  </a>
+                </div>
+              </dl>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <section className="relative z-10 mx-auto flex w-full max-w-7xl flex-col gap-8 px-6 py-8 lg:py-10">
+        {post.thumbnail ? (
+          <div className="relative h-[260px] overflow-hidden rounded-[32px] border border-border bg-card/60 sm:h-[360px] lg:h-[520px]">
+            <Image
+              src={post.thumbnail}
+              alt={post.title}
+              fill
+              priority
+              className="object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-background/65 via-transparent to-transparent" />
+          </div>
+        ) : null}
+
+        <article className="overflow-hidden rounded-[32px] border border-border bg-card/55 shadow-[0_24px_70px_rgba(0,0,0,0.16)] backdrop-blur-sm">
+          <div className="px-6 py-8 lg:px-10 lg:py-10">
+            <div className="vektor-prose max-w-none prose prose-lg dark:prose-invert prose-headings:font-semibold prose-headings:text-balance prose-headings:tracking-tight prose-p:text-muted-foreground prose-p:leading-8 prose-a:text-primary prose-a:no-underline hover:prose-a:text-primary/80 prose-strong:text-foreground prose-code:text-foreground prose-pre:border prose-pre:border-border prose-pre:bg-background/80">
               <ReactMarkdown
                 components={{
-                  h1: ({ children }) => <h1 className="text-4xl font-bold mt-8 mb-4">{children}</h1>,
-                  h2: ({ children }) => <h2 className="text-3xl font-semibold mt-6 mb-3">{children}</h2>,
-                  h3: ({ children }) => <h3 className="text-2xl font-semibold mt-4 mb-2">{children}</h3>,
+                  h1: ({ children }) => <h1 className="text-4xl font-semibold tracking-[-0.06em]">{children}</h1>,
+                  h2: ({ children }) => <h2 className="mt-14 text-3xl font-semibold tracking-[-0.05em]">{children}</h2>,
+                  h3: ({ children }) => <h3 className="mt-10 text-2xl font-semibold tracking-[-0.04em]">{children}</h3>,
                   p: ({ children }) => {
                     const items = React.Children.toArray(children);
                     const hasMediaChild = items.some((item) => {
@@ -122,21 +162,35 @@ export default async function BlogPost({ params }: PageProps) {
                       const props = item.props as { src?: string; node?: { tagName?: string } };
                       return Boolean(props?.src) || props?.node?.tagName === "img";
                     });
+
                     if (hasMediaChild) {
-                      return <div className="mb-6 max-w-4xl">{children}</div>;
+                      return <div className="mb-8 max-w-4xl">{children}</div>;
                     }
-                    return <p className="text-muted-foreground leading-8 mb-5 text-[1.04rem] max-w-3xl">{children}</p>;
+
+                    return <p className="max-w-3xl text-[1.03rem] leading-8 text-muted-foreground">{children}</p>;
                   },
-                  ul: ({ children }) => <ul className="list-disc list-inside space-y-2 mb-4">{children}</ul>,
-                  ol: ({ children }) => <ol className="list-decimal list-inside space-y-2 mb-4">{children}</ol>,
+                  ul: ({ children }) => <ul className="my-6 flex list-disc flex-col gap-2 pl-5">{children}</ul>,
+                  ol: ({ children }) => <ol className="my-6 flex list-decimal flex-col gap-2 pl-5">{children}</ol>,
                   li: ({ children }) => <li className="text-muted-foreground">{children}</li>,
-                  a: ({ href, children }) => <a href={href} className="text-primary hover:underline">{children}</a>,
+                  a: ({ href, children }) => (
+                    <a href={href} className="font-medium text-primary underline decoration-primary/40 underline-offset-4 transition-colors hover:text-primary/80">
+                      {children}
+                    </a>
+                  ),
                   strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
-                  em: ({ children }) => <em className="italic">{children}</em>,
-                  code: ({ children }) => <code className="bg-muted px-2 py-1 rounded text-sm font-mono">{children}</code>,
-                  blockquote: ({ children }) => <blockquote className="border-l-4 border-primary pl-4 italic text-muted-foreground my-4">{children}</blockquote>,
+                  em: ({ children }) => <em className="italic text-foreground/90">{children}</em>,
+                  code: ({ children }) => (
+                    <code className="rounded-md bg-background/90 px-2 py-1 text-[0.9em] font-medium text-foreground">
+                      {children}
+                    </code>
+                  ),
+                  blockquote: ({ children }) => (
+                    <blockquote className="my-8 rounded-r-2xl border-l-4 border-primary bg-primary/5 px-5 py-4 italic text-muted-foreground">
+                      {children}
+                    </blockquote>
+                  ),
                   img: ({ src, alt }) => (
-                    <figure className="my-8 overflow-hidden rounded-2xl border border-border bg-card/40">
+                    <figure className="my-10 overflow-hidden rounded-[28px] border border-border bg-card/60">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={String(src || "")}
@@ -156,8 +210,8 @@ export default async function BlogPost({ params }: PageProps) {
               </ReactMarkdown>
             </div>
           </div>
-        </main>
-      </div>
+        </article>
+      </section>
     </div>
   );
 }

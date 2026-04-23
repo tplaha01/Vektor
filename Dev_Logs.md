@@ -6182,3 +6182,44 @@ files:
 - docs/issues/alpha/ALPHA-004-risk-framework-completion.md
 validation: passed
 notes: Added persisted post-trade review storage, thesis-state evaluation for open positions, CEO endpoints and OpenClaw commands for thesis status/post-trade review, and kept the active soak uninterrupted. At log time the soak had 126 samples, 0 probe failures, 0 halts, and backend health remained ok.
+
+[2026-04-23T17:13:40Z] [END]
+entry_id: devlog-20260423-codex-uiux-pass
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-codex-20260423-uiux-pass
+git_branch: main
+git_commit_start: 17725302f67be1b063855f346d49daa14e2975a5
+git_commit_end: 
+scope: Alpha UI/UX pass across Vite, landing-next, and blog-next surfaces with shared workspace navigation and page polish
+files:
+- frontend/src/components/common/WorkspaceNav.jsx
+- frontend/src/pages/PublicPnlPage.jsx
+- frontend/src/pages/Research.jsx
+- frontend/src/pages/Blog.jsx
+- frontend/src/pages/AuditTrail.jsx
+- frontend/src/pages/ThesisDetail.jsx
+- frontend/src/pages/NotFoundPage.jsx
+- frontend/src/styles/admin.css
+- landing-next/app/page.jsx
+- landing-next/app/how-it-works/page.jsx
+- landing-next/app/blog/page.tsx
+- landing-next/app/blog/[slug]/page.tsx
+- landing-next/app/blog/data.ts
+- landing-next/app/globals.css
+- landing-next/components/site-chrome.jsx
+- blog-next/app/page.tsx
+- blog-next/app/blog/[slug]/page.tsx
+- blog-next/app/globals.css
+- blog-next/app/layout.tsx
+- blog-next/app/metadata.ts
+- blog-next/components/blog-card.tsx
+- blog-next/components/copy-header.tsx
+- blog-next/components/footer.tsx
+- blog-next/components/read-more-section.tsx
+- blog-next/components/site-nav.tsx
+- blog-next/lib/site.ts
+validation: passed (frontend npm run build, landing-next npm run build, blog-next npm run build)
+notes: Added a shared Vite workspace navigation shell across public board and detail views, integrated the subagent landing/blog UI pass, fixed a landing-next syntax regression, and validated builds for frontend, landing-next, and blog-next before push.

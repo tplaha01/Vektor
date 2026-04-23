@@ -1,10 +1,11 @@
-﻿import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Menu, X, ArrowLeft, Share2, Bookmark, RefreshCw, AlertCircle } from "lucide-react";
 import "../styles/blog.css";
 import { blogAPI } from "../api/adminAPI";
 import { useToast } from "../components/common/Toast";
 import ConnectionIndicator from "../components/common/ConnectionIndicator";
 import ToastContainer from "../components/common/Toast";
+import WorkspaceNav from "../components/common/WorkspaceNav";
 
 function renderMarkdownSimple(content) {
   const rows = String(content || "").split("\n");
@@ -456,19 +457,28 @@ export default function Blog() {
     return (
       <>
         <ToastContainer />
-        <BlogDetail
-          blog={selectedBlog}
-          onBack={() => {
-            transition(() => {
-              setSelectedBlog(null);
-              const url = new URL(window.location.href);
-              url.searchParams.delete('id');
-              window.history.replaceState({}, '', url.toString());
-            });
-          }}
-          blogs={blogs}
-          onBlogClick={handleBlogClick}
-        />
+        <div className="blog-page">
+          <WorkspaceNav
+            compact
+            eyebrow="Vektor Editorial"
+            title={selectedBlog.title || "Blog Detail"}
+            summary="Editorial detail view with approval-ready article content and related market context."
+            meta={<ConnectionIndicator status={connectionStatus} lastUpdate={lastUpdate} />}
+          />
+          <BlogDetail
+            blog={selectedBlog}
+            onBack={() => {
+              transition(() => {
+                setSelectedBlog(null);
+                const url = new URL(window.location.href);
+                url.searchParams.delete('id');
+                window.history.replaceState({}, '', url.toString());
+              });
+            }}
+            blogs={blogs}
+            onBlogClick={handleBlogClick}
+          />
+        </div>
       </>
     );
   }
@@ -477,6 +487,12 @@ export default function Blog() {
     <>
       <ToastContainer />
       <div className="blog-page">
+        <WorkspaceNav
+          eyebrow="Vektor Editorial"
+          title="Blog and Market Briefs"
+          summary="Readable market reports, research translations, and editorial pieces staged from the live fund runtime."
+          meta={<ConnectionIndicator status={connectionStatus} lastUpdate={lastUpdate} />}
+        />
         <header className="blog-header" role="banner">
           <div className="blog-header-content">
             <div className="blog-logo" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

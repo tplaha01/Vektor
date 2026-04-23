@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CheckCircle, AlertCircle, Clock } from 'lucide-react';
 import '../styles/audit.css';
 import { adminAPI } from '../api/adminAPI';
+import WorkspaceNav from '../components/common/WorkspaceNav';
 
 const AuditTrail = () => {
   const { decisionId } = useParams();
@@ -65,6 +66,12 @@ const AuditTrail = () => {
   if (loading) {
     return (
       <div className="audit-container">
+        <WorkspaceNav
+          compact
+          eyebrow="Vektor Audit"
+          title="Decision Audit Trail"
+          summary="Run-level events, approvals, and execution traces for a single decision context."
+        />
         <div className="audit-loading">Loading audit trail...</div>
       </div>
     );
@@ -73,6 +80,12 @@ const AuditTrail = () => {
   if (error) {
     return (
       <div className="audit-container">
+        <WorkspaceNav
+          compact
+          eyebrow="Vektor Audit"
+          title="Decision Audit Trail"
+          summary="Run-level events, approvals, and execution traces for a single decision context."
+        />
         <button className="audit-back-btn" onClick={() => navigate(-1)}>
           <ArrowLeft size={20} />
           Back
@@ -85,6 +98,12 @@ const AuditTrail = () => {
   if (!auditData) {
     return (
       <div className="audit-container">
+        <WorkspaceNav
+          compact
+          eyebrow="Vektor Audit"
+          title="Decision Audit Trail"
+          summary="Run-level events, approvals, and execution traces for a single decision context."
+        />
         <button className="audit-back-btn" onClick={() => navigate(-1)}>
           <ArrowLeft size={20} />
           Back
@@ -96,6 +115,12 @@ const AuditTrail = () => {
 
   return (
     <div className="audit-container">
+        <WorkspaceNav
+          compact
+          eyebrow="Vektor Audit"
+          title="Decision Audit Trail"
+          summary="Run-level events, approvals, and execution traces for a single decision context."
+        />
       <button className="audit-back-btn" onClick={() => navigate(-1)}>
         <ArrowLeft size={20} />
         Back

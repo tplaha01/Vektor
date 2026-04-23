@@ -144,10 +144,24 @@
   }
   body {
     @apply bg-background text-foreground;
+    background-image:
+      radial-gradient(circle at top left, rgba(155, 127, 232, 0.14), transparent 32%),
+      radial-gradient(circle at top right, rgba(59, 130, 246, 0.12), transparent 26%);
+    min-height: 100vh;
+  }
+
+  ::selection {
+    background: rgba(155, 127, 232, 0.24);
   }
 
   .shiki > div > button {
     border-top-left-radius: 0 !important;
     border-bottom-right-radius: 0 !important;
+  }
+}
+
+@layer components {
+  .vektor-prose .group button {
+    flex-shrink: 0;
   }
 }

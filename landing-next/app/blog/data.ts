@@ -2,7 +2,8 @@ export const blogPostsData = {
   "intro-to-vektor": {
     slug: "intro-to-vektor",
     title: "Introduction to Vektor - AI-Native Hedge Fund OS",
-    description: "Learn how Vektor revolutionizes fund management with transparent, AI-driven decision making and complete auditability.",
+    description:
+      "Learn how Vektor combines transparent research, paper-first execution, and strict risk controls into one operating system.",
     date: "2026-04-15",
     tags: ["Getting Started", "AI", "Transparency"],
     featured: true,
@@ -10,20 +11,20 @@ export const blogPostsData = {
     author: "Vektor Team",
     content: `# Introduction to Vektor: AI-Native Hedge Fund OS
 
-Vektor is a next-generation hedge fund operating system built on principles of transparency and explainability. Every trade is explained in plain English, backed by real data, and subject to independent risk checks.
+Vektor is a next-generation hedge fund operating system built around transparency and explainability. Every trade is described in plain language, backed by data, and reviewed before execution.
 
 ## The Problem We Solve
 
-Traditional hedge funds operate as black boxes. You submit capital, wait for quarterly reports, and hope for the best. Robo-advisors execute automated strategies with no explanation of why trades were made.
+Traditional hedge funds operate like black boxes. You allocate capital, wait for updates, and rarely see the reasoning that sits underneath a position. Most automated systems move faster, but they become even harder to audit.
 
 ## The Vektor Solution
 
-We combine the intelligence of AI with the accountability of human oversight. Every trade is:
+We combine AI-driven research with explicit oversight. Every trade is:
 
-- **Explained in plain English** - No technical jargon, just clear reasoning
-- **Backed by real data and sources** - Linked to financial statements, news, and market data
-- **Subject to independent risk checks** - Multiple agents verify every decision
-- **Recorded in an immutable audit log** - Query the complete decision history anytime
+- **Explained in plain English** so operators can understand the thesis
+- **Backed by real data and sources** rather than untraceable output
+- **Subject to independent risk checks** before it reaches execution
+- **Recorded in an immutable audit log** for later review
 
 ## Key Features
 
@@ -31,41 +32,40 @@ We combine the intelligence of AI with the accountability of human oversight. Ev
 Our system combines four specialized agents:
 
 1. **Research Director** - Scans thousands of data sources daily
-2. **Trading Director** - Creates trading theses with clear rationale  
-3. **Risk Auditor** - Independent verification of every trade
-4. **Compliance Officer** - Ensures regulatory requirements are met
+2. **Trading Director** - Creates trade theses with clear rationale
+3. **Risk Auditor** - Independently verifies every trade
+4. **Compliance Officer** - Maintains policy checks and auditability
 
 ### Paper Trading First
-All trades start with simulated execution. You learn how Vektor works, validate strategies, and build confidence—all with fake money. Only after explicit approval does real capital deploy.
+All trades start in simulation. You learn how Vektor works, validate strategies, and build confidence with fake money before real capital deploys.
 
 ### Real-Time Monitoring
-Track performance on our public PnL page. See exactly how well strategies are performing. No quarterly reports—live data always.
+Track performance on the public PnL page. No quarterly black box, just live operating visibility.
 
 ### Complete Override
-Pause or reject any trade with one click. You remain in complete control. Vektor is an assistant, not an autopilot.
+Pause or reject any trade with one click. Vektor is an operating assistant, not an autopilot.
 
 ### Cryptographic Audit Trail
-Every decision is signed and verifiable. No tampering possible. Complete transparency.
+Every decision is signed and verifiable. No silent edits, no missing context.
 
 ## How It Works
 
-**Step 1:** Data comes in from thousands of sources
-**Step 2:** Research Agent identifies opportunities
-**Step 3:** Trading Director creates a proposal with reasoning
-**Step 4:** Risk Auditor independently verifies the decision
-**Step 5:** Trade executes in paper mode first
-**Step 6:** Everything is recorded in the audit log
+**Step 1:** Data comes in from multiple sources
+**Step 2:** The research agent identifies opportunities
+**Step 3:** The trading director frames the thesis
+**Step 4:** The risk auditor independently challenges the trade
+**Step 5:** The trade executes in paper mode first
+**Step 6:** Everything is recorded in the audit trail
 
 ## Getting Started
 
-Head to the admin console to set up your first trading strategy. Start in paper mode and progress to live trading when you're ready.
-
-Visit the Admin Console or read more about how Vektor works.`
+Head to the admin console to set up your first strategy. Start in paper mode, review the decisions, and only then unlock live trading.`,
   },
   "multi-agent-trading": {
     slug: "multi-agent-trading",
     title: "How Multi-Agent Trading Works",
-    description: "Understanding how independent specialized agents collaborate to make trading decisions with no single point of failure.",
+    description:
+      "Understand how independent specialized agents collaborate on research, sizing, and safety without creating a single point of failure.",
     date: "2026-04-12",
     tags: ["Technical", "Architecture", "Agents"],
     featured: true,
@@ -73,65 +73,68 @@ Visit the Admin Console or read more about how Vektor works.`
     author: "Vektor Team",
     content: `# How Multi-Agent Trading Works
 
-Vektor doesn't use a single monolithic AI. Instead, we orchestrate multiple specialized agents that work together while maintaining independence. No single agent can make a trade alone.
+Vektor does not rely on one monolithic AI. Instead, it orchestrates several specialized agents that collaborate while staying independent enough to challenge one another.
 
 ## The Four Agents
 
 ### 1. Research Director
-Scans thousands of data sources daily and identifies opportunities:
+The research layer scans multiple data sources and identifies opportunities:
+
 - Financial news with sentiment analysis
 - Company earnings reports and SEC filings
-- Macroeconomic indicators (rates, employment, inflation)
-- Technical price patterns and volume analysis
+- Macroeconomic indicators such as rates and inflation
+- Technical price and volume structure
 
-**Output:** Structured market insights and trading signals
+**Output:** Structured market insights and ranked opportunities.
 
 ### 2. Trading Director
-Takes research insights and creates trading theses:
-- Analyzes signals for opportunity and risk
-- Determines position sizing based on conviction
-- Sets stop-loss and take-profit levels
-- Prepares detailed execution orders
+The manager layer turns research into an actionable position plan:
 
-**Output:** Trade proposals with explicit rationale and reasoning
+- Evaluates opportunity and downside together
+- Determines position sizing based on conviction and risk
+- Sets entry, stop, and target assumptions
+- Writes the thesis in a human-readable format
+
+**Output:** A trade proposal with explicit reasoning.
 
 ### 3. Risk Auditor
-Independent verification layer that catches issues:
-- Checks portfolio concentration (too much in one stock/sector?)
-- Validates position sizing (are we risking too much?)
-- Monitors volatility limits (is the market too stressed?)
-- Ensures compliance with fund rules and regulatory requirements
-- Verifies circuit breakers are engaged if needed
+This layer independently catches issues before execution:
 
-**Output:** Approval or REJECTION (no override)
+- Checks portfolio concentration
+- Validates position sizing
+- Monitors volatility and stress conditions
+- Verifies policy and compliance constraints
+- Ensures circuit breakers are engaged when needed
+
+**Output:** Approval or rejection with a documented reason.
 
 ### 4. Compliance Officer
-Maintains regulatory requirements and audit trail:
-- Monitors regulatory changes and compliance requirements
-- Maintains immutable audit log of every decision
-- Generates compliance reports
-- Ensures all trades follow fund policies
+The memory and policy layer maintains auditability:
 
-**Output:** Compliance verification and audit records
+- Tracks policy requirements and changes
+- Logs every decision and override
+- Preserves the reasoning chain for later review
+- Supports reporting and investor visibility
+
+**Output:** A persistent record of how and why the trade happened.
 
 ## Why This Works
 
-Multiple independent agents reduce systemic risk. If the Trading Director makes a questionable call, the Risk Auditor catches it. No single agent can make a trade that violates risk constraints.
+Multiple independent agents reduce systemic risk. If the trading director makes a questionable call, the risk auditor is designed to catch it. No single agent can push a trade through on its own.
 
 ## Key Principles
 
-**No Single Point of Failure** - One agent can't override others
-**Explicit Reasoning** - Every decision must be justified
-**Independent Verification** - Risk Auditor works independently
-**Complete Auditability** - Every step is recorded
-**Human Control** - You can pause or reject any trade
-
-This architecture ensures that intelligence and safety work together, not against each other.`
+- **No single point of failure**
+- **Explicit reasoning instead of black-box output**
+- **Independent verification before execution**
+- **Complete auditability after the fact**
+- **Human control at every critical point**`,
   },
   "paper-trading-explained": {
     slug: "paper-trading-explained",
     title: "Why We Start with Paper Trading",
-    description: "The safety-first approach - learn and validate strategies with fake money before risking capital.",
+    description:
+      "The safety-first approach: learn and validate strategies with simulated capital before risking live money.",
     date: "2026-04-08",
     tags: ["Best Practices", "Safety", "Paper Trading"],
     featured: false,
@@ -139,15 +142,15 @@ This architecture ensures that intelligence and safety work together, not agains
     author: "Vektor Team",
     content: `# Why We Start with Paper Trading
 
-All trades in Vektor start in paper mode. This isn't optional—it's our default. Here's why.
+All trades in Vektor start in paper mode. That is the default, not an optional training wheel.
 
 ## The Paper Trading Philosophy
 
-Paper (simulated) trading lets you validate that Vektor works the way you expect before any real capital is at risk. You can:
+Paper trading lets you validate that Vektor behaves the way you expect before any real capital is at risk. You can:
 
 - Watch how Vektor makes decisions
 - Understand the reasoning behind each trade
-- See performance in real market conditions
+- See performance in live market conditions
 - Learn the system without financial risk
 - Adjust parameters before going live
 
@@ -155,47 +158,48 @@ Paper (simulated) trading lets you validate that Vektor works the way you expect
 
 ### For You
 
-- **Learn the system** without risk
-- **Validate** that the strategy matches your goals
+- **Learn the system** without risking capital
+- **Validate** that the strategy fits your goals
 - **Understand** why each trade was made
-- **Build confidence** before committing capital
-- **Test parameters** before live trading
+- **Build confidence** before enabling live trading
+- **Test parameters** while the stakes stay low
 
 ### For Us
 
-- **Prove** the strategy works before taking capital
-- **Identify** edge cases and failure modes
-- **Tune parameters** without consequences
-- **Build trust** through transparency
-- **Catch bugs** before they cost money
+- **Prove** the strategy before taking risk
+- **Identify** edge cases and workflow failures
+- **Tune parameters** without real-money consequences
+- **Build trust** through transparent behavior
+- **Catch bugs** before they cost anything
 
 ## The Workflow
 
 1. **Configure your strategy** in the admin console
 2. **Vektor begins trading** in paper mode with simulated capital
-3. **Watch trades execute** with realistic market data
-4. **Review decision explanations** after each trade
-5. **When satisfied**, explicitly enable live trading
-6. **First real trade** executes only after your confirmation
+3. **Watch trades execute** against live market inputs
+4. **Review explanations** after each decision
+5. **Enable live trading** only when you are satisfied
+6. **Deploy real capital** with full knowledge of how the system behaves
 
 ## Transitioning to Live Trading
 
 You control when the system goes live. We recommend:
 
-- **Watch paper mode for at least 30 days** - See how the strategy performs over time
-- **Understand at least 10 trades** - Review the reasoning behind decisions
-- **Review the audit log thoroughly** - Check that every decision makes sense
-- **Start with small live position size** - Maybe 10-20% of intended size
-- **Gradually increase over time** - Scale up as you gain confidence
+- **Watching paper mode for at least 30 days**
+- **Reviewing at least 10 decisions** in detail
+- **Checking the audit log thoroughly**
+- **Starting with smaller live size** than your full target allocation
+- **Scaling up gradually** as confidence increases
 
 ## The Bottom Line
 
-Paper trading isn't a training wheels phase—it's the foundation of informed investment.`
+Paper trading is not a temporary phase. It is the foundation of informed investing.`,
   },
   "risk-management-deep-dive": {
     slug: "risk-management-deep-dive",
     title: "Risk Management: Our Multi-Layer Approach",
-    description: "How Vektor protects your capital through automated and manual risk controls at every layer.",
+    description:
+      "How Vektor protects capital through automated limits, independent review, and manual controls at every layer.",
     date: "2026-04-01",
     tags: ["Technical", "Risk Management", "Safety"],
     featured: false,
@@ -203,74 +207,72 @@ Paper trading isn't a training wheels phase—it's the foundation of informed in
     author: "Vektor Team",
     content: `# Risk Management: Our Multi-Layer Approach
 
-Risk management isn't an afterthought in Vektor—it's built into every layer. We implement multiple independent checks so no single decision can put your capital at risk.
+Risk management is not an afterthought in Vektor. It is built into every layer so no single decision can put capital at risk on its own.
 
 ## Four Layers of Risk Control
 
 ### Layer 1: Proposal Constraints
-Before the Trading Director can even propose a trade, hard limits are enforced:
+Before the trading director can even propose a trade, hard limits are enforced:
 
-- **Position size limits** - Can't risk more than X% of portfolio per trade
-- **Stock concentration limits** - Can't hold more than Y% in any single stock
-- **Sector allocation limits** - Can't overweight any sector beyond Z%
-- **Leverage caps** - Maximum leverage ratio (typically 1.5x or less)
-- **Daily trading limits** - Maximum number of trades per day
+- **Position size limits** to cap per-trade risk
+- **Stock concentration limits** to avoid single-name overexposure
+- **Sector allocation limits** to keep the book balanced
+- **Leverage caps** to prevent excessive exposure
+- **Daily trading limits** to control operational tempo
 
-These are hard stops—the system literally cannot propose a trade that violates them.
+These are hard stops. The system literally cannot propose a trade that violates them.
 
 ### Layer 2: Risk Auditor Gate
 Every trade must pass independent verification before execution:
 
-**Volatility Assessment**
+**Volatility assessment**
 - Is the market in a stressed state?
-- Reject if VIX > threshold or unusual price movements
+- Should the trade be rejected because conditions are unstable?
 
-**Correlation Analysis**  
-- Will this add concentration risk?
-- Check that positions don't move together
+**Correlation analysis**
+- Will this position add concentration risk?
+- Does it overlap too heavily with existing exposures?
 
-**Stress Testing**
-- Model worst-case scenarios
-- "What if the market drops 10% tomorrow?"
-- Ensure portfolio survives stress
+**Stress testing**
+- What happens if the market drops sharply tomorrow?
+- Does the portfolio remain survivable under pressure?
 
-**Regulatory Compliance**
-- Does trade violate fund policies?
-- Are we meeting regulatory requirements?
-- Check against all known compliance rules
+**Regulatory compliance**
+- Does the trade violate fund policies?
+- Are all known compliance rules being respected?
 
-If ANY check fails → **REJECTED** (no override possible)
+If any check fails -> **REJECTED**.
 
 ### Layer 3: Circuit Breakers
 Automatic trading halts trigger if:
 
-- Portfolio down more than 5% in one day
-- Volatility spikes beyond historical norms
-- Liquidity dries up in key markets (bid-ask spreads widen)
-- Unusual market conditions detected
-- Regulatory violations detected
+- Portfolio drawdown breaches daily tolerance
+- Volatility spikes beyond expected norms
+- Liquidity dries up in key markets
+- Unusual market conditions are detected
+- Regulatory violations appear in the workflow
 
 ### Layer 4: Manual Intervention
 You maintain final control:
 
-- **Pause all trading** - Stop everything immediately
-- **Reject specific trades** - Don't like a particular decision? Block it.
-- **Adjust risk parameters** - Tighten or loosen limits on the fly
-- **Enable/disable live mode** - Switch between paper and live instantly
+- **Pause all trading** immediately
+- **Reject specific trades** you do not like
+- **Adjust risk parameters** on the fly
+- **Enable or disable live mode** whenever needed
 
 ## Three Principles
 
-**1. Layered Defense**  
-No single point of failure. Multiple independent systems catch issues.
+**Layered defense**
+Multiple independent systems catch issues before they compound.
 
-**2. Automatic Response**  
-Circuits breakers and constraints act without human delay.
+**Automatic response**
+Circuit breakers and constraints act without waiting for human reaction time.
 
-**3. Manual Override**  
-You always have the final say. Even the best system needs human judgment sometimes.
+**Manual override**
+Even the best system benefits from human judgment when the environment changes.
 
 ## The Bottom Line
 
-Vektor's risk management is paranoid by design. We assume things can go wrong and build safeguards at every level. Your capital is protected not by luck, but by architecture.`
-  }
+Vektor's risk management is intentionally paranoid. Capital is protected by architecture, not by hope.`,
+  },
 };

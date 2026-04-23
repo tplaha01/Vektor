@@ -14,6 +14,7 @@ import ConnectionIndicator from '../components/common/ConnectionIndicator';
 import ToastContainer from '../components/common/Toast';
 import ResearchGrid from '../components/research/ResearchGrid';
 import ResearchDetail from '../components/research/ResearchDetail';
+import WorkspaceNav from '../components/common/WorkspaceNav';
 
 const TICKER_LABELS = {
   AAPL: 'Apple Inc.',
@@ -181,6 +182,12 @@ const Research = () => {
     <>
       <ToastContainer />
       <div className="research-container">
+        <WorkspaceNav
+          eyebrow="Vektor Research"
+          title="Research Hub"
+          summary="Composite papers, discovery notes, and institutional signal briefs from the live fund research stack."
+          meta={<ConnectionIndicator status={connectionStatus} lastUpdate={lastUpdate} />}
+        />
         <header className="research-header" role="banner">
           <div className="header-left">
             {view === 'detail' && (

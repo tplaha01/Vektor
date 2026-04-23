@@ -15,8 +15,8 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
   title: {
-    default: "Vektor - Blog",
-    template: `%s - Vektor - Blog`,
+    default: siteConfig.name,
+    template: `%s | ${siteConfig.name}`,
   },
   description: siteConfig.description,
   keywords: metadataKeywords,

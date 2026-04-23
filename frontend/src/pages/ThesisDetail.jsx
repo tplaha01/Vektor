@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, TrendingUp, Users, BarChart3, Calendar } from 'lucide-react';
 import '../styles/thesis.css';
 import { adminAPI } from '../api/adminAPI';
+import WorkspaceNav from '../components/common/WorkspaceNav';
 
 const ThesisDetail = () => {
   const { thesisId } = useParams();
@@ -63,6 +64,12 @@ const ThesisDetail = () => {
   if (loading) {
     return (
       <div className="thesis-container">
+        <WorkspaceNav
+          compact
+          eyebrow="Vektor Thesis"
+          title="Run Thesis Context"
+          summary="Investment logic, risks, and supporting context for a single runtime thesis."
+        />
         <div className="thesis-loading">Loading thesis...</div>
       </div>
     );
@@ -71,6 +78,12 @@ const ThesisDetail = () => {
   if (error) {
     return (
       <div className="thesis-container">
+        <WorkspaceNav
+          compact
+          eyebrow="Vektor Thesis"
+          title="Run Thesis Context"
+          summary="Investment logic, risks, and supporting context for a single runtime thesis."
+        />
         <div className="thesis-loading">Unable to load thesis context: {error}</div>
       </div>
     );
@@ -79,6 +92,12 @@ const ThesisDetail = () => {
   if (!thesisData) {
     return (
       <div className="thesis-container">
+        <WorkspaceNav
+          compact
+          eyebrow="Vektor Thesis"
+          title="Run Thesis Context"
+          summary="Investment logic, risks, and supporting context for a single runtime thesis."
+        />
         <div className="thesis-loading">No thesis context available for this run.</div>
       </div>
     );
@@ -86,6 +105,12 @@ const ThesisDetail = () => {
 
   return (
     <div className="thesis-container">
+        <WorkspaceNav
+          compact
+          eyebrow="Vektor Thesis"
+          title="Run Thesis Context"
+          summary="Investment logic, risks, and supporting context for a single runtime thesis."
+        />
       <button className="thesis-back-btn" onClick={() => navigate(-1)}>
         <ArrowLeft size={20} />
         Back

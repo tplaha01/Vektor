@@ -27,6 +27,7 @@ interface BlogData {
   author?: string;
   authorImage?: string;
   thumbnail?: string;
+  filterLabel?: string;
 }
 
 interface BlogPage {
@@ -39,20 +40,14 @@ interface ReadMoreSectionProps {
   currentTags?: string[];
 }
 
-export function ReadMoreSection({
-  currentSlug,
-  currentTags = [],
-}: ReadMoreSectionProps) {
+export function ReadMoreSection({ currentSlug, currentTags = [] }: ReadMoreSectionProps) {
   const allPages = blogSource.getPages() as BlogPage[];
-
   const currentUrl = `/blog/${currentSlug.join("/")}`;
 
   const otherPosts = allPages
     .filter((page) => page.url !== currentUrl)
     .map((page) => {
-      const tagOverlap = currentTags.filter((tag) =>
-        page.data.tags?.includes(tag)
-      ).length;
+      const tagOverlap = currentTags.filter((tag) => page.data.tags?.includes(tag)).length;
 
       return {
         ...page,
@@ -73,46 +68,46 @@ export function ReadMoreSection({
   }
 
   return (
-    <section className="border-t border-border p-0">
-      <div className="p-6 lg:p-10">
-        <h2 className="text-2xl font-medium mb-8">Read more</h2>
+    <section className="border-t border-border/70 px-6 py-10 lg:px-10">
+      <div className="flex flex-col gap-2">
+        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">Read more</p>
+        <h2 className="text-2xl font-semibold tracking-[-0.05em]">Continue through the archive</h2>
+      </div>
 
-        <div className="flex flex-col gap-8">
-          {otherPosts.map((post) => {
-            const formattedDate = formatDate(post.date);
+      <div className="mt-8 grid gap-5 lg:grid-cols-3">
+        {otherPosts.map((post) => {
+          const formattedDate = formatDate(post.date);
 
-            return (
-              <Link
-                key={post.url}
-                href={post.url}
-                className="group grid grid-cols-1 lg:grid-cols-12 items-center gap-4 cursor-pointer"
-              >
-                {post.data.thumbnail && (
-                  <div className="flex-shrink-0 col-span-1 lg:col-span-4">
-                    <div className="relative w-full h-full">
-                      <img
-                        src={post.data.thumbnail}
-                        alt={post.data.title}
-                        className="w-full h-full object-cover rounded-lg group-hover:opacity-80 transition-opacity"
-                      />
-                    </div>
-                  </div>
-                )}
-                <div className="space-y-2 flex-1 col-span-1 lg:col-span-8">
-                  <h3 className="text-lg group-hover:underline underline-offset-4 font-semibold text-card-foreground group-hover:text-primary transition-colors line-clamp-2">
-                    {post.data.title}
-                  </h3>
-                  <p className="text-muted-foreground text-sm line-clamp-3 group-hover:underline underline-offset-4">
-                    {post.data.description}
-                  </p>
-                  <time className="block text-xs font-medium text-muted-foreground">
-                    {formattedDate}
-                  </time>
+          return (
+            <Link
+              key={post.url}
+              href={post.url}
+              className="group flex h-full flex-col overflow-hidden rounded-[26px] border border-border bg-card/55 transition-all duration-300 hover:-translate-y-1 hover:border-primary/35 hover:bg-card/80"
+            >
+              {post.data.thumbnail ? (
+                <div className="relative h-44 overflow-hidden border-b border-border/80">
+                  <img
+                    src={post.data.thumbnail}
+                    alt={post.data.title}
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                  />
                 </div>
-              </Link>
-            );
-          })}
-        </div>
+              ) : null}
+              <div className="flex flex-1 flex-col gap-3 p-5">
+                {post.data.filterLabel ? (
+                  <span className="inline-flex w-fit rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+                    {post.data.filterLabel}
+                  </span>
+                ) : null}
+                <h3 className="text-xl font-semibold tracking-[-0.04em] text-balance transition-colors group-hover:text-primary">
+                  {post.data.title}
+                </h3>
+                <p className="text-sm leading-6 text-muted-foreground">{post.data.description}</p>
+                <time className="mt-auto text-sm text-muted-foreground">{formattedDate}</time>
+              </div>
+            </Link>
+          );
+        })}
       </div>
     </section>
   );

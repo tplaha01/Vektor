@@ -1,17 +1,92 @@
-﻿"use client";
+"use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import ThemeSwitcher from "../ThemeSwitcher";
+import { SiteFooter, SiteHeader } from "../../components/site-chrome";
 
 const productUrl = process.env.NEXT_PUBLIC_PRODUCT_APP_URL || "http://localhost:9000";
 
-export default function HowItWorksPage() {
-  const [mounted, setMounted] = useState(false);
+const workflow = [
+  {
+    step: "01",
+    title: "Ingest and rank market evidence",
+    description:
+      "News flow, fundamentals, macro releases, and technical state enter the system as structured context. Research is stored with sources so later review is possible.",
+    bullets: [
+      "Real-time market and macro feeds",
+      "Fundamental updates and earnings context",
+      "Signal ranking before trade construction begins",
+    ],
+  },
+  {
+    step: "02",
+    title: "Build a trade thesis",
+    description:
+      "The fund manager agent converts raw evidence into a position proposal with direction, sizing, confidence, and exit assumptions.",
+    bullets: [
+      "Clear thesis with time horizon and sizing",
+      "Named catalysts and expected failure modes",
+      "Readable rationale instead of opaque output",
+    ],
+  },
+  {
+    step: "03",
+    title: "Challenge the idea with risk",
+    description:
+      "A separate risk layer checks volatility, correlation, liquidity, portfolio concentration, and policy constraints before the trade can move ahead.",
+    bullets: [
+      "Independent risk opinion before execution",
+      "Circuit breakers for stressed conditions",
+      "Hard stops on concentration and exposure",
+    ],
+  },
+  {
+    step: "04",
+    title: "Execute in paper mode first",
+    description:
+      "Strategies prove themselves in simulation while operators review the logic, fills, and controls. Live trading stays an explicit unlock, not the default state.",
+    bullets: [
+      "Simulated fills for workflow validation",
+      "Operator review before live capital is enabled",
+      "Continuous monitoring in the admin surface",
+    ],
+  },
+  {
+    step: "05",
+    title: "Keep the memory layer intact",
+    description:
+      "Every decision is stored with supporting context so you can inspect the full history of a position after it is opened, closed, or overridden.",
+    bullets: [
+      "Decision lineage tied to each trade",
+      "Reviewable overrides and operator actions",
+      "Audit-friendly history for post-trade analysis",
+    ],
+  },
+];
 
+const guarantees = [
+  {
+    title: "Paper-first rollout",
+    description: "The system begins in simulation so operators can learn the workflow, validate assumptions, and inspect controls before any live capital is at risk.",
+  },
+  {
+    title: "Readable decisions",
+    description: "Each proposal includes why the trade exists, what data supported it, and what conditions would invalidate it.",
+  },
+  {
+    title: "Manual control",
+    description: "Humans can pause, review, reject, or tighten constraints whenever the environment no longer matches the system's assumptions.",
+  },
+  {
+    title: "Persistent memory",
+    description: "Research, approvals, trade events, and overrides remain queryable so performance review is grounded in evidence.",
+  },
+];
+
+export default function HowItWorksPage() {
   useEffect(() => {
-    document.title = "Vektor - How It Works";
-    setMounted(true);
+    document.title = "How It Works | Vektor";
+
     const nodes = Array.from(document.querySelectorAll(".cinematic-fade"));
     const observer = new IntersectionObserver(
       (entries) => {
@@ -21,192 +96,125 @@ export default function HowItWorksPage() {
           }
         });
       },
-      { threshold: 0.1, rootMargin: "0px 0px -50px 0px" }
+      { threshold: 0.12, rootMargin: "0px 0px -40px 0px" }
     );
+
     nodes.forEach((node) => observer.observe(node));
     return () => observer.disconnect();
   }, []);
 
   return (
     <>
-      <header className="topbar">
-        <div className="container topbar-inner">
-          <a href="/" className="brand" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <img src="/VektorLogo.png?v=20260422b" alt="Vektor Logo" style={{ height: "48px", width: "auto", objectFit: "contain" }} />
-            <span>Vektor <em>Fund OS</em></span>
-          </a>
-          <nav className="hero-actions" style={{ alignItems: 'center' }}>
-            <Link className="btn ghost" href="/">Back to Home</Link>
-            <a className="btn primary" href={`${productUrl}/admin`}>Admin Console</a>
-            <div style={{ width: '1px', height: '24px', background: 'var(--line)', margin: '0 8px' }} />
-            <ThemeSwitcher />
-          </nav>
-        </div>
-      </header>
+      <SiteHeader active="how" />
 
-      <main className="container overflow-hidden" style={{ padding: '120px 24px' }}>
-        <div className="cinematic-fade">
-          <h1 style={{ fontSize: 'clamp(40px, 7vw, 64px)', marginBottom: '24px', letterSpacing: '-0.03em' }}>How Vektor Works</h1>
-          <p style={{ color: 'var(--muted)', fontSize: 'clamp(18px, 2.5vw, 22px)', maxWidth: '800px', marginBottom: '80px', lineHeight: '1.6' }}>
-            Vektor is an AI-native hedge fund operating system. We orchestrate multiple specialized agents, enforce strict safety constraints, and log every decision for complete transparency. No black boxes. No hidden logic. Every trade is explainable.
+      <main className="page-shell overflow-hidden">
+        <section className="container page-masthead cinematic-fade">
+          <p className="page-kicker">System walkthrough</p>
+          <h1>How Vektor turns research into governed execution.</h1>
+          <p>
+            The platform is designed to show its work. Research enters first, the manager frames a
+            trade, risk challenges the idea, and paper-mode execution proves the workflow before real
+            capital gets involved.
           </p>
-        </div>
+          <div className="hero-actions" style={{ marginTop: "28px" }}>
+            <a className="btn primary" href={`${productUrl}/admin`}>
+              Open admin console
+            </a>
+            <a className="btn ghost" href={productUrl}>
+              Watch live PnL
+            </a>
+            <Link className="btn ghost" href="/blog">
+              Read research notes
+            </Link>
+          </div>
+        </section>
 
-        <div className="dark-card cinematic-fade" style={{ marginBottom: '60px' }}>
-          <h2 style={{ fontSize: '32px', marginBottom: '24px', color: 'var(--text)' }}>1. Data Ingestion & Analysis</h2>
-          <p style={{ color: 'var(--muted)', marginBottom: '20px', lineHeight: '1.8' }}>
-            Vektor continuously reads market data from multiple sources: news feeds, financial statements, technical indicators, and macro events. Our Research Agent processes thousands of data points to identify patterns humans might miss.
-          </p>
-          <ul style={{ color: 'var(--muted)', paddingLeft: '24px', marginBottom: '0' }}>
-            <li style={{ marginBottom: '12px' }}>ðŸ“° News Analysis: Real-time financial news with sentiment scoring</li>
-            <li style={{ marginBottom: '12px' }}>ðŸ“Š Technical Signals: Price action, volume, momentum indicators</li>
-            <li style={{ marginBottom: '12px' }}>ðŸ’¹ Macro Data: Interest rates, GDP, employment, inflation</li>
-            <li style={{ marginBottom: '12px' }}>ðŸ“ˆ Company Fundamentals: Earnings, growth rates, valuations</li>
-          </ul>
-        </div>
+        <section className="section cinematic-fade">
+          <div className="container">
+            <div className="section-head">
+              <p className="section-kicker">Workflow</p>
+              <h2 className="section-title">Five stages keep speed from outrunning controls.</h2>
+            </div>
+            <div className="process-grid">
+              {workflow.map((item) => (
+                <article key={item.step} className="dark-card" style={{ gridColumn: "span 12" }}>
+                  <div className="meta-strip">
+                    <span className="tag">Step {item.step}</span>
+                  </div>
+                  <h2 style={{ marginTop: "16px" }}>{item.title}</h2>
+                  <p style={{ marginTop: "14px" }}>{item.description}</p>
+                  <ul className="detail-list" style={{ marginTop: "18px" }}>
+                    {item.bullets.map((bullet) => (
+                      <li key={bullet}>{bullet}</li>
+                    ))}
+                  </ul>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
 
-        <div className="dark-card cinematic-fade" style={{ marginBottom: '60px' }}>
-          <h2 style={{ fontSize: '32px', marginBottom: '24px', color: 'var(--text)' }}>2. Decision Making (The Fund Manager Agent)</h2>
-          <p style={{ color: 'var(--muted)', marginBottom: '20px', lineHeight: '1.8' }}>
-            The Fund Manager synthesizes all research into a clear trading thesis. It proposes specific trades with explicit reasoning: why BUY Apple, or why SELL Tesla. Every decision is tied to evidence and sources.
-          </p>
-          <pre style={{ background: '#070a0f', padding: '20px', borderRadius: '8px', border: '1px solid var(--line)', overflowX: 'auto', marginBottom: '20px' }}>
-            <code style={{ color: 'var(--accent)', fontSize: '13px' }}>
-{`DECISION PROPOSAL:
+        <section className="section cinematic-fade">
+          <div className="container two-up">
+            <article className="article-shell">
+              <div className="article-header">
+                <p className="section-kicker">Example decision frame</p>
+                <h2 className="section-title">A proposal is expected to read like an investment memo.</h2>
+              </div>
+              <div className="article-content">
+                <pre>
+                  <code>{`Trade proposal
 Symbol: AAPL
-Action: BUY 500 shares
-Price Target: $185
-Rationale: Q2 earnings beat expectations (+12% revenue), 
-strong iPhone demand signals, services growing 20% YoY.
-Sources: SEC filing, analyst reports, earnings call.
-Confidence: 82%
-Risk Level: MODERATE`}
-            </code>
-          </pre>
-        </div>
+Action: Buy
+Thesis: Earnings strength and improving services mix support upside.
+Sizing: 2.5% starter allocation
+Risk gate: Pass only if concentration and volatility remain inside limits.
+Execution mode: Paper until operator approval for live deployment.`}</code>
+                </pre>
+              </div>
+            </article>
 
-        <div className="dark-card cinematic-fade" style={{ marginBottom: '60px' }}>
-          <h2 style={{ fontSize: '32px', marginBottom: '24px', color: 'var(--text)' }}>3. Risk Assessment (The Auditor)</h2>
-          <p style={{ color: 'var(--muted)', marginBottom: '20px', lineHeight: '1.8' }}>
-            Before any trade executes, our Risk Auditor runs independent checks. This is a separate agent with its own logicâ€”it doesn't blindly follow the Fund Manager. It validates:
-          </p>
-          <ul style={{ color: 'var(--muted)', paddingLeft: '24px', marginBottom: '20px' }}>
-            <li style={{ marginBottom: '12px' }}>âœ“ Position sizing: Are we risking too much?</li>
-            <li style={{ marginBottom: '12px' }}>âœ“ Portfolio concentration: Too much in one sector?</li>
-            <li style={{ marginBottom: '12px' }}>âœ“ Volatility limits: Is this trade too risky right now?</li>
-            <li style={{ marginBottom: '12px' }}>âœ“ Regulatory compliance: Does this violate fund rules?</li>
-            <li style={{ marginBottom: '12px' }}>âœ“ Circuit breakers: Is the market in a stressed state?</li>
-          </ul>
-          <p style={{ color: 'var(--muted)', lineHeight: '1.8' }}>
-            If ANY check fails, the trade is REJECTED. No exceptions. No override without manual approval.
-          </p>
-        </div>
+            <article className="article-shell">
+              <div className="article-header">
+                <p className="section-kicker">Memory layer</p>
+                <h2 className="section-title">Every trade keeps its receipts.</h2>
+              </div>
+              <div className="article-content">
+                <pre>
+                  <code>{`Event log
+14:32:01 Research agent flagged earnings momentum
+14:32:15 Fund manager proposed long thesis
+14:32:20 Risk auditor approved paper-mode execution
+14:32:21 Execution engine routed simulated order
+14:45:00 Operator reviewed rationale in admin console`}</code>
+                </pre>
+              </div>
+            </article>
+          </div>
+        </section>
 
-        <div className="dark-card cinematic-fade" style={{ marginBottom: '60px' }}>
-          <h2 style={{ fontSize: '32px', marginBottom: '24px', color: 'var(--text)' }}>4. Paper Trading First (The Execution Layer)</h2>
-          <p style={{ color: 'var(--muted)', marginBottom: '20px', lineHeight: '1.8' }}>
-            All trades start in PAPER MODEâ€”simulated execution with fake money. This lets us validate our strategies without real capital at risk. You can:
-          </p>
-          <ul style={{ color: 'var(--muted)', paddingLeft: '24px', marginBottom: '20px' }}>
-            <li style={{ marginBottom: '12px' }}>ðŸ“Š Watch performance over time</li>
-            <li style={{ marginBottom: '12px' }}>ðŸ” Review decision logic in the admin console</li>
-            <li style={{ marginBottom: '12px' }}>â¸ï¸ Pause or override any trade</li>
-            <li style={{ marginBottom: '12px' }}>ðŸŽ“ Learn why each decision was made</li>
-          </ul>
-          <p style={{ color: 'var(--muted)', lineHeight: '1.8' }}>
-            Only after you're confident and have explicitly enabled live trading does real capital get deployed.
-          </p>
-        </div>
-
-        <div className="dark-card cinematic-fade" style={{ marginBottom: '60px' }}>
-          <h2 style={{ fontSize: '32px', marginBottom: '24px', color: 'var(--text)' }}>5. Complete Auditability (The Memory Layer)</h2>
-          <p style={{ color: 'var(--muted)', marginBottom: '20px', lineHeight: '1.8' }}>
-            Every decision is permanently recorded in our knowledge graph. You can query the entire history:
-          </p>
-          <pre style={{ background: '#070a0f', padding: '20px', borderRadius: '8px', border: '1px solid var(--line)', overflowX: 'auto', marginBottom: '20px' }}>
-            <code style={{ color: 'var(--accent)', fontSize: '13px' }}>
-{`EVENT LOG:
-2026-04-19 14:32:01 - Research Agent: Detected positive earnings
-2026-04-19 14:32:15 - Fund Manager: Proposed BUY signal
-2026-04-19 14:32:20 - Risk Auditor: Approved trade
-2026-04-19 14:32:21 - Execution Engine: Executed in paper mode
-2026-04-19 14:45:00 - User: Reviewed decision, clicked "I understand"
-2026-04-19 14:45:05 - System: Ready to execute in live mode`}
-            </code>
-          </pre>
-        </div>
-
-        <div className="dark-card cinematic-fade" style={{ marginBottom: '60px' }}>
-          <h2 style={{ fontSize: '32px', marginBottom: '24px', color: 'var(--text)' }}>Key Features</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', marginTop: '24px' }}>
-            <div style={{ padding: '20px', background: 'var(--surface)', borderRadius: '8px' }}>
-              <h3 style={{ margin: '0 0 12px', color: 'var(--text)', fontSize: '18px' }}>ðŸ” Cryptographic Signatures</h3>
-              <p style={{ margin: '0', color: 'var(--muted)', fontSize: '14px', lineHeight: '1.6' }}>Every event in the system is signed. No tampering possible. Complete audit trail.</p>
+        <section className="section cinematic-fade">
+          <div className="container">
+            <div className="section-head">
+              <p className="section-kicker">System guarantees</p>
+              <h2 className="section-title">The UI should reinforce discipline, not hide it.</h2>
             </div>
-            <div style={{ padding: '20px', background: 'var(--surface)', borderRadius: '8px' }}>
-              <h3 style={{ margin: '0 0 12px', color: 'var(--text)', fontSize: '18px' }}>ðŸ¤– Multi-Agent Orchestration</h3>
-              <p style={{ margin: '0', color: 'var(--muted)', fontSize: '14px', lineHeight: '1.6' }}>Independent agents with different objectives. No single point of failure.</p>
-            </div>
-            <div style={{ padding: '20px', background: 'var(--surface)', borderRadius: '8px' }}>
-              <h3 style={{ margin: '0 0 12px', color: 'var(--text)', fontSize: '18px' }}>ðŸ“ˆ Live Performance Tracking</h3>
-              <p style={{ margin: '0', color: 'var(--muted)', fontSize: '14px', lineHeight: '1.6' }}>Public PnL page shows exactly how well we're doing. No hidden metrics.</p>
-            </div>
-            <div style={{ padding: '20px', background: 'var(--surface)', borderRadius: '8px' }}>
-              <h3 style={{ margin: '0 0 12px', color: 'var(--text)', fontSize: '18px' }}>ðŸ›‘ Hard Safety Stops</h3>
-              <p style={{ margin: '0', color: 'var(--muted)', fontSize: '14px', lineHeight: '1.6' }}>Circuit breakers automatically pause trading during market stress.</p>
-            </div>
-            <div style={{ padding: '20px', background: 'var(--surface)', borderRadius: '8px' }}>
-              <h3 style={{ margin: '0 0 12px', color: 'var(--text)', fontSize: '18px' }}>ðŸ‘¤ Manual Override</h3>
-              <p style={{ margin: '0', color: 'var(--muted)', fontSize: '14px', lineHeight: '1.6' }}>You can pause, review, or reject any trade at any time.</p>
-            </div>
-            <div style={{ padding: '20px', background: 'var(--surface)', borderRadius: '8px' }}>
-              <h3 style={{ margin: '0 0 12px', color: 'var(--text)', fontSize: '18px' }}>ðŸ“š Explainable AI</h3>
-              <p style={{ margin: '0', color: 'var(--muted)', fontSize: '14px', lineHeight: '1.6' }}>Every decision linked to sources and reasoning. No black boxes.</p>
+            <div className="grid">
+              {guarantees.map((item) => (
+                <article key={item.title} className="dark-card">
+                  <h3>{item.title}</h3>
+                  <p>{item.description}</p>
+                </article>
+              ))}
             </div>
           </div>
-        </div>
-
-        <div className="dark-card cinematic-fade" style={{ marginBottom: '60px', background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.1) 0%, rgba(249, 115, 22, 0.1) 100%)' }}>
-          <h2 style={{ fontSize: '32px', marginBottom: '24px', color: 'var(--text)' }}>Getting Started</h2>
-          <ol style={{ color: 'var(--muted)', paddingLeft: '24px' }}>
-            <li style={{ marginBottom: '16px', lineHeight: '1.8' }}>
-              <strong style={{ color: 'var(--text)' }}>Launch Admin Console</strong> - Connect to your broker and set up your strategy
-            </li>
-            <li style={{ marginBottom: '16px', lineHeight: '1.8' }}>
-              <strong style={{ color: 'var(--text)' }}>Start in Paper Mode</strong> - Vektor trades with fake money first so you can learn
-            </li>
-            <li style={{ marginBottom: '16px', lineHeight: '1.8' }}>
-              <strong style={{ color: 'var(--text)' }}>Review Decisions</strong> - Check the admin console to see why each trade was made
-            </li>
-            <li style={{ marginBottom: '16px', lineHeight: '1.8' }}>
-              <strong style={{ color: 'var(--text)' }}>Enable Live Trading</strong> - When you're confident, unlock real capital deployment
-            </li>
-            <li style={{ marginBottom: '0', lineHeight: '1.8' }}>
-              <strong style={{ color: 'var(--text)' }}>Monitor Performance</strong> - Check public PnL page for live results
-            </li>
-          </ol>
-          <div style={{ marginTop: '32px', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-            <a className="btn primary" href={productUrl} style={{ padding: '12px 32px' }}>Open Admin Console</a>
-            <Link className="btn ghost" href="/" style={{ padding: '12px 32px' }}>Back to Home</Link>
-          </div>
-        </div>
-
+        </section>
       </main>
 
-      <footer className="footer">
-        <div className="container">
-           <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-              <span>Vektor Fund OS â€¢ Technical Documentation</span>
-              <div style={{display: 'flex', gap: '24px'}}>
-                 <Link href="/">Back to Home</Link>
-                 <Link href="/blog">Blog</Link>
-                 <a href={productUrl}>PnL</a>
-              </div>
-           </div>
-        </div>
-      </footer>
+      <SiteFooter
+        eyebrow="Vektor architecture"
+        description="Research, risk, and execution stay separated so the operator always has a clear control surface."
+      />
     </>
   );
 }
-
-

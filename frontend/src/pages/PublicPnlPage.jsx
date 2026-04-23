@@ -1,6 +1,7 @@
-﻿import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { adminAPI } from "../api/adminAPI";
 import { getAnalytics } from "../api";
+import WorkspaceNav from "../components/common/WorkspaceNav";
 
 function currency(value) {
   return Number(value || 0).toLocaleString(undefined, {
@@ -71,23 +72,20 @@ export default function PublicPnlPage() {
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg0)", color: "var(--txt)" }}>
-      <header style={{ borderBottom: "1px solid var(--line)", background: "var(--bg1)", position: "sticky", top: 0, zIndex: 2 }}>
-        <div style={{ maxWidth: 1320, margin: "0 auto", padding: "14px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <img src="/VektorLogo.png?v=20260422b" alt="Vektor Logo" style={{ height: "48px", width: "auto", objectFit: "contain" }} />
-            <div>
-              <div className="label" style={{ marginBottom: 4 }}>Vektor Public Board</div>
-              <h1 style={{ fontSize: 24 }}>Live Paper PnL</h1>
-            </div>
-          </div>
-          <div style={{ display: "grid", gap: 4, justifyItems: "end" }}>
-            <div className="label">Source: Alpaca paper portfolio</div>
-            <div style={{ color: "var(--txt2)", fontSize: 12 }}>Last refresh {lastUpdate.toLocaleTimeString()}</div>
-          </div>
-        </div>
-      </header>
-
       <main style={{ maxWidth: 1320, margin: "0 auto", padding: 20, display: "grid", gap: 16 }}>
+        <WorkspaceNav
+          eyebrow="Vektor Public Board"
+          title="Live Paper PnL"
+          summary="Public-facing portfolio posture sourced from the paper broker, scout runtime, and live signal packs."
+          meta={
+            <>
+              <div className="label">Source: Alpaca paper portfolio</div>
+              <div style={{ color: "var(--txt2)", fontSize: 12 }}>
+                Last refresh {lastUpdate.toLocaleTimeString()}
+              </div>
+            </>
+          }
+        />
         {error ? (
           <section className="panel panel-pad" style={{ borderColor: "rgba(224,82,82,0.4)", background: "rgba(224,82,82,0.08)" }}>
             Data feed warning: {error}
