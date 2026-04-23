@@ -6240,3 +6240,19 @@ files:
 - frontend/src/styles/admin.css
 validation: passed (frontend npm run build)
 notes: Added a process-board section to the admin Agents tab using existing worker, active-task, history, and swarm-context runtime data so the operator can see per-agent live command, symbol, run, latest event, retry window, and context summary without hopping across tabs.
+
+[2026-04-23T18:20:18Z] [END]
+entry_id: devlog-20260423-codex-risk-performance-panels
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-codex-20260423-risk-performance-panels
+git_branch: main
+git_commit_start: 40a497da3a6815efdbd04f49ed5b31e9441b0449
+git_commit_end: 
+scope: Alpha admin operator pass to deepen the Performance and Risk tabs with live CEO-layer contribution, allocation, and alert data
+files:
+- frontend/src/pages/Admin.jsx
+validation: passed (frontend npm run build)
+notes: Expanded Performance with asset-class contribution and allocation-usage views, and expanded Risk with live CEO risk alerts plus allocation-pressure rows using already-live backend payloads rather than binding to unavailable routes.

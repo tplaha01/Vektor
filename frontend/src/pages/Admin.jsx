@@ -1021,6 +1021,39 @@ const Admin = () => {
     [orderedPerformanceSnapshots]
   );
 
+  const performanceAreaRows = useMemo(
+    () =>
+      Array.isArray(portfolioBreakdown?.areas)
+        ? portfolioBreakdown.areas.map((row) => ({
+            assetClass: row.asset_class || 'unknown',
+            marketValue: safeNumber(row.market_value),
+            unrealizedPnl: safeNumber(row.unrealized_pnl),
+            count: Number(row.count || 0),
+            symbols: Array.isArray(row.symbols) ? row.symbols : [],
+          }))
+        : [],
+    [portfolioBreakdown]
+  );
+
+  const allocationPressureRows = useMemo(
+    () =>
+      Object.entries(ceoExposure?.allocation || {}).map(([assetClass, row]) => {
+        const allocated = safeNumber(row?.allocated_usd);
+        const used = safeNumber(row?.used_usd);
+        const usagePct = allocated > 0 ? (used / allocated) * 100 : 0;
+        return {
+          assetClass,
+          allocated,
+          used,
+          remaining: safeNumber(row?.remaining_usd),
+          liveExposure: safeNumber(row?.live_exposure_usd),
+          usagePct,
+          weightPct: safeNumber(row?.weight) * 100,
+        };
+      }).sort((a, b) => b.usagePct - a.usagePct),
+    [ceoExposure]
+  );
+
   const taskHistoryRows = useMemo(
     () =>
       [...taskHistory]
@@ -3695,11 +3728,11 @@ const Admin = () => {
                           </div>
                         </section>
 
-                        <div className="content-grid two-up-tight">
-                          <section className="content-section">
-                            <div className="section-header section-header-tight">
-                              <h3 className="section-subtitle">Benchmark baselines</h3>
-                            </div>
+                          <div className="content-grid two-up-tight">
+                            <section className="content-section">
+                              <div className="section-header section-header-tight">
+                                <h3 className="section-subtitle">Benchmark baselines</h3>
+                              </div>
                             <div className="theater-meta-grid">
                               {performanceBenchmarks.length ? performanceBenchmarks.map((benchmark) => (
                                 <div key={benchmark.symbol} className="theater-meta-card">
@@ -3737,15 +3770,61 @@ const Admin = () => {
                                 <span>Win rate</span>
                                 <strong>{percent(performanceLatest?.win_rate || 0)}</strong>
                                 <small>{performanceLatest?.total_trades || 0} total trades</small>
+                                </div>
                               </div>
-                            </div>
-                          </section>
-                        </div>
-
-                        <section className="content-section">
-                          <div className="section-header section-header-tight">
-                            <h2 className="section-title">Recent snapshots</h2>
+                            </section>
                           </div>
+
+                          <div className="content-grid two-up-tight">
+                            <section className="content-section">
+                              <div className="section-header section-header-tight">
+                                <h3 className="section-subtitle">Asset-class contribution</h3>
+                              </div>
+                              <div className="deliverable-list">
+                                {performanceAreaRows.length ? performanceAreaRows.map((row) => (
+                                  <article key={`perf-area-${row.assetClass}`} className="deliverable-card">
+                                    <div className="deliverable-head">
+                                      <div>
+                                        <strong>{row.assetClass}</strong>
+                                        <span>{row.count} positions</span>
+                                      </div>
+                                      <span className={`deliverable-pill ${row.unrealizedPnl >= 0 ? '' : 'subdued'}`}>
+                                        {currency(row.unrealizedPnl)}
+                                      </span>
+                                    </div>
+                                    <p>{currency(row.marketValue)} gross market value</p>
+                                    <div className="deliverable-meta-row">
+                                      {row.symbols.slice(0, 6).map((symbol) => (
+                                        <span key={`${row.assetClass}-${symbol}`} className="deliverable-pill subdued">{symbol}</span>
+                                      ))}
+                                    </div>
+                                  </article>
+                                )) : <div className="theater-empty">No asset-class contribution data available yet.</div>}
+                              </div>
+                            </section>
+
+                            <section className="content-section">
+                              <div className="section-header section-header-tight">
+                                <h3 className="section-subtitle">Allocation usage</h3>
+                              </div>
+                              <div className="deliverable-list compact">
+                                {allocationPressureRows.length ? allocationPressureRows.map((row) => (
+                                  <div key={`alloc-usage-${row.assetClass}`} className="deliverable-list-row">
+                                    <div>
+                                      <strong>{row.assetClass}</strong>
+                                      <span>{currency(row.used)} used of {currency(row.allocated)}</span>
+                                    </div>
+                                    <span>{percent(row.usagePct)} · {percent(row.weightPct)} target</span>
+                                  </div>
+                                )) : <div className="theater-empty">No allocation usage data available yet.</div>}
+                              </div>
+                            </section>
+                          </div>
+
+                          <section className="content-section">
+                            <div className="section-header section-header-tight">
+                              <h2 className="section-title">Recent snapshots</h2>
+                            </div>
                           {performanceRecentSnapshots.length ? (
                             <div className="performance-snapshot-table">
                               <div className="performance-snapshot-head">
@@ -3870,6 +3949,44 @@ const Admin = () => {
                           <h2 className="section-title">Risk Control</h2>
                           <RiskGauges metrics={metrics} expanded />
                         </section>
+                        <div className="content-grid two-up-tight">
+                          <section className="content-section">
+                            <div className="section-header section-header-tight">
+                              <h2 className="section-title">Live risk alerts</h2>
+                            </div>
+                            <div className="deliverable-list">
+                              {ceoRiskAlerts.length ? ceoRiskAlerts.map((alert, index) => (
+                                <article key={`risk-alert-${index}`} className="deliverable-card">
+                                  <div className="deliverable-head">
+                                    <div>
+                                      <strong>{String(alert.type || 'risk_alert').replace(/_/g, ' ')}</strong>
+                                      <span>{alert.severity || 'info'}</span>
+                                    </div>
+                                    <span className={`deliverable-pill ${badgeTone(alert.severity) === 'bad' ? 'subdued' : ''}`}>{alert.severity || 'info'}</span>
+                                  </div>
+                                  <p>{alert.message || 'No message provided.'}</p>
+                                </article>
+                              )) : <div className="theater-empty">No live risk alerts reported by the CEO layer.</div>}
+                            </div>
+                          </section>
+
+                          <section className="content-section">
+                            <div className="section-header section-header-tight">
+                              <h2 className="section-title">Allocation pressure</h2>
+                            </div>
+                            <div className="deliverable-list compact">
+                              {allocationPressureRows.length ? allocationPressureRows.map((row) => (
+                                <div key={`risk-alloc-${row.assetClass}`} className="deliverable-list-row">
+                                  <div>
+                                    <strong>{row.assetClass}</strong>
+                                    <span>{currency(row.liveExposure)} live exposure · {currency(row.remaining)} free</span>
+                                  </div>
+                                  <span>{percent(row.usagePct)} used</span>
+                                </div>
+                              )) : <div className="theater-empty">No allocation pressure data available.</div>}
+                            </div>
+                          </section>
+                        </div>
                         <section className="content-section">
                           <h2 className="section-title">Runtime Memory State</h2>
                           <div className="theater-meta-grid">
