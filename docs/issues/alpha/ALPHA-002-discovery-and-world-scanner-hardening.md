@@ -31,6 +31,7 @@ Make Vektor's discovery layer credible as a real source of trade candidates rath
 - [ ] Expose ranked candidate list and prune reasons in admin/OpenClaw
   - 2026-04-23: discovery statuses now persist as `selected`, `qualified`, `pruned_threshold`, `pruned_capacity`, and `no_trade`
   - 2026-04-23: admin ML scoring panel now shows selected/not-selected state, prune reason, and the latest cash-hold directive
+  - 2026-04-23: OpenClaw `discovery status` now reports status counts, selected symbols, pruned symbols, and the latest no-trade/cash-hold event
 - [ ] Verify wave scheduling reflects ranked priority and backlog state
 
 ## Acceptance Criteria

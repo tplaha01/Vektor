@@ -209,6 +209,7 @@ class _StubOrchestrator:
         self.task_history_calls = []
         self.blocked_calls = []
         self.budget_calls = []
+        self.discovery_calls = []
 
     def list_active_tasks(self):
         return [{"task_id": "task-active-1", "run_id": "run-a", "role": "technical_analyst", "status": "running"}]
@@ -232,6 +233,43 @@ class _StubOrchestrator:
 
     def knowledge_stats(self):
         return {"event_count": 42, "entity_count": 8}
+
+    def list_discovery_opportunities(self, *, limit: int = 100, run_id: str | None = None, status: str | None = None, asset_class: str | None = None):
+        self.discovery_calls.append({"limit": limit, "run_id": run_id, "status": status, "asset_class": asset_class})
+        rows = [
+            {
+                "opportunity_id": "opp-1",
+                "symbol": "NVDA",
+                "status": "selected",
+                "score": 0.81,
+                "confidence": 0.78,
+                "asset_class": "equities",
+                "metadata": {"discovery_reason": "queued_for_wave"},
+            },
+            {
+                "opportunity_id": "opp-2",
+                "symbol": "AAPL",
+                "status": "pruned_threshold",
+                "score": 0.44,
+                "confidence": 0.41,
+                "asset_class": "equities",
+                "metadata": {"discovery_reason": "score_below_threshold"},
+            },
+            {
+                "opportunity_id": "opp-3",
+                "symbol": "CASH",
+                "status": "no_trade",
+                "score": 0.0,
+                "confidence": 1.0,
+                "asset_class": "equities",
+                "metadata": {"discovery_reason": "thresholds_not_met"},
+            },
+        ]
+        if status:
+            rows = [row for row in rows if row["status"] == status]
+        if asset_class:
+            rows = [row for row in rows if row["asset_class"] == asset_class]
+        return rows[:limit]
 
 
 def test_openclaw_command_adapter_rejects_unauthorized():
@@ -872,6 +910,81 @@ def test_openclaw_command_adapter_cancels_run_and_pack(monkeypatch):
     assert runtime.cancel_pack_calls[0]["reason"].startswith("openclaw:")
     assert knowledge_events[-2]["event_type"] == "runtime.control.cancel_run"
     assert knowledge_events[-1]["event_type"] == "runtime.control.cancel_signal_pack"
+
+
+def test_openclaw_command_adapter_reports_discovery_summary(monkeypatch):
+    runtime = _StubRuntime()
+    orchestrator = _StubOrchestrator()
+    knowledge_events = _stub_knowledge_graph(monkeypatch)
+    adapter = OpenClawCommandAdapter(
+        runtime=runtime,
+        orchestrator=orchestrator,
+        token="adapter-secret",
+        enabled=True,
+        channel_allowlist=["general"],
+        sender_allowlist=["ceo"],
+        fund_manager_mode=True,
+        log=AuditLog(),
+    )
+    monkeypatch.setattr(openclaw_adapter_module.data_integrity_guard, "halted", lambda: False)
+    monkeypatch.setattr(openclaw_adapter_module.data_integrity_guard, "halt_reason", lambda: None)
+
+    result = adapter.route_message(
+        {
+            "platform": "discord",
+            "channel_name": "general",
+            "sender_name": "ceo",
+            "text": "discovery status limit:10",
+            "run_id": "run-ocmd-discovery-1",
+        },
+        token="adapter-secret",
+    )
+
+    assert result["accepted"] is True
+    route_result = result["route_result"]
+    assert route_result["action"] == "discovery_status"
+    assert route_result["status_counts"]["selected"] == 1
+    assert route_result["status_counts"]["no_trade"] == 1
+    assert route_result["selected_symbols"] == ["NVDA"]
+    assert route_result["pruned_symbols"] == ["AAPL"]
+    assert route_result["latest_no_trade"]["symbol"] == "CASH"
+    assert orchestrator.discovery_calls[0]["limit"] == 10
+    assert knowledge_events[-1]["event_type"] == "runtime.control.discovery_status"
+
+
+def test_openclaw_command_adapter_reports_filtered_discovery_status(monkeypatch):
+    runtime = _StubRuntime()
+    orchestrator = _StubOrchestrator()
+    adapter = OpenClawCommandAdapter(
+        runtime=runtime,
+        orchestrator=orchestrator,
+        token="adapter-secret",
+        enabled=True,
+        channel_allowlist=["general"],
+        sender_allowlist=["ceo"],
+        fund_manager_mode=True,
+        log=AuditLog(),
+    )
+    monkeypatch.setattr(openclaw_adapter_module.data_integrity_guard, "halted", lambda: False)
+    monkeypatch.setattr(openclaw_adapter_module.data_integrity_guard, "halt_reason", lambda: None)
+
+    result = adapter.route_message(
+        {
+            "platform": "discord",
+            "channel_name": "general",
+            "sender_name": "ceo",
+            "text": "discovery status status:selected asset_class:equities",
+        },
+        token="adapter-secret",
+    )
+
+    assert result["accepted"] is True
+    route_result = result["route_result"]
+    assert route_result["status_filter"] == "selected"
+    assert route_result["count"] == 1
+    assert route_result["selected_symbols"] == ["NVDA"]
+    assert orchestrator.discovery_calls[0]["status"] == "selected"
+    assert orchestrator.discovery_calls[0]["asset_class"] == "equities"
 
 
 def test_openclaw_command_adapter_reports_position_brief(monkeypatch):

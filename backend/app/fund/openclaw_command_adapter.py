@@ -236,6 +236,9 @@ def _parse_control_command(command: str) -> dict[str, Any] | None:
     discovery_patterns = (
         "discovery status",
         "scanner status",
+        "pruned candidates",
+        "selected candidates",
+        "cash hold status",
         "world scanner",
         "opportunity pipeline",
         "/fund discovery status",
@@ -491,6 +494,7 @@ def _parse_control_command(command: str) -> dict[str, Any] | None:
             "action": "discovery_status",
             "run_id": _parse_text_param("run_id") or _parse_text_param("run"),
             "asset_class": _parse_text_param("asset_class"),
+            "status": _parse_text_param("status"),
             "limit": _parse_int_param("limit", default=20, minimum=1, maximum=200),
         }
     if any(phrase in normalized for phrase in digest_patterns):
@@ -1253,12 +1257,27 @@ class OpenClawCommandAdapter:
         if clean_action == "discovery_status":
             run_id_filter = control_payload.get("run_id")
             asset_class_filter = control_payload.get("asset_class")
+            status_filter = control_payload.get("status")
             limit = int(control_payload.get("limit") or 20)
             rows = self._orchestrator.list_discovery_opportunities(
                 limit=limit,
                 run_id=run_id_filter,
+                status=status_filter,
                 asset_class=asset_class_filter,
             )
+            status_counts: dict[str, int] = {}
+            latest_no_trade = None
+            for row in rows:
+                status_value = str(row.get("status") or "candidate")
+                status_counts[status_value] = int(status_counts.get(status_value, 0)) + 1
+                if latest_no_trade is None and status_value == "no_trade":
+                    latest_no_trade = row
+            selected = [row for row in rows if str(row.get("status") or "") == "selected"]
+            pruned = [
+                row
+                for row in rows
+                if str(row.get("status") or "") in {"pruned_threshold", "pruned_capacity"}
+            ]
             result = {
                 "accepted": True,
                 "control_id": control_id,
@@ -1266,7 +1285,12 @@ class OpenClawCommandAdapter:
                 "status": "reported",
                 "run_id_filter": run_id_filter,
                 "asset_class_filter": asset_class_filter,
+                "status_filter": status_filter,
                 "count": len(rows),
+                "status_counts": status_counts,
+                "selected_symbols": [str(row.get("symbol") or "").upper() for row in selected[:8]],
+                "pruned_symbols": [str(row.get("symbol") or "").upper() for row in pruned[:8]],
+                "latest_no_trade": latest_no_trade,
                 "opportunities": rows,
             }
             self._record_control_event(
@@ -1276,7 +1300,14 @@ class OpenClawCommandAdapter:
                 run_id=run_id,
                 agent_id=agent_id,
                 control_id=control_id,
-                payload={"run_id_filter": run_id_filter, "asset_class_filter": asset_class_filter, "count": len(rows)},
+                payload={
+                    "run_id_filter": run_id_filter,
+                    "asset_class_filter": asset_class_filter,
+                    "status_filter": status_filter,
+                    "count": len(rows),
+                    "selected_count": len(selected),
+                    "pruned_count": len(pruned),
+                },
             )
             return result
 
