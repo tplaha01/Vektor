@@ -641,7 +641,7 @@ const Admin = () => {
             `${Math.round(Number(report.confidence || 0) * 100)}% confidence`,
             report.provider_used,
             report.model_used,
-          ].filter(Boolean).join(' ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· '),
+          ].filter(Boolean).join(' · '),
           timestamp: report.published_at || report.created_at,
           href: report.surface === 'public' ? deliverableHref('research', report.report_id) : '',
           preview: summarizeText(report.summary || report.thesis || report.executive_summary, 180),
@@ -666,7 +666,7 @@ const Admin = () => {
             post.status,
             post.providerUsed,
             post.modelUsed,
-          ].filter(Boolean).join(' Ã‚Â· '),
+          ].filter(Boolean).join(' · '),
           timestamp: post.published_at || post.created_at,
           href: String(post.status || '').toLowerCase() === 'published' ? deliverableHref('blog', post.id) : '',
           preview: summarizeText(post.excerpt || post.summary || post.content, 180),
@@ -686,7 +686,7 @@ const Admin = () => {
         type: 'Editorial Review',
         title: post.title,
         subtitle: `${post.category || 'Research'} | ${post.authorRole || post.author_role || 'editorial'}`,
-        detail: [post.status || 'pending_review', post.providerUsed, post.modelUsed].filter(Boolean).join(' Ãƒâ€šÃ‚Â· '),
+        detail: [post.status || 'pending_review', post.providerUsed, post.modelUsed].filter(Boolean).join(' · '),
         timestamp: post.publishedAt || post.createdAt || new Date().toISOString(),
         href: '',
         preview: summarizeText(post.excerpt || post.summary || post.content, 180),
@@ -1266,7 +1266,7 @@ const Admin = () => {
               `Dispatch ${formatDateTime(wave.scheduled_for)} (${formatCountdown(wave.scheduled_for, nowTick)})`,
               `${wave.matched_signal_pack_ids?.length || 0} packs`,
               `${wave.capacity_remaining ?? 0} slots free`,
-            ].join(' ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· '),
+            ].join(' · '),
             status: wave.dispatch_status || (new Date(wave.scheduled_for).getTime() <= nowTick ? 'running' : 'queued'),
             data: wave,
           }))
@@ -1299,8 +1299,8 @@ const Admin = () => {
         ? workersStatus.pending_decisions.map((decision) => ({
             id: decision.decision_id,
             title: `${String(decision.symbol || 'multi-asset').toUpperCase()} decision`,
-            subtitle: `${decision.side || 'buy'} ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ${decision.sleeve || 'tactical'} ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ${Math.round(Number(decision.confidence || 0) * 100)}%`,
-            detail: `${decision.thesis || 'Pending fund-manager decision'} ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ${formatDateTime(decision.created_at)}`,
+            subtitle: `${decision.side || 'buy'} · ${decision.sleeve || 'tactical'} · ${Math.round(Number(decision.confidence || 0) * 100)}%`,
+            detail: `${decision.thesis || 'Pending fund-manager decision'} · ${formatDateTime(decision.created_at)}`,
             status: decision.status || 'proposed',
             data: decision,
           }))
@@ -1374,7 +1374,7 @@ const Admin = () => {
         type: 'JSON Packet',
         title: `${pack.symbol} signal pack`,
         subtitle: `${pack.completed_roles?.length || 0}/${pack.expected_roles?.length || 0} specialist roles complete`,
-        detail: `Run ${pack.run_id || 'n/a'} ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· report ${String(pack.composite_report_id || '').slice(0, 8) || 'pending'}`,
+        detail: `Run ${pack.run_id || 'n/a'} · report ${String(pack.composite_report_id || '').slice(0, 8) || 'pending'}`,
         timestamp: workersStatus?.autopilot?.last_run_at || lastUpdate.toISOString(),
         preview: jsonPreview(pack, 240),
         data: pack,
@@ -2618,7 +2618,7 @@ const Admin = () => {
               {taskEvents.map((event, index) => (
                 <div key={`${event.task_id || event.timestamp || index}`} className="drawer-audit-row">
                   <div>
-                    <strong>{event.role || 'agent'} ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· {event.status || 'status'}</strong>
+                    <strong>{event.role || 'agent'} · {event.status || 'status'}</strong>
                     <span>{event.event || 'task event'}</span>
                   </div>
                   <small>{formatRelative(event.timestamp)}</small>
@@ -2740,7 +2740,7 @@ const Admin = () => {
                   onClick={() => {
                     setActiveTab(item.id);
                   }}
-                  title={`${item.label} ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ${item.description}`}
+                  title={`${item.label} · ${item.description}`}
                 >
                   <Icon size={16} className="nav-icon" />
                   <span className="nav-label">{item.label}</span>
@@ -3284,7 +3284,7 @@ const Admin = () => {
                                   id: ctx.task_id,
                                   type: 'task',
                                   title: ctx.role || ctx.agent_id || 'active_context',
-                                  subtitle: [ctx.symbol, ctx.run_id].filter(Boolean).join(' ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· '),
+                                  subtitle: [ctx.symbol, ctx.run_id].filter(Boolean).join(' · '),
                                   summary: ctx.command || JSON.stringify(ctx.context || {}),
                                   badge: 'Live context',
                                   data: ctx,
@@ -3489,7 +3489,7 @@ const Admin = () => {
                             </div>
                             <div className="openclaw-layer-card">
                               <span>LLM stack</span>
-                              <strong>{workersStatus?.ai_role_adapter?.provider || 'n/a'} ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· {workersStatus?.ai_role_adapter?.default_model || 'n/a'}</strong>
+                              <strong>{workersStatus?.ai_role_adapter?.provider || 'n/a'} · {workersStatus?.ai_role_adapter?.default_model || 'n/a'}</strong>
                               <small>{workersStatus?.ai_role_adapter?.last_error || 'No adapter error reported'}</small>
                             </div>
                           </div>

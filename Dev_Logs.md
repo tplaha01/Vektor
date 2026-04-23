@@ -6256,3 +6256,20 @@ files:
 - frontend/src/pages/Admin.jsx
 validation: passed (frontend npm run build)
 notes: Expanded Performance with asset-class contribution and allocation-usage views, and expanded Risk with live CEO risk alerts plus allocation-pressure rows using already-live backend payloads rather than binding to unavailable routes.
+
+[2026-04-23T21:47:41Z] [END]
+entry_id: devlog-20260423-codex-admin-text-cleanup
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-codex-20260423-admin-text-cleanup
+git_branch: main
+git_commit_start: d99d462917e6a2a4e59338b49590d5eaa4422a6c
+git_commit_end: 
+scope: Alpha UI text-quality cleanup for admin and legacy workspace surfaces
+files:
+- frontend/src/pages/Admin.jsx
+- frontend/src/pages/AlfredDashboard.jsx
+validation: passed (frontend npm run build)
+notes: Removed mojibake separators from admin feed rows, decision cards, timeline labels, and orchestration labels; also fixed broken arrow/dash glyphs in AlfredDashboard so runtime labels render cleanly again.

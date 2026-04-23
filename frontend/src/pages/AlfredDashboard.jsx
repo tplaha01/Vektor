@@ -82,7 +82,7 @@ export default function AlfredDashboard() {
   return (
     <div className="layout">
 
-      {/* â”€â”€ TOP BAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* TOP BAR */}
       <header style={{
         gridArea:"topbar", background:"var(--bg1)", borderBottom:"1px solid var(--line)",
         display:"flex", alignItems:"center", padding:"0 14px", gap:12, zIndex:200,
@@ -107,14 +107,14 @@ export default function AlfredDashboard() {
           </button>
         </div>
 
-        {/* Ticker info â€” hidden on mobile */}
+        {/* Ticker info - hidden on mobile */}
         {tick && (
           <div className="topbar-ticker" style={{ display:"flex", alignItems:"baseline", gap:8 }}>
             <span style={{ fontFamily:"var(--f-data)", fontSize:11, color:"var(--txt2)" }}>{symbol}</span>
             <span style={{ fontFamily:"var(--f-data)", fontSize:15, fontWeight:600 }}>${tick.price?.toFixed(2)}</span>
             <span style={{ fontFamily:"var(--f-data)", fontSize:11,
               color: tick.change>=0?"var(--green)":"var(--red)" }}>
-              {tick.change>=0?"â–²":"â–¼"} {Math.abs(tick.change||0).toFixed(2)}
+              {tick.change>=0?"▲":"▼"} {Math.abs(tick.change||0).toFixed(2)}
               {" "}({tick.change_pct>=0?"+":""}{(tick.change_pct||0).toFixed(2)}%)
             </span>
           </div>
@@ -139,7 +139,7 @@ export default function AlfredDashboard() {
         </div>
       </header>
 
-      {/* â”€â”€ LEFT SIDEBAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* LEFT SIDEBAR */}
       <aside className="sidebar" style={{
         gridArea:"sidebar", background:"var(--bg1)", borderRight:"1px solid var(--line)",
         overflowY:"auto", display:"flex", flexDirection:"column", gap:0,
@@ -178,7 +178,7 @@ export default function AlfredDashboard() {
                       </div>
                     </>
                   ) : (
-                    <span style={{ fontFamily:"var(--f-data)", fontSize:10, color:"var(--txt3)" }}>â€”</span>
+                    <span style={{ fontFamily:"var(--f-data)", fontSize:10, color:"var(--txt3)" }}>—</span>
                   )}
                 </div>
               </div>
@@ -210,7 +210,7 @@ export default function AlfredDashboard() {
         </div>
       </aside>
 
-      {/* â”€â”€ MAIN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* MAIN */}
       <main style={{
         gridArea:"main", overflowY:"auto", background:"var(--bg0)",
         display:"flex", flexDirection:"column", gap:10, padding:"10px 12px",
@@ -230,7 +230,7 @@ export default function AlfredDashboard() {
         </div>
       </main>
 
-      {/* â”€â”€ NEWS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* NEWS */}
       <aside className="news-col" style={{
         gridArea:"news", background:"var(--bg1)", borderLeft:"1px solid var(--line)",
         overflowY:"auto", display:"flex", flexDirection:"column",
