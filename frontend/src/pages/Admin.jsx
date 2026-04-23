@@ -2052,6 +2052,7 @@ const Admin = () => {
       const metadata = payload.metadata || {};
       const scoring = approval.decision_scoring || payload.decision_scoring || {};
       const scoringMetrics = scoring.metrics || {};
+      const riskGate = approval.risk_gate || payload.risk_gate || {};
       const symbol = String(intent.symbol || metadata.symbol || payload.signal_pack_id || approval.subject_id || 'multi-asset').toUpperCase();
       return (
         <div className="context-block">
@@ -2097,6 +2098,71 @@ const Admin = () => {
                   ].filter(Boolean).join(' · ')}
                 </small>
               </div>
+            </>
+          ) : null}
+          {riskGate && Object.keys(riskGate).length ? (
+            <>
+              <div className="context-memory-card">
+                <span>Risk gate</span>
+                <strong>{riskGate.approved ? 'Approved by gate' : 'Gate flagged constraints'}</strong>
+                <small>
+                  {(Array.isArray(riskGate.reasons) && riskGate.reasons.length
+                    ? riskGate.reasons
+                    : ['no blocking reasons']
+                  ).join(' · ')}
+                </small>
+              </div>
+              {riskGate.ml_thresholds ? (
+                <>
+                  <div className="context-kv-list">
+                    <div><span>Min score</span><strong>{Number(riskGate.ml_thresholds.min_score || 0).toFixed(3)}</strong></div>
+                    <div><span>Min confidence</span><strong>{Math.round(Number(riskGate.ml_thresholds.min_confidence || 0) * 100)}%</strong></div>
+                    <div><span>Min regime</span><strong>{Number(riskGate.ml_thresholds.min_regime_alignment || 0).toFixed(3)}</strong></div>
+                    <div><span>Min liquidity</span><strong>{Number(riskGate.ml_thresholds.min_liquidity_score || 0).toFixed(3)}</strong></div>
+                    <div><span>News ceiling</span><strong>{riskGate.ml_thresholds.max_news_intensity_count ?? 'n/a'}</strong></div>
+                    <div><span>Profiles</span><strong>{(riskGate.ml_thresholds.applied_profiles || []).length || 0}</strong></div>
+                  </div>
+                  <div className="context-memory-card">
+                    <span>Resolved ML threshold profile</span>
+                    <strong>
+                      {(Array.isArray(riskGate.ml_thresholds.applied_profiles) && riskGate.ml_thresholds.applied_profiles.length
+                        ? riskGate.ml_thresholds.applied_profiles
+                        : ['default']
+                      ).join(' -> ')}
+                    </strong>
+                    <small>
+                      {(Array.isArray(riskGate.ml_thresholds.adjustment_reasons) && riskGate.ml_thresholds.adjustment_reasons.length
+                        ? riskGate.ml_thresholds.adjustment_reasons
+                        : ['no portfolio adjustments']
+                      ).join(' · ')}
+                    </small>
+                  </div>
+                  {riskGate.ml_thresholds.portfolio_context && Object.keys(riskGate.ml_thresholds.portfolio_context).length ? (
+                    <div className="context-memory-card">
+                      <span>Portfolio state at gate time</span>
+                      <strong>
+                        {(riskGate.ml_thresholds.portfolio_context.macro_risk_level || 'normal').replace(/_/g, ' ')}
+                      </strong>
+                      <small>
+                        {[
+                          riskGate.ml_thresholds.portfolio_context.symbol_exposure_ratio !== undefined
+                            ? `symbol ${Math.round(Number(riskGate.ml_thresholds.portfolio_context.symbol_exposure_ratio || 0) * 100)}%`
+                            : '',
+                          riskGate.ml_thresholds.portfolio_context.correlated_group_exposure_ratio !== undefined
+                            ? `group ${Math.round(Number(riskGate.ml_thresholds.portfolio_context.correlated_group_exposure_ratio || 0) * 100)}%`
+                            : '',
+                          riskGate.ml_thresholds.portfolio_context.asset_class_usage_ratio !== undefined
+                            ? `asset budget ${Math.round(Number(riskGate.ml_thresholds.portfolio_context.asset_class_usage_ratio || 0) * 100)}%`
+                            : '',
+                          riskGate.ml_thresholds.portfolio_context.cash_reserve_ratio !== undefined
+                            ? `cash reserve ${Math.round(Number(riskGate.ml_thresholds.portfolio_context.cash_reserve_ratio || 0) * 100)}%`
+                            : '',
+                        ].filter(Boolean).join(' · ')}
+                      </small>
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
             </>
           ) : null}
           {approval.status === 'pending' ? (

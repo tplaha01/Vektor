@@ -1,0 +1,309 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Vektor Phased Roadmap</title>
+  <style>
+    @page { size: Letter landscape; margin: 0.2in; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      color: #111827;
+      background: #f4f7fb;
+      font-size: 9.4px;
+      line-height: 1.14;
+      zoom: 0.89;
+    }
+    .page {
+      width: 100%;
+      min-height: 100vh;
+      padding: 10px 12px 8px;
+      background:
+        radial-gradient(circle at top right, rgba(25, 171, 114, 0.09), transparent 22%),
+        linear-gradient(180deg, #fbfdff 0%, #eef3f9 100%);
+    }
+    .header {
+      display: grid;
+      grid-template-columns: 1.35fr 0.85fr;
+      gap: 10px;
+      margin-bottom: 8px;
+      align-items: start;
+    }
+    .hero {
+      background: #0f172a;
+      color: white;
+      border-radius: 14px;
+      padding: 11px 13px;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.16);
+    }
+    .hero h1 {
+      margin: 0 0 6px;
+      font-size: 18px;
+      letter-spacing: 0.02em;
+    }
+    .hero p {
+      margin: 0;
+      color: rgba(255,255,255,0.82);
+      font-size: 9.7px;
+    }
+    .status {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .stat {
+      background: white;
+      border-radius: 14px;
+      padding: 10px;
+      border: 1px solid #d7e0ea;
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+    }
+    .stat .label {
+      display: block;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 8.5px;
+      margin-bottom: 5px;
+      font-weight: 700;
+    }
+    .stat .value {
+      display: block;
+      font-size: 21px;
+      font-weight: 800;
+      color: #0f172a;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+    .stat .note {
+      color: #334155;
+      font-size: 9px;
+    }
+    .section-title {
+      margin: 0 0 5px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #0f172a;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .card {
+      background: white;
+      border-radius: 14px;
+      padding: 9px 10px;
+      border: 1px solid #d7e0ea;
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+    }
+    .card h2 {
+      margin: 0 0 5px;
+      font-size: 12px;
+      color: #0f172a;
+    }
+    .phase-tag {
+      display: inline-block;
+      padding: 3px 7px;
+      border-radius: 999px;
+      font-size: 8.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
+      background: #e2fbe8;
+      color: #0b7a43;
+    }
+    .phase-tag.pending { background: #e9eef7; color: #385275; }
+    .subhead {
+      font-size: 8.2px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #64748b;
+      margin: 5px 0 3px;
+      font-weight: 700;
+    }
+    ul {
+      margin: 0;
+      padding-left: 12px;
+    }
+    li { margin: 0 0 2px; }
+    .footer {
+      display: grid;
+      grid-template-columns: 1.15fr 1fr;
+      gap: 8px;
+    }
+    .final-state {
+      background: linear-gradient(135deg, #0f172a 0%, #12243f 100%);
+      color: white;
+      border-radius: 14px;
+      padding: 10px 12px;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.16);
+    }
+    .final-state h2 { margin: 0 0 5px; font-size: 12px; }
+    .final-state ul { color: rgba(255,255,255,0.88); }
+    .alpha-list {
+      columns: 2;
+      column-gap: 14px;
+    }
+    .alpha-list li { break-inside: avoid; }
+    .small { font-size: 8.6px; color: #475569; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="header">
+      <div class="hero">
+        <h1>Vektor Roadmap: From Current Alpha to Final Local + Vendor + Free-VM + Vercel System</h1>
+        <p>Target architecture: CEO controls Vektor through OpenClaw/Discord, backend workers run on a persistent free VM, hosted LLM vendors power the swarm, public surfaces ship through Vercel, and every decision, deliverable, trade, and approval is fully traceable.</p>
+      </div>
+      <div class="status">
+        <div class="stat">
+          <span class="label">Phase Alpha Progress</span>
+          <span class="value">79 / 100</span>
+          <span class="note">Backend core is strong. Main gaps are multi-day soak, VM hardening, deeper scanner/ML/risk completion, and operator polish.</span>
+        </div>
+        <div class="stat">
+          <span class="label">Alpha Exit Rule</span>
+          <span class="value" style="font-size:18px;">Stable Local First</span>
+          <span class="note">No VM deployment should be treated as real until Vektor survives a 48-72h local soak with clean recovery, approvals, and no queue/runtime drift.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:10px;">
+      <div class="section-title">Alpha Remaining Checklist</div>
+      <ul class="alpha-list">
+        <li>Run a 48-72 hour local soak with logged queue depth, provider throttling, retries, restart recovery, and stale-task checks.</li>
+        <li>Finish discovery pipeline quality: dedicated scanners, ranking, pruning, wave scheduling, and explicit sit-in-cash behavior.</li>
+        <li>Complete ML as a first-class gate: regression, classification, regime detection, confidence estimation, and empirical threshold tuning from outcomes.</li>
+        <li>Finish risk as a hard gatekeeper: asset-specific caps, correlated exposure, event-risk control, thesis invalidation lifecycle, and post-trade review hooks.</li>
+        <li>Complete CEO control: scheduled digests, permission workflow for trades/allocation/publication/reroutes, and mature Discord help/command grammar.</li>
+        <li>Harden multi-asset support: current paper routes are real, but venue-grade live adapters and operational runbooks still need proof.</li>
+      </ul>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="phase-tag">Alpha</div>
+        <h2>Backend Fund OS</h2>
+        <div class="subhead">Build</div>
+        <ul>
+          <li>Canonical Vektor/OpenClaw CEO layer over backend workers</li>
+          <li>Hosted multi-vendor LLM routing, budgeting, cooldowns, and retries</li>
+          <li>Sequential + parallel swarms, approvals, audit trail, strict real-data mode</li>
+          <li>Paper execution across equities, options, forex, crypto with policy gates</li>
+        </ul>
+        <div class="subhead">Vektor Can Do After Phase</div>
+        <ul>
+          <li>Brief CEO, request permissions, orchestrate swarms, and paper-trade safely</li>
+          <li>Explain positions, winners/losers, exposure, approvals, and risk alerts</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="phase-tag pending">Beta</div>
+        <h2>Data, KB, and Traceability</h2>
+        <div class="subhead">Build</div>
+        <ul>
+          <li>Durable SQL-first artifact store for every report, task, decision, approval, and model output</li>
+          <li>Document IDs, lineage, retrieval, graph views, and KB promotion workflow</li>
+          <li>Structured ML input/output storage and reusable research memory</li>
+        </ul>
+        <div class="subhead">Vektor Can Do After Phase</div>
+        <ul>
+          <li>Answer with provenance, show what each agent found, who used it, and what it changed</li>
+          <li>Use past work as fund memory rather than stateless task output</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="phase-tag pending">Gamma</div>
+        <h2>Operator Console and CRM</h2>
+        <div class="subhead">Build</div>
+        <ul>
+          <li>Dense admin console with live agent process views, staged waves, pending approvals, digests, and market watch</li>
+          <li>Role-based workflow around CEO review, intervention, and audit</li>
+          <li>Remove duplicate tabs and make each surface operationally distinct</li>
+        </ul>
+        <div class="subhead">Vektor Can Do After Phase</div>
+        <ul>
+          <li>Operate like a real desk: monitor, explain, approve, reroute, cancel, and recover from one control plane</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="phase-tag pending">Delta</div>
+        <h2>Research and Publication Engine</h2>
+        <div class="subhead">Build</div>
+        <ul>
+          <li>Internal-only by default, explicit promotion to public research/blog</li>
+          <li>Editorial approval flow, market briefs, research papers, and readable institutional output</li>
+          <li>`blog-next` and research surfaces fed from approved backend content only</li>
+        </ul>
+        <div class="subhead">Vektor Can Do After Phase</div>
+        <ul>
+          <li>Produce credible research and editorial output that is approval-gated before publication</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="phase-tag pending">Epsilon</div>
+        <h2>Persistent Infra and Deployment</h2>
+        <div class="subhead">Build</div>
+        <ul>
+          <li>Backend on a free persistent VM with static IP, supervised startup, reboot recovery, logs, health checks, and backups</li>
+          <li>OpenClaw stays on laptop as CEO interface</li>
+          <li>Public landing/blog/research/admin-friendly surfaces deployed on Vercel</li>
+        </ul>
+        <div class="subhead">Vektor Can Do After Phase</div>
+        <ul>
+          <li>Run 24/7 in paper mode remotely while CEO still controls it locally through Discord/OpenClaw</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="phase-tag pending">Zeta</div>
+        <h2>Final Operating Standard</h2>
+        <div class="subhead">Build</div>
+        <ul>
+          <li>Investor-grade reporting, security hardening, compliance prep, and measurable track record exports</li>
+          <li>Vendor abstraction ready for stronger paid data/LLMs without architecture rewrite</li>
+          <li>Outcome feedback loops for model/risk tuning</li>
+        </ul>
+        <div class="subhead">Vektor Can Do After Phase</div>
+        <ul>
+          <li>Act as a local-first, vendor-backed, remotely hosted, operator-controlled hedge fund OS with auditable memory and publishable outputs</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div class="final-state">
+        <h2>Final Version of Vektor</h2>
+        <ul>
+          <li>CEO speaks to Vektor naturally through OpenClaw/Discord, not backend endpoints.</li>
+          <li>Backend workers and schedulers run continuously on a free VM with hosted LLM vendors.</li>
+          <li>Admin is the internal CRM/war-room; Vercel hosts the public landing, blog, and research surfaces.</li>
+          <li>Every trade, approval, model score, report, and publication has traceable lineage.</li>
+          <li>Vektor can discover, rank, reject, approve, and paper-execute across asset classes with clear no-trade behavior.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="section-title">Strict Build Order</div>
+        <ul>
+          <li><strong>Now:</strong> finish Alpha reliability and local operating quality.</li>
+          <li><strong>Then:</strong> move to Beta/Gamma only where it strengthens operational traceability and control.</li>
+          <li><strong>Then:</strong> public publication surfaces and Vercel distribution from approved internal outputs.</li>
+          <li><strong>Then:</strong> free VM persistence and 24/7 paper-mode remote operation.</li>
+          <li><strong>Finally:</strong> investor/compliance-grade hardening and paid vendor upgrades.</li>
+        </ul>
+        <p class="small" style="margin-top:8px;">Pragmatic rule: do not skip unresolved Alpha reliability gaps by hiding them in cloud deployment or frontend work. The correct sequence is local proof -> persistent VM -> public polish -> externalization.</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

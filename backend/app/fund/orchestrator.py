@@ -44,7 +44,12 @@ from app.fund.execution_adapter import (
 )
 from app.fund.knowledge_graph import KnowledgeGraph, knowledge_graph
 from app.fund.openclaw_ingest import OpenClawIngestService, openclaw_ingest_service
-from app.fund.policy_gate import PolicyGate, policy_gate
+from app.fund.policy_gate import (
+    PolicyGate,
+    build_portfolio_threshold_context,
+    policy_gate,
+    resolve_decision_gate_thresholds,
+)
 from app.fund.realtime_stream import realtime_stream
 from app.fund.research_memory import (
     ResearchMemoryStore,
@@ -103,14 +108,14 @@ class FirmOrchestrator:
         self._execution_adapter = PaperExecutionAdapter(broker=broker, price_lookup=price_lookup)
         self._policy_version = "phase1.paper.v1"
         self._lock = RLock()
-        settings = get_settings()
-        self._broker_mode = str(settings.BROKER or "paper").strip().lower() or "paper"
-        self._require_trade_approval = bool(settings.CEO_APPROVAL_REQUIRED_FOR_TRADES)
-        self._require_allocation_approval = bool(settings.CEO_APPROVAL_REQUIRED_FOR_ALLOCATION_CHANGES)
-        self._require_major_reroute_approval = bool(settings.CEO_APPROVAL_REQUIRED_FOR_MAJOR_REROUTES)
-        self._default_capital_usd = float(settings.FUND_DEFAULT_CAPITAL_USD)
-        self._default_reserve_cash_usd = float(settings.FUND_DEFAULT_RESERVE_CASH_USD)
-        self._default_sleeve_weights = self._parse_default_sleeve_weights(settings.FUND_DEFAULT_SLEEVE_WEIGHTS)
+        self._settings = get_settings()
+        self._broker_mode = str(self._settings.BROKER or "paper").strip().lower() or "paper"
+        self._require_trade_approval = bool(self._settings.CEO_APPROVAL_REQUIRED_FOR_TRADES)
+        self._require_allocation_approval = bool(self._settings.CEO_APPROVAL_REQUIRED_FOR_ALLOCATION_CHANGES)
+        self._require_major_reroute_approval = bool(self._settings.CEO_APPROVAL_REQUIRED_FOR_MAJOR_REROUTES)
+        self._default_capital_usd = float(self._settings.FUND_DEFAULT_CAPITAL_USD)
+        self._default_reserve_cash_usd = float(self._settings.FUND_DEFAULT_RESERVE_CASH_USD)
+        self._default_sleeve_weights = self._parse_default_sleeve_weights(self._settings.FUND_DEFAULT_SLEEVE_WEIGHTS)
         self._run_sleeve_allocations: dict[str, dict[str, float]] = {}
         self._run_sleeve_used_notional: dict[str, dict[str, float]] = {}
         self._run_asset_class_used_notional: dict[str, dict[str, float]] = {}
@@ -758,6 +763,38 @@ class FirmOrchestrator:
         }
         positions = self._broker.list_positions(self._price_lookup)
         equity = self._current_equity(positions)
+        intent_metadata = {
+            "available_cash": self._broker.cash,
+            "asset_class": asset_class,
+            "instrument_type": instrument_type,
+            "routing_mode": routing_mode,
+            "underlier_symbol": underlier_symbol,
+            "allocation_policy_id": policy.get("policy_id"),
+            "allocation_constraints": dict(policy.get("constraints") or {}),
+            "asset_class_budget_allocated_usd": asset_budget_state.get("allocated_usd", 0.0),
+            "asset_class_budget_used_usd": asset_budget_state.get("used_usd", 0.0),
+            "asset_class_budget_remaining_usd": asset_budget_state.get("remaining_usd", 0.0),
+            "sleeve_budget_allocated_usd": budget_state["allocated_usd"],
+            "sleeve_budget_used_usd": budget_state["used_usd"],
+            "sleeve_budget_remaining_usd": budget_state["remaining_usd"],
+            "estimated_notional_usd": estimated_notional,
+            **(metadata or {}),
+        }
+        portfolio_threshold_context = build_portfolio_threshold_context(
+            symbol=normalized_symbol,
+            asset_class=asset_class,
+            positions=positions,
+            equity=equity,
+            notional=estimated_notional,
+            metadata=intent_metadata,
+        )
+        decision_gate_thresholds = resolve_decision_gate_thresholds(
+            self._settings,
+            asset_class=asset_class,
+            strategy_family=decision_scoring.get("strategy_family"),
+            portfolio_context=portfolio_threshold_context,
+        ).as_dict()
+        decision_gate_thresholds["enabled"] = bool(self._settings.DECISION_GATE_ML_ENABLED)
         intent = AdapterExecutionIntent(
             symbol=normalized_symbol,
             side=normalized_side,
@@ -778,23 +815,7 @@ class FirmOrchestrator:
             instrument_type=instrument_type,
             routing_mode=routing_mode,
             underlier_symbol=underlier_symbol,
-            metadata={
-                "available_cash": self._broker.cash,
-                "asset_class": asset_class,
-                "instrument_type": instrument_type,
-                "routing_mode": routing_mode,
-                "underlier_symbol": underlier_symbol,
-                "allocation_policy_id": policy.get("policy_id"),
-                "allocation_constraints": dict(policy.get("constraints") or {}),
-                "asset_class_budget_allocated_usd": asset_budget_state.get("allocated_usd", 0.0),
-                "asset_class_budget_used_usd": asset_budget_state.get("used_usd", 0.0),
-                "asset_class_budget_remaining_usd": asset_budget_state.get("remaining_usd", 0.0),
-                "sleeve_budget_allocated_usd": budget_state["allocated_usd"],
-                "sleeve_budget_used_usd": budget_state["used_usd"],
-                "sleeve_budget_remaining_usd": budget_state["remaining_usd"],
-                "estimated_notional_usd": estimated_notional,
-                **(metadata or {}),
-            },
+            metadata=intent_metadata,
         )
         approved, reasons = self._policy_gate.evaluate(intent, positions, equity)
         risk_assessment = RiskAssessment(
@@ -887,6 +908,7 @@ class FirmOrchestrator:
                             "sleeve_budget_remaining_usd": budget_state["remaining_usd"],
                             "approved": approved,
                             "reasons": list(reasons),
+                            "ml_thresholds": decision_gate_thresholds,
                         },
                         "metadata": dict(metadata or {}),
                     },

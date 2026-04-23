@@ -1,0 +1,225 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Vektor Official Program Document</title>
+  <style>
+    @page { size: Letter; margin: 0.6in; }
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      color: #111827;
+      margin: 0;
+      font-size: 11px;
+      line-height: 1.38;
+      background: white;
+    }
+    .page { max-width: 8.0in; margin: 0 auto; }
+    h1 {
+      font-size: 24px;
+      margin: 0 0 6px;
+      color: #0f172a;
+    }
+    .meta {
+      margin: 0 0 18px;
+      color: #475569;
+      font-size: 10px;
+    }
+    h2 {
+      margin: 18px 0 6px;
+      font-size: 15px;
+      color: #0f172a;
+      border-bottom: 1px solid #dbe5f0;
+      padding-bottom: 4px;
+    }
+    h3 {
+      margin: 12px 0 4px;
+      font-size: 12px;
+      color: #1e3a5f;
+    }
+    p { margin: 0 0 8px; }
+    ul { margin: 0 0 8px 18px; padding: 0; }
+    li { margin: 0 0 4px; }
+    .hero {
+      background: linear-gradient(135deg, #0f172a 0%, #162d4a 100%);
+      color: white;
+      border-radius: 14px;
+      padding: 16px 18px;
+      margin-bottom: 16px;
+    }
+    .hero p { color: rgba(255,255,255,0.88); margin-bottom: 0; }
+    .callout {
+      background: #f8fbff;
+      border: 1px solid #d7e4f0;
+      border-left: 4px solid #1d8a56;
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin: 10px 0 14px;
+    }
+    .small { font-size: 10px; color: #475569; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="hero">
+      <h1>Vektor Official Program Document</h1>
+      <p>Authoritative internal build and operations document for taking Vektor from the current Phase Alpha state to the final local-first, vendor-backed, free-VM-hosted, Vercel-distributed system.</p>
+    </div>
+    <div class="meta">As of: 2026-04-23 (America/Phoenix) · Repository: TradingBot · Current Phase Alpha Progress: 79 / 100</div>
+
+    <h2>1. Executive Summary</h2>
+    <p>Vektor is being built as a local-first, AI-native hedge fund operating system. The final target state is a system where the CEO interacts with Vektor through OpenClaw and admin surfaces, backend workers run continuously on a persistent free VM, specialist agents use hosted vendor APIs rather than weak local models, and public distribution surfaces run on Vercel. Every report, trade, approval, model score, and publication must be traceable.</p>
+
+    <h2>2. Current State Snapshot</h2>
+    <h3>2.1 What is already real</h3>
+    <ul>
+      <li>Backend orchestration, task bus, approvals, digests, audit trail, and admin war room are live.</li>
+      <li>Hosted multi-vendor routing exists with cooldowns, failover, concurrency caps, request envelopes, and deferred retries.</li>
+      <li>Strict real-data mode and paper-only execution are enforced.</li>
+      <li>Multi-asset paper execution routes exist for equities, options, forex, and crypto intents.</li>
+      <li>Discovery scoring, ML scoring, and adaptive ML gating now affect actual trade control.</li>
+      <li>CEO approval workflow exists for trades, allocation changes, public publication, and major reroutes.</li>
+      <li>Performance tracking, knowledge lineage, and local soak tooling already exist.</li>
+    </ul>
+    <h3>2.2 What is still incomplete</h3>
+    <ul>
+      <li>Multi-day local soak has not yet been completed and signed off.</li>
+      <li>Free-VM deployment hardening is not complete.</li>
+      <li>Discovery and world scanning still need higher-quality ranking and pruning.</li>
+      <li>ML still needs empirical threshold tuning from realized outcomes.</li>
+      <li>Risk still needs deeper thesis degradation and post-trade review behavior.</li>
+    </ul>
+
+    <h2>3. Phase Alpha: Backend Fund OS</h2>
+    <h3>3.1 Objective</h3>
+    <p>Make Vektor real as a backend-native fund operating system before shifting attention to broader platformization or external polish.</p>
+    <h3>3.2 Scope</h3>
+    <ul>
+      <li>Canonical CEO/Vektor/OpenClaw command layer</li>
+      <li>Backend-native worker orchestration and swarm execution</li>
+      <li>Hosted LLM routing with vendor redundancy</li>
+      <li>Strict real-data-only operation</li>
+      <li>Paper broker execution under policy and risk gates</li>
+      <li>Sleeve and asset-class capital allocation controls</li>
+      <li>Market scanner and world-event discovery</li>
+      <li>ML scoring and confidence estimation</li>
+      <li>Approval workflows and digests</li>
+      <li>Local-first runtime reliability and soak readiness</li>
+    </ul>
+    <h3>3.3 What Vektor should be able to do after Alpha</h3>
+    <ul>
+      <li>Answer CEO questions about positions, exposure, risk, winners/losers, and pending approvals.</li>
+      <li>Scan what to trade, decide not to trade when conditions are weak, run swarms, request approvals, and paper-execute safely.</li>
+      <li>Maintain a traceable chain from signal to research to decision to trade to attribution.</li>
+    </ul>
+    <h3>3.4 Alpha remaining checklist</h3>
+    <ul>
+      <li>Complete a real 48-72 hour local soak with monitoring.</li>
+      <li>Confirm recovery after restart, halt, and deferred queue pressure.</li>
+      <li>Improve discovery ranking and world-scanning quality.</li>
+      <li>Finish ML outcome feedback and threshold tuning loop.</li>
+      <li>Finish deeper risk behavior around thesis degradation and post-trade review.</li>
+      <li>Finalize free-VM hardening after local soak success.</li>
+    </ul>
+    <div class="callout"><strong>Alpha exit rule:</strong> Alpha is only complete when Vektor survives a clean 48-72h local soak, keeps approval/gating flows stable under provider pressure, shows credible no-trade behavior, and is ready to move to the VM without using cloud deployment as a debugging shortcut.</div>
+
+    <h2>4. Phase Beta: Data, Memory, and Knowledge Infrastructure</h2>
+    <h3>4.1 Objective</h3>
+    <p>Turn Vektor into a persistent memory system that stores and references every meaningful internal artifact.</p>
+    <h3>4.2 Scope</h3>
+    <ul>
+      <li>Canonical document storage for reports, tasks, decisions, approvals, and model outputs</li>
+      <li>Durable retrieval by run, symbol, agent, asset class, and lineage</li>
+      <li>Graph projection layer built from canonical storage</li>
+      <li>Reusable research memory and knowledge retention policies</li>
+    </ul>
+    <h3>4.3 What Vektor should be able to do after Beta</h3>
+    <ul>
+      <li>Answer with provenance, reconstruct why a trade happened, and show what each agent found, who used it, and what output it changed.</li>
+      <li>Use past work as real working memory rather than ad hoc context.</li>
+    </ul>
+
+    <h2>5. Phase Gamma: Operator OS and Internal CRM</h2>
+    <h3>5.1 Objective</h3>
+    <p>Make admin the real operating system for the fund rather than a monitoring dashboard.</p>
+    <h3>5.2 Scope</h3>
+    <ul>
+      <li>Dense admin command center with per-agent process visibility</li>
+      <li>Staged wave inspection, pack inspection, and approval operations</li>
+      <li>Allocation control, intervention controls, market watch, and audit/performance drill-downs</li>
+      <li>Information architecture that is operationally distinct and non-duplicative</li>
+    </ul>
+    <h3>5.3 What Vektor should be able to do after Gamma</h3>
+    <ul>
+      <li>Show exactly what every agent is doing right now.</li>
+      <li>Let the CEO pause, reroute, retry, cancel, approve, and recover from one control plane.</li>
+    </ul>
+
+    <h2>6. Phase Delta: Research and Publication Engine</h2>
+    <h3>6.1 Objective</h3>
+    <p>Create a publication system that turns internal work into high-quality, approval-gated public content.</p>
+    <h3>6.2 Scope</h3>
+    <ul>
+      <li>Internal-only by default for generated content</li>
+      <li>Explicit promotion workflow to public research and public blog</li>
+      <li>Editorial review queue and approval loop</li>
+      <li>blog-next as the public blog distribution surface</li>
+    </ul>
+    <h3>6.3 What Vektor should be able to do after Delta</h3>
+    <ul>
+      <li>Draft market briefs, case studies, and research papers from actual internal evidence and publish only approved content.</li>
+    </ul>
+
+    <h2>7. Phase Epsilon: Persistent Infrastructure and Expansion</h2>
+    <h3>7.1 Objective</h3>
+    <p>Move from local-only operation to persistent remote runtime without sacrificing control or reliability.</p>
+    <h3>7.2 Scope</h3>
+    <ul>
+      <li>Persistent free cloud VM backend deployment with static IP</li>
+      <li>Supervised startup, reboot recovery, health checks, log rotation, and backups</li>
+      <li>OpenClaw remains on the laptop as CEO interface</li>
+      <li>Public landing/blog/research surfaces run on Vercel</li>
+    </ul>
+    <h3>7.3 What Vektor should be able to do after Epsilon</h3>
+    <ul>
+      <li>Run continuously in paper mode on a free VM while remaining locally controlled through OpenClaw/Discord and admin.</li>
+    </ul>
+
+    <h2>8. Phase Zeta: Final Operating Standard</h2>
+    <h3>8.1 Objective</h3>
+    <p>Bring Vektor to a hardened, investor-facing, externally defensible operational standard.</p>
+    <h3>8.2 Scope</h3>
+    <ul>
+      <li>Investor-grade reporting, compliance preparation, and policy evidence</li>
+      <li>Security hardening and mature secret management</li>
+      <li>Stable vendor abstraction for paid data and stronger model providers</li>
+      <li>Empirical tuning loops from real paper-trading outcomes</li>
+    </ul>
+    <h3>8.3 What Vektor should be able to do after Zeta</h3>
+    <ul>
+      <li>Operate as a credible, traceable, local-first, vendor-backed fund OS ready for external review.</li>
+    </ul>
+
+    <h2>9. Final Target Architecture</h2>
+    <ul>
+      <li><strong>CEO layer:</strong> CEO interacts with Vektor through OpenClaw/Discord and admin using natural-language queries and explicit commands.</li>
+      <li><strong>Runtime layer:</strong> backend workers run continuously on a free VM; orchestrator, task bus, policy gate, approval center, risk engine, and execution adapters live there.</li>
+      <li><strong>Memory/data layer:</strong> SQL is canonical; graph is a projection.</li>
+      <li><strong>Public layer:</strong> Vercel hosts the landing site, public blog, and public research surfaces from approved backend content only.</li>
+    </ul>
+
+    <h2>10. Recommended Immediate Execution Order</h2>
+    <ul>
+      <li>Run the real 48-72h local soak.</li>
+      <li>Review soak logs for queue, provider, and recovery failures.</li>
+      <li>Tighten remaining discovery, risk, and ML gaps found by soak.</li>
+      <li>Only then complete free-VM deployment hardening.</li>
+      <li>Continue Beta and Gamma work without breaking Alpha reliability.</li>
+    </ul>
+
+    <h2>11. Final Standard for Vektor</h2>
+    <p>When the full program is complete, Vektor should be able to act as the canonical fund control authority for the CEO, discover opportunities, reject weak ones, request approvals on strong ones, coordinate specialist swarms under hosted vendor routing, enforce capital and risk discipline, persist and explain every decision, run continuously on a free VM while public surfaces are served through Vercel, and generate a defensible track record with supporting documentation for real external review.</p>
+
+    <p class="small">This document is intended to be the authoritative internal roadmap and operating specification for the remaining buildout of Vektor from the current Phase Alpha state to the final local + vendor + free-VM + Vercel architecture.</p>
+  </div>
+</body>
+</html>

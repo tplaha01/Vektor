@@ -1573,6 +1573,7 @@ async def get_decision_detail(decision_id: str):
 
     audit_timeline_path = f"/api/admin/audit/orders/{order_id}/timeline" if order_id else None
     pending_approval = firm_orchestrator.find_pending_trade_approval(decision_id=key)
+    approval_payload = dict(pending_approval.get("payload") or {}) if isinstance(pending_approval, dict) else {}
     discovery_snapshot = firm_orchestrator.latest_discovery_opportunity(
         run_id=decision.run_id,
         symbol=(context or {}).get("symbol") or "",
@@ -1590,6 +1591,7 @@ async def get_decision_detail(decision_id: str):
         "blocked_reasons": blocked_reasons,
         "order_id": order_id,
         "approval_request_id": pending_approval.get("request_id") if pending_approval else None,
+        "risk_gate": approval_payload.get("risk_gate"),
         "decision_scoring": {
             "score": discovery_snapshot.get("score"),
             "confidence": discovery_snapshot.get("confidence"),
@@ -2391,6 +2393,7 @@ async def get_approval_detail(request_id: str):
                     "status": decision.status,
                     "sleeve": decision.sleeve.value,
                 },
+                "risk_gate": payload.get("risk_gate"),
                 "decision_scoring": payload.get("decision_scoring") or (
                     {
                         "score": discovery_snapshot.get("score"),

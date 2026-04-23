@@ -42,6 +42,103 @@ class Settings(BaseSettings):
     AGENT_RUNTIME_DISCOVERY_MIN_SCORE: float = 0.58
     AGENT_RUNTIME_DISCOVERY_MIN_CONFIDENCE: float = 0.55
     AGENT_RUNTIME_DISCOVERY_NEWS_LIMIT: int = 8
+    DECISION_GATE_ML_ENABLED: bool = True
+    DECISION_GATE_MIN_SCORE: float = 0.58
+    DECISION_GATE_MIN_CONFIDENCE: float = 0.55
+    DECISION_GATE_MIN_REGIME_ALIGNMENT: float = 0.52
+    DECISION_GATE_MIN_LIQUIDITY_SCORE: float = 0.35
+    DECISION_GATE_MAX_NEWS_INTENSITY_COUNT: int = 10
+    DECISION_GATE_ASSET_CLASS_PROFILES: str = """
+    {
+      "equities": {
+        "min_liquidity_score": 0.4
+      },
+      "options": {
+        "min_score": 0.64,
+        "min_confidence": 0.62,
+        "min_regime_alignment": 0.58,
+        "min_liquidity_score": 0.45,
+        "max_news_intensity_count": 7
+      },
+      "forex": {
+        "min_score": 0.56,
+        "min_confidence": 0.53,
+        "min_regime_alignment": 0.55,
+        "min_liquidity_score": 0.45,
+        "max_news_intensity_count": 9
+      },
+      "crypto": {
+        "min_score": 0.63,
+        "min_confidence": 0.6,
+        "min_regime_alignment": 0.58,
+        "min_liquidity_score": 0.5,
+        "max_news_intensity_count": 6
+      },
+      "commodities": {
+        "min_score": 0.6,
+        "min_confidence": 0.57,
+        "min_regime_alignment": 0.55,
+        "min_liquidity_score": 0.42,
+        "max_news_intensity_count": 8
+      }
+    }
+    """
+    DECISION_GATE_STRATEGY_FAMILY_PROFILES: str = """
+    {
+      "technical": {
+        "min_score": 0.56,
+        "min_confidence": 0.53
+      },
+      "fundamental": {
+        "min_score": 0.6,
+        "min_confidence": 0.58
+      },
+      "sentiment": {
+        "min_confidence": 0.57,
+        "max_news_intensity_count": 14
+      },
+      "multi_signal_scout": {
+        "min_score": 0.62,
+        "min_confidence": 0.58,
+        "min_regime_alignment": 0.56
+      },
+      "event_driven": {
+        "min_score": 0.66,
+        "min_confidence": 0.62,
+        "max_news_intensity_count": 5
+      },
+      "macro": {
+        "min_score": 0.61,
+        "min_confidence": 0.58,
+        "min_regime_alignment": 0.6
+      }
+    }
+    """
+    DECISION_GATE_ASSET_STRATEGY_PROFILES: str = """
+    {
+      "options:event_driven": {
+        "min_score": 0.7,
+        "min_confidence": 0.66,
+        "min_regime_alignment": 0.62,
+        "min_liquidity_score": 0.5,
+        "max_news_intensity_count": 4
+      },
+      "crypto:multi_signal_scout": {
+        "min_score": 0.67,
+        "min_confidence": 0.62,
+        "min_regime_alignment": 0.6,
+        "min_liquidity_score": 0.55,
+        "max_news_intensity_count": 5
+      },
+      "forex:macro": {
+        "min_score": 0.59,
+        "min_confidence": 0.56,
+        "min_regime_alignment": 0.62,
+        "min_liquidity_score": 0.48,
+        "max_news_intensity_count": 8
+      }
+    }
+    """
     FUND_DEFAULT_CAPITAL_USD: float = 500000.0
     FUND_DEFAULT_RESERVE_CASH_USD: float = 50000.0
     FUND_DEFAULT_SLEEVE_WEIGHTS: str = "long_term=0.5,recurring=0.3,tactical=0.2"
