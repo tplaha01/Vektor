@@ -184,6 +184,10 @@ export const adminAPI = {
   getCeoExposure: async () => fetchJson(`${API_BASE}/admin/ceo/exposure`),
   getCeoRiskAlerts: async () => fetchJson(`${API_BASE}/admin/ceo/risk-alerts`),
   getCeoMlEffectiveness: async () => fetchJson(`${API_BASE}/admin/ceo/ml-effectiveness`),
+  getCeoPostTradeReview: async (persist = false, limit = 50) =>
+    fetchJson(`${API_BASE}/admin/ceo/post-trade-review?persist=${persist ? 'true' : 'false'}&limit=${limit}`),
+  getLatestPostTradeReviews: async (limit = 50) =>
+    fetchJson(`${API_BASE}/admin/ceo/post-trade-reviews/latest?limit=${limit}`),
   getCeoCommandHelp: async () => fetchJson(`${API_BASE}/admin/ceo/command-help`),
   getCeoDigests: async (limit = 20, digestType = "") => {
     const params = new URLSearchParams();

@@ -1,6 +1,6 @@
 # ALPHA-004 Risk Framework Completion
 
-Status: open
+Status: in_progress
 Priority: high
 Depends on: `ALPHA-001`, `ALPHA-002`, `ALPHA-003`
 Blocks: `ALPHA-006`
@@ -24,9 +24,11 @@ Make risk a true gatekeeper across the full fund workflow rather than a mainly p
 
 - [ ] Formalize thesis state transitions and persistence
 - [ ] Add post-trade review events tied to thesis state changes
+  - 2026-04-23: added persisted `fund_post_trade_reviews` storage and CEO/OpenClaw review snapshot generation for open positions
 - [ ] Tighten concentration and correlated-group policies where soak evidence shows weakness
 - [ ] Add event-risk escalation behavior for exceptional news conditions
 - [ ] Expose thesis state and post-trade review in admin/OpenClaw
+  - 2026-04-23: added CEO endpoints and OpenClaw command routing for thesis status / post-trade review
 - [ ] Ensure no execution path bypasses the updated risk lifecycle
 
 ## Acceptance Criteria

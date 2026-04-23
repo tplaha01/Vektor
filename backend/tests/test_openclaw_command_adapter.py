@@ -1062,6 +1062,45 @@ def test_openclaw_command_adapter_reports_ml_effectiveness(monkeypatch):
     assert result["route_result"]["summary"]["count"] == 2
 
 
+def test_openclaw_command_adapter_reports_post_trade_review(monkeypatch):
+    runtime = _StubRuntime()
+    adapter = OpenClawCommandAdapter(
+        runtime=runtime,
+        orchestrator=_StubOrchestrator(),
+        token="adapter-secret",
+        enabled=True,
+        channel_allowlist=["general"],
+        sender_allowlist=["ceo"],
+        fund_manager_mode=True,
+        log=AuditLog(),
+    )
+    monkeypatch.setattr(openclaw_adapter_module.data_integrity_guard, "halted", lambda: False)
+    monkeypatch.setattr(openclaw_adapter_module.data_integrity_guard, "halt_reason", lambda: None)
+    monkeypatch.setattr(
+        openclaw_adapter_module.vektor_ceo_service,
+        "post_trade_review",
+        lambda persist=True, limit=25: {  # noqa: ARG001
+            "accepted": True,
+            "count": 1,
+            "items": [{"symbol": "TSLA", "thesis_state": "degraded", "review_status": "watch"}],
+        },
+    )
+
+    result = adapter.route_message(
+        {
+            "platform": "discord",
+            "channel_name": "general",
+            "sender_name": "ceo",
+            "text": "show thesis status",
+        },
+        token="adapter-secret",
+    )
+
+    assert result["accepted"] is True
+    assert result["route_result"]["action"] == "post_trade_review"
+    assert result["route_result"]["summary"]["items"][0]["thesis_state"] == "degraded"
+
+
 def test_openclaw_command_adapter_approves_editorial(monkeypatch):
     runtime = _StubRuntime()
     adapter = OpenClawCommandAdapter(

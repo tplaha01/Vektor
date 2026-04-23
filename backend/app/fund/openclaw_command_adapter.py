@@ -287,6 +287,13 @@ def _parse_control_command(command: str) -> dict[str, Any] | None:
         "portfolio exposure",
         "/fund exposure",
     )
+    thesis_status_patterns = (
+        "thesis status",
+        "show thesis status",
+        "post trade review",
+        "show post trade review",
+        "/fund thesis status",
+    )
     ml_effectiveness_patterns = (
         "ml effectiveness",
         "model effectiveness",
@@ -515,6 +522,8 @@ def _parse_control_command(command: str) -> dict[str, Any] | None:
         return {"action": "winners_losers"}
     if any(phrase in normalized for phrase in exposure_patterns):
         return {"action": "exposure_by_asset_class"}
+    if any(phrase in normalized for phrase in thesis_status_patterns):
+        return {"action": "post_trade_review", "persist": normalized.startswith("/fund") is False}
     if any(phrase in normalized for phrase in ml_effectiveness_patterns):
         return {"action": "ml_effectiveness"}
     if any(phrase in normalized for phrase in pending_approvals_patterns):
@@ -743,6 +752,7 @@ class OpenClawCommandAdapter:
                 "positions_summary",
                 "winners_losers",
                 "exposure_by_asset_class",
+                "post_trade_review",
                 "ml_effectiveness",
                 "pending_approvals",
                 "approval_detail",
@@ -1411,6 +1421,26 @@ class OpenClawCommandAdapter:
             }
             self._record_control_event(
                 action="ml_effectiveness",
+                status="reported",
+                reason=clean_reason,
+                run_id=run_id,
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"count": summary.get("count", 0)},
+            )
+            return result
+
+        if clean_action == "post_trade_review":
+            summary = vektor_ceo_service.post_trade_review(persist=bool(control_payload.get("persist", True)), limit=25)
+            result = {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "post_trade_review",
+                "status": "reported",
+                "summary": summary,
+            }
+            self._record_control_event(
+                action="post_trade_review",
                 status="reported",
                 reason=clean_reason,
                 run_id=run_id,

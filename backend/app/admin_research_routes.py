@@ -2350,6 +2350,21 @@ async def get_ceo_ml_effectiveness():
     return vektor_ceo_service.ml_effectiveness_snapshot()
 
 
+@router.get("/ceo/post-trade-review", response_model=dict)
+async def get_ceo_post_trade_review(
+    persist: bool = Query(default=False),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    return vektor_ceo_service.post_trade_review(persist=persist, limit=limit)
+
+
+@router.get("/ceo/post-trade-reviews/latest", response_model=dict)
+async def get_latest_post_trade_reviews(
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    return vektor_ceo_service.latest_post_trade_reviews(limit=limit)
+
+
 @router.get("/ceo/command-help", response_model=dict)
 async def get_ceo_command_help():
     return vektor_ceo_service.command_help()

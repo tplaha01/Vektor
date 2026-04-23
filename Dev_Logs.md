@@ -6159,3 +6159,26 @@ files:
 - docs/issues/alpha/ALPHA-003-ml-outcome-feedback-and-threshold-tuning.md
 validation: passed
 notes: Executed order metadata now carries ML threshold and discovery context, Vektor/OpenClaw can report an initial ML effectiveness snapshot, and the tranche was validated without restarting the backend so the active soak remains uninterrupted.
+
+[2026-04-23T14:28:00Z] [END]
+entry_id: devlog-20260423-codex-risk-thesis-review
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-codex-20260423-risk-thesis-review
+git_branch: main
+git_commit_start: b05e91234f7a3b13dce2e42528104d17d97239d7
+git_commit_end: 
+scope: Alpha risk lifecycle with persisted post-trade reviews and CEO/OpenClaw thesis visibility
+files:
+- backend/app/storage/schema_sql.py
+- backend/app/storage/db.py
+- backend/app/fund/ceo_service.py
+- backend/app/fund/openclaw_command_adapter.py
+- backend/app/admin_research_routes.py
+- backend/tests/test_openclaw_command_adapter.py
+- frontend/src/api/adminAPI.js
+- docs/issues/alpha/ALPHA-004-risk-framework-completion.md
+validation: passed
+notes: Added persisted post-trade review storage, thesis-state evaluation for open positions, CEO endpoints and OpenClaw commands for thesis status/post-trade review, and kept the active soak uninterrupted. At log time the soak had 126 samples, 0 probe failures, 0 halts, and backend health remained ok.

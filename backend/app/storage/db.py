@@ -685,6 +685,95 @@ def load_ceo_digests(*, limit: int = 50, digest_type: str | None = None) -> List
     return out
 
 
+def save_post_trade_review(review: Dict[str, Any]) -> None:
+    row = dict(review or {})
+    review_id = str(row.get("review_id") or "").strip()
+    if not review_id:
+        return
+    with get_db() as db:
+        db.execute(
+            """
+            INSERT INTO fund_post_trade_reviews (
+                review_id, symbol, decision_id, order_id, asset_class, thesis_state,
+                review_status, risk_flags_json, payload_json, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(review_id) DO UPDATE SET
+                symbol=excluded.symbol,
+                decision_id=excluded.decision_id,
+                order_id=excluded.order_id,
+                asset_class=excluded.asset_class,
+                thesis_state=excluded.thesis_state,
+                review_status=excluded.review_status,
+                risk_flags_json=excluded.risk_flags_json,
+                payload_json=excluded.payload_json,
+                created_at=excluded.created_at
+            """,
+            (
+                review_id,
+                str(row.get("symbol") or "").upper(),
+                row.get("decision_id"),
+                row.get("order_id"),
+                str(row.get("asset_class") or "equities"),
+                str(row.get("thesis_state") or "valid"),
+                str(row.get("review_status") or "healthy"),
+                json.dumps(list(row.get("risk_flags") or []), ensure_ascii=False),
+                json.dumps(dict(row.get("payload") or {}), ensure_ascii=False),
+                str(row.get("created_at") or datetime.utcnow().isoformat()),
+            ),
+        )
+
+
+def load_post_trade_reviews(*, limit: int = 50, symbol: str | None = None, thesis_state: str | None = None) -> List[Dict[str, Any]]:
+    query = (
+        "SELECT review_id, symbol, decision_id, order_id, asset_class, thesis_state, review_status, "
+        "risk_flags_json, payload_json, created_at FROM fund_post_trade_reviews"
+    )
+    params: list[Any] = []
+    clauses: list[str] = []
+    if symbol:
+        clauses.append("symbol = ?")
+        params.append(str(symbol).upper())
+    if thesis_state:
+        clauses.append("thesis_state = ?")
+        params.append(str(thesis_state))
+    if clauses:
+        query += " WHERE " + " AND ".join(clauses)
+    query += " ORDER BY created_at DESC LIMIT ?"
+    params.append(int(limit))
+    with get_db() as db:
+        rows = db.execute(query, params).fetchall()
+    out: list[Dict[str, Any]] = []
+    for raw in rows:
+        row = dict(raw)
+        try:
+            risk_flags = json.loads(row.get("risk_flags_json") or "[]")
+            if not isinstance(risk_flags, list):
+                risk_flags = []
+        except Exception:
+            risk_flags = []
+        try:
+            payload = json.loads(row.get("payload_json") or "{}")
+            if not isinstance(payload, dict):
+                payload = {}
+        except Exception:
+            payload = {}
+        out.append(
+            {
+                "review_id": row.get("review_id"),
+                "symbol": row.get("symbol"),
+                "decision_id": row.get("decision_id"),
+                "order_id": row.get("order_id"),
+                "asset_class": row.get("asset_class"),
+                "thesis_state": row.get("thesis_state"),
+                "review_status": row.get("review_status"),
+                "risk_flags": risk_flags,
+                "payload": payload,
+                "created_at": row.get("created_at"),
+            }
+        )
+    return out
+
+
 def save_decision_event(event: Dict[str, Any]) -> None:
     row = dict(event or {})
     event_id = str(row.get("event_id") or "").strip()

@@ -66,12 +66,104 @@ def _runtime_status() -> dict[str, Any]:
     return fund_agent_runtime.status()
 
 
+def _compute_return_pct(market_value: float, unrealized_pnl: float) -> float:
+    cost_basis = market_value - unrealized_pnl
+    if abs(cost_basis) < 1e-9:
+        return 0.0
+    return round((unrealized_pnl / cost_basis) * 100.0, 2)
+
+
 class VektorCeoService:
     def _positions(self) -> list[dict[str, Any]]:
         return broker.list_positions(FEED.price)
 
     def _orders(self) -> list[dict[str, Any]]:
         return broker.list_orders()
+
+    def _latest_ml_orders(self) -> dict[str, dict[str, Any]]:
+        latest: dict[str, dict[str, Any]] = {}
+        for order in self._orders():
+            metadata = order.get("metadata") if isinstance(order.get("metadata"), dict) else {}
+            if not isinstance(metadata.get("decision_scoring"), dict):
+                continue
+            symbol = _symbol_key(order.get("symbol"))
+            if not symbol:
+                continue
+            existing = latest.get(symbol)
+            current_ts = str(order.get("created_at") or "")
+            if existing is None or current_ts >= str(existing.get("created_at") or ""):
+                latest[symbol] = order
+        return latest
+
+    def _evaluate_position_review(self, position: dict[str, Any], order: dict[str, Any] | None = None) -> dict[str, Any]:
+        symbol = _symbol_key(position.get("symbol"))
+        order_meta = (order or {}).get("metadata") if isinstance((order or {}).get("metadata"), dict) else {}
+        decision_scoring = dict(order_meta.get("decision_scoring") or {})
+        threshold_profile = dict(order_meta.get("ml_threshold_profile") or {})
+        market_value = _safe_float(position.get("market_value"))
+        unrealized_pnl = _safe_float(position.get("unrealized_pnl"))
+        return_pct = _compute_return_pct(market_value, unrealized_pnl)
+        news_count = int(_safe_float((decision_scoring.get("metrics") or {}).get("news_intensity_count")))
+        macro_risk_level = str(order_meta.get("macro_risk_level") or "").strip().lower()
+        risk_flags: list[str] = []
+        explicit_thesis_state = str(order_meta.get("thesis_state") or "").strip().lower()
+        thesis_state = explicit_thesis_state if explicit_thesis_state in {"valid", "degraded", "broken"} else "valid"
+
+        if return_pct <= -5.0:
+            risk_flags.append("drawdown_break")
+            thesis_state = "broken"
+        elif return_pct <= -2.0 and thesis_state != "broken":
+            risk_flags.append("drawdown_warning")
+            thesis_state = "degraded"
+
+        if news_count >= 8:
+            risk_flags.append("event_risk_escalated")
+            if thesis_state == "valid":
+                thesis_state = "degraded"
+
+        if macro_risk_level in {"risk_off", "stressed", "volatile"}:
+            risk_flags.append(f"macro_risk_{macro_risk_level}")
+            if thesis_state == "valid":
+                thesis_state = "degraded"
+
+        score = _safe_float(decision_scoring.get("score"))
+        min_score = _safe_float(threshold_profile.get("min_score"))
+        if min_score > 0 and score < min_score:
+            risk_flags.append("score_below_gate_profile")
+            if thesis_state == "valid":
+                thesis_state = "degraded"
+
+        confidence = _safe_float(decision_scoring.get("confidence"))
+        min_confidence = _safe_float(threshold_profile.get("min_confidence"))
+        if min_confidence > 0 and confidence < min_confidence:
+            risk_flags.append("confidence_below_gate_profile")
+            if thesis_state == "valid":
+                thesis_state = "degraded"
+
+        if thesis_state == "broken":
+            review_status = "review_required"
+        elif thesis_state == "degraded" or len(risk_flags) >= 2:
+            review_status = "watch"
+        else:
+            review_status = "healthy"
+
+        return {
+            "symbol": symbol,
+            "asset_class": position.get("asset_class") or order_meta.get("asset_class") or "equities",
+            "decision_id": order_meta.get("decision_id") or (order or {}).get("decision_id"),
+            "order_id": (order or {}).get("id"),
+            "thesis_state": thesis_state,
+            "review_status": review_status,
+            "risk_flags": risk_flags,
+            "payload": {
+                "return_pct": return_pct,
+                "unrealized_pnl": _brief_number(unrealized_pnl),
+                "market_value": _brief_number(market_value),
+                "decision_scoring": decision_scoring,
+                "threshold_profile": threshold_profile,
+                "math_summary": decision_scoring.get("math_summary"),
+            },
+        }
 
     def position_brief(self, symbol: str) -> dict[str, Any]:
         target = _symbol_key(symbol)
@@ -180,12 +272,14 @@ class VektorCeoService:
 
     def positions_summary(self) -> dict[str, Any]:
         positions = self._positions()
+        latest_orders = self._latest_ml_orders()
         rows = []
         total_market_value = 0.0
         for row in positions:
             market_value = _safe_float(row.get("market_value"))
             unrealized = _safe_float(row.get("unrealized_pnl"))
             total_market_value += max(0.0, market_value)
+            review = self._evaluate_position_review(row, latest_orders.get(_symbol_key(row.get("symbol"))))
             rows.append(
                 {
                     "symbol": str(row.get("symbol") or "").upper(),
@@ -193,7 +287,10 @@ class VektorCeoService:
                     "quantity": _safe_float(row.get("qty")),
                     "market_value": _brief_number(market_value),
                     "unrealized_pnl": _brief_number(unrealized),
-                    "return_pct": round((unrealized / market_value * 100.0), 2) if market_value else 0.0,
+                    "return_pct": _compute_return_pct(market_value, unrealized),
+                    "thesis_state": review.get("thesis_state"),
+                    "review_status": review.get("review_status"),
+                    "risk_flags": list(review.get("risk_flags") or []),
                 }
             )
         rows.sort(key=lambda item: item["unrealized_pnl"], reverse=True)
@@ -236,6 +333,7 @@ class VektorCeoService:
 
     def risk_alerts(self) -> dict[str, Any]:
         alerts: list[dict[str, Any]] = []
+        position_reviews = self.post_trade_review(persist=False).get("items", [])
         blocked = firm_orchestrator.list_blocked_trades(limit=10)
         if blocked:
             alerts.append(
@@ -276,11 +374,78 @@ class VektorCeoService:
                     "message": f"{pending.get('count')} approvals are waiting on CEO review.",
                 }
             )
+        broken = [item for item in position_reviews if str(item.get("thesis_state") or "") == "broken"]
+        degraded = [item for item in position_reviews if str(item.get("thesis_state") or "") == "degraded"]
+        if broken:
+            alerts.append(
+                {
+                    "severity": "critical",
+                    "type": "broken_thesis",
+                    "message": f"{len(broken)} open position theses are broken and require immediate review.",
+                }
+            )
+        elif degraded:
+            alerts.append(
+                {
+                    "severity": "medium",
+                    "type": "degraded_thesis",
+                    "message": f"{len(degraded)} open position theses are degraded and should be monitored.",
+                }
+            )
         return {
             "accepted": True,
             "briefed_at": _utc_iso(),
             "count": len(alerts),
             "alerts": alerts,
+        }
+
+    def post_trade_review(self, *, persist: bool = True, limit: int = 50) -> dict[str, Any]:
+        positions = self._positions()
+        latest_orders = self._latest_ml_orders()
+        items: list[dict[str, Any]] = []
+        now = _utc_iso()
+        for position in positions:
+            symbol = _symbol_key(position.get("symbol"))
+            if not symbol:
+                continue
+            review = self._evaluate_position_review(position, latest_orders.get(symbol))
+            review_id = f"ptr-{symbol.lower()}-{now.replace(':', '').replace('-', '')}"
+            record = {
+                "review_id": review_id,
+                "symbol": symbol,
+                "decision_id": review.get("decision_id"),
+                "order_id": review.get("order_id"),
+                "asset_class": review.get("asset_class"),
+                "thesis_state": review.get("thesis_state"),
+                "review_status": review.get("review_status"),
+                "risk_flags": list(review.get("risk_flags") or []),
+                "payload": dict(review.get("payload") or {}),
+                "created_at": now,
+            }
+            if persist:
+                try:
+                    storage_db.save_post_trade_review(record)
+                except RuntimeError:
+                    pass
+            items.append(record)
+        items.sort(key=lambda item: (str(item.get("thesis_state") or ""), -_safe_float((item.get("payload") or {}).get("unrealized_pnl"))))
+        return {
+            "accepted": True,
+            "briefed_at": now,
+            "count": len(items),
+            "items": items[:limit],
+        }
+
+    def latest_post_trade_reviews(self, *, limit: int = 50) -> dict[str, Any]:
+        try:
+            rows = storage_db.load_post_trade_reviews(limit=limit)
+        except RuntimeError:
+            rows = []
+        return {
+            "accepted": True,
+            "briefed_at": _utc_iso(),
+            "count": len(rows),
+            "items": rows,
         }
 
     def ml_effectiveness_snapshot(self) -> dict[str, Any]:
@@ -397,6 +562,8 @@ class VektorCeoService:
                 "what area of our portfolio is performing the best and the worst",
                 "show exposure by asset class",
                 "show ml effectiveness",
+                "show thesis status",
+                "show post trade review",
                 "show pending approvals",
                 "show risk alerts",
                 "recent digests",

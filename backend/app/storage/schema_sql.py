@@ -118,6 +118,24 @@ CREATE TABLE IF NOT EXISTS fund_ceo_digests (
 CREATE INDEX IF NOT EXISTS idx_fund_ceo_digests_created
 ON fund_ceo_digests (created_at DESC);
 
+CREATE TABLE IF NOT EXISTS fund_post_trade_reviews (
+    review_id          TEXT PRIMARY KEY,
+    symbol             TEXT NOT NULL,
+    decision_id        TEXT,
+    order_id           TEXT,
+    asset_class        TEXT NOT NULL,
+    thesis_state       TEXT NOT NULL,
+    review_status      TEXT NOT NULL,
+    risk_flags_json    TEXT NOT NULL,
+    payload_json       TEXT NOT NULL,
+    created_at         TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_fund_post_trade_reviews_symbol_created
+ON fund_post_trade_reviews (symbol, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_fund_post_trade_reviews_state_created
+ON fund_post_trade_reviews (thesis_state, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS fund_decision_events (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     event_id     TEXT NOT NULL UNIQUE,
