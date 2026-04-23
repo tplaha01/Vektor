@@ -265,6 +265,64 @@ def _parse_control_command(command: str) -> dict[str, Any] | None:
         "worst performing",
         "/fund portfolio performance",
     )
+    positions_summary_patterns = (
+        "positions summary",
+        "all positions",
+        "show positions",
+        "/fund positions",
+    )
+    winners_losers_patterns = (
+        "winners and losers",
+        "winners losers",
+        "top winners",
+        "top losers",
+        "/fund winners",
+    )
+    exposure_patterns = (
+        "exposure by asset class",
+        "asset exposure",
+        "portfolio exposure",
+        "/fund exposure",
+    )
+    pending_approvals_patterns = (
+        "pending approvals",
+        "approvals pending",
+        "approval queue",
+        "/fund approvals pending",
+    )
+    approval_detail_patterns = (
+        "approval detail",
+        "request detail",
+        "/fund approval detail",
+    )
+    approve_request_patterns = (
+        "approve request",
+        "approve approval",
+        "/fund approval approve",
+    )
+    reject_request_patterns = (
+        "reject request",
+        "reject approval",
+        "/fund approval reject",
+    )
+    risk_alert_patterns = (
+        "risk alerts",
+        "risk status",
+        "show risk alerts",
+        "/fund risk alerts",
+    )
+    digest_history_patterns = (
+        "recent digests",
+        "digest history",
+        "/fund digests",
+    )
+    help_patterns = (
+        "help",
+        "command help",
+        "commands",
+        "what can you do",
+        "/fund help",
+    )
     editorial_pending_patterns = (
         "pending editorials",
         "pending editorial",
@@ -441,6 +499,26 @@ def _parse_control_command(command: str) -> dict[str, Any] | None:
         return {"action": "position_brief", "symbol": _extract_symbol(command)}
     if any(phrase in normalized for phrase in portfolio_performance_patterns):
         return {"action": "portfolio_performance"}
+    if any(phrase in normalized for phrase in positions_summary_patterns):
+        return {"action": "positions_summary"}
+    if any(phrase in normalized for phrase in winners_losers_patterns):
+        return {"action": "winners_losers"}
+    if any(phrase in normalized for phrase in exposure_patterns):
+        return {"action": "exposure_by_asset_class"}
+    if any(phrase in normalized for phrase in pending_approvals_patterns):
+        return {"action": "pending_approvals", "limit": _parse_int_param("limit", default=25, minimum=1, maximum=200)}
+    if any(phrase in normalized for phrase in approval_detail_patterns):
+        return {"action": "approval_detail", "request_id": _parse_text_param("request_id") or _parse_text_param("request") or _parse_text_param("id")}
+    if any(phrase in normalized for phrase in approve_request_patterns):
+        return {"action": "approve_request", "request_id": _parse_text_param("request_id") or _parse_text_param("request") or _parse_text_param("id")}
+    if any(phrase in normalized for phrase in reject_request_patterns):
+        return {"action": "reject_request", "request_id": _parse_text_param("request_id") or _parse_text_param("request") or _parse_text_param("id")}
+    if any(phrase in normalized for phrase in risk_alert_patterns):
+        return {"action": "risk_alerts"}
+    if any(phrase in normalized for phrase in digest_history_patterns):
+        return {"action": "digest_history", "limit": _parse_int_param("limit", default=10, minimum=1, maximum=100)}
+    if any(phrase == normalized for phrase in help_patterns) or normalized.startswith("/fund help"):
+        return {"action": "command_help"}
     if any(phrase in normalized for phrase in editorial_pending_patterns):
         return {"action": "pending_editorial"}
     if any(phrase in normalized for phrase in editorial_detail_patterns):
@@ -650,6 +728,16 @@ class OpenClawCommandAdapter:
                 "portfolio_digest",
                 "position_brief",
                 "portfolio_performance",
+                "positions_summary",
+                "winners_losers",
+                "exposure_by_asset_class",
+                "pending_approvals",
+                "approval_detail",
+                "approve_request",
+                "reject_request",
+                "risk_alerts",
+                "digest_history",
+                "command_help",
                 "pending_editorial",
                 "editorial_detail",
                 "approve_editorial",
@@ -1144,13 +1232,13 @@ class OpenClawCommandAdapter:
                 "accepted": True,
                 "control_id": control_id,
                 "action": "set_allocation_policy",
-                "status": "updated",
+                "status": "pending_approval" if allocation.get("request") else "updated",
                 "run_id_filter": run_id_filter,
                 "allocation": allocation,
             }
             self._record_control_event(
                 action="set_allocation_policy",
-                status="updated",
+                status="pending_approval" if allocation.get("request") else "updated",
                 reason=clean_reason,
                 run_id=run_id_filter,
                 agent_id=agent_id,
@@ -1209,6 +1297,206 @@ class OpenClawCommandAdapter:
                 agent_id=agent_id,
                 control_id=control_id,
                 payload={"pending_decisions": digest.get("summary", {}).get("pending_decisions", 0)},
+            )
+            return result
+
+        if clean_action == "positions_summary":
+            summary = vektor_ceo_service.positions_summary()
+            result = {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "positions_summary",
+                "status": "reported",
+                "positions": summary,
+            }
+            self._record_control_event(
+                action="positions_summary",
+                status="reported",
+                reason=clean_reason,
+                run_id=run_id,
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"count": summary.get("count", 0)},
+            )
+            return result
+
+        if clean_action == "winners_losers":
+            summary = vektor_ceo_service.winners_losers()
+            result = {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "winners_losers",
+                "status": "reported",
+                "summary": summary,
+            }
+            self._record_control_event(
+                action="winners_losers",
+                status="reported",
+                reason=clean_reason,
+                run_id=run_id,
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"winner_count": len(summary.get("winners") or []), "loser_count": len(summary.get("losers") or [])},
+            )
+            return result
+
+        if clean_action == "exposure_by_asset_class":
+            summary = vektor_ceo_service.exposure_by_asset_class()
+            result = {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "exposure_by_asset_class",
+                "status": "reported",
+                "exposure": summary,
+            }
+            self._record_control_event(
+                action="exposure_by_asset_class",
+                status="reported",
+                reason=clean_reason,
+                run_id=run_id,
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"asset_class_count": len(summary.get("asset_classes") or [])},
+            )
+            return result
+
+        if clean_action == "pending_approvals":
+            limit = int(control_payload.get("limit") or 25)
+            approvals = self._orchestrator.list_pending_approvals(limit=limit)
+            result = {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "pending_approvals",
+                "status": "reported",
+                "count": len(approvals),
+                "approvals": approvals,
+            }
+            self._record_control_event(
+                action="pending_approvals",
+                status="reported",
+                reason=clean_reason,
+                run_id=run_id,
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"count": len(approvals), "limit": limit},
+            )
+            return result
+
+        if clean_action == "approval_detail":
+            request_id = str(control_payload.get("request_id") or "").strip()
+            if not request_id:
+                return {"accepted": False, "reason": "missing_request_id", "control_id": control_id}
+            approval = self._orchestrator.get_approval_request(request_id)
+            if not approval:
+                return {"accepted": False, "reason": "approval_request_not_found", "control_id": control_id}
+            result = {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "approval_detail",
+                "status": "reported",
+                "approval": approval,
+            }
+            self._record_control_event(
+                action="approval_detail",
+                status="reported",
+                reason=clean_reason,
+                run_id=str(approval.get("run_id") or run_id),
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"request_id": request_id},
+            )
+            return result
+
+        if clean_action == "approve_request":
+            request_id = str(control_payload.get("request_id") or "").strip()
+            if not request_id:
+                return {"accepted": False, "reason": "missing_request_id", "control_id": control_id}
+            result = self._orchestrator.approve_request(request_id, reviewed_by="openclaw", notes=clean_reason)
+            self._record_control_event(
+                action="approve_request",
+                status="approved",
+                reason=clean_reason,
+                run_id=str((result.get("request") or {}).get("run_id") or run_id),
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"request_id": request_id},
+            )
+            return {**result, "accepted": True, "control_id": control_id, "action": "approve_request"}
+
+        if clean_action == "reject_request":
+            request_id = str(control_payload.get("request_id") or "").strip()
+            if not request_id:
+                return {"accepted": False, "reason": "missing_request_id", "control_id": control_id}
+            result = self._orchestrator.reject_request(request_id, reviewed_by="openclaw", notes=clean_reason)
+            self._record_control_event(
+                action="reject_request",
+                status="rejected",
+                reason=clean_reason,
+                run_id=str((result.get("request") or {}).get("run_id") or run_id),
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"request_id": request_id},
+            )
+            return {**result, "accepted": True, "control_id": control_id, "action": "reject_request"}
+
+        if clean_action == "risk_alerts":
+            alerts = vektor_ceo_service.risk_alerts()
+            result = {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "risk_alerts",
+                "status": "reported",
+                "alerts": alerts,
+            }
+            self._record_control_event(
+                action="risk_alerts",
+                status="reported",
+                reason=clean_reason,
+                run_id=run_id,
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"alert_count": alerts.get("count", 0)},
+            )
+            return result
+
+        if clean_action == "digest_history":
+            limit = int(control_payload.get("limit") or 10)
+            digests = vektor_ceo_service.list_digests(limit=limit)
+            result = {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "digest_history",
+                "status": "reported",
+                "digests": digests,
+            }
+            self._record_control_event(
+                action="digest_history",
+                status="reported",
+                reason=clean_reason,
+                run_id=run_id,
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"count": len(digests), "limit": limit},
+            )
+            return result
+
+        if clean_action == "command_help":
+            help_payload = vektor_ceo_service.command_help()
+            result = {
+                "accepted": True,
+                "control_id": control_id,
+                "action": "command_help",
+                "status": "reported",
+                "help": help_payload,
+            }
+            self._record_control_event(
+                action="command_help",
+                status="reported",
+                reason=clean_reason,
+                run_id=run_id,
+                agent_id=agent_id,
+                control_id=control_id,
+                payload={"command_count": sum(len(items) for items in (help_payload.get("command_groups") or {}).values())},
             )
             return result
 
@@ -1360,11 +1648,23 @@ class OpenClawCommandAdapter:
                 return {**resolved, "control_id": control_id}
             decision = resolved["record"]
             decision_id = decision.decision_id
-            decision_ledger.update_status(
-                decision_id,
-                "approved",
-                {"approved_by": "openclaw", "approved_at": _to_iso(self._clock()), "decision_id": decision_id},
-            )
+            approval_result: dict[str, Any] | None = None
+            if hasattr(self._orchestrator, "find_pending_trade_approval") and hasattr(self._orchestrator, "approve_request"):
+                pending_request = self._orchestrator.find_pending_trade_approval(decision_id=decision_id)
+                if pending_request:
+                    approval_result = self._orchestrator.approve_request(
+                        str(pending_request.get("request_id") or ""),
+                        reviewed_by="openclaw",
+                        notes=clean_reason,
+                    )
+                else:
+                    return {"accepted": False, "reason": "approval_request_not_found", "control_id": control_id}
+            else:
+                decision_ledger.update_status(
+                    decision_id,
+                    "approved",
+                    {"approved_by": "openclaw", "approved_at": _to_iso(self._clock()), "decision_id": decision_id},
+                )
             result = {
                 "accepted": True,
                 "control_id": control_id,
@@ -1372,6 +1672,7 @@ class OpenClawCommandAdapter:
                 "status": "approved",
                 "decision_id": decision_id,
                 "resolution": resolved.get("resolution"),
+                "approval": approval_result,
             }
             self._record_control_event(
                 action="approve_decision",
@@ -1390,11 +1691,23 @@ class OpenClawCommandAdapter:
                 return {**resolved, "control_id": control_id}
             decision = resolved["record"]
             decision_id = decision.decision_id
-            decision_ledger.update_status(
-                decision_id,
-                "blocked",
-                {"reason": "manual_reject", "rejected_by": "openclaw", "rejected_at": _to_iso(self._clock()), "decision_id": decision_id},
-            )
+            rejection_result: dict[str, Any] | None = None
+            if hasattr(self._orchestrator, "find_pending_trade_approval") and hasattr(self._orchestrator, "reject_request"):
+                pending_request = self._orchestrator.find_pending_trade_approval(decision_id=decision_id)
+                if pending_request:
+                    rejection_result = self._orchestrator.reject_request(
+                        str(pending_request.get("request_id") or ""),
+                        reviewed_by="openclaw",
+                        notes=clean_reason,
+                    )
+                else:
+                    return {"accepted": False, "reason": "approval_request_not_found", "control_id": control_id}
+            else:
+                decision_ledger.update_status(
+                    decision_id,
+                    "blocked",
+                    {"reason": "manual_reject", "rejected_by": "openclaw", "rejected_at": _to_iso(self._clock()), "decision_id": decision_id},
+                )
             result = {
                 "accepted": True,
                 "control_id": control_id,
@@ -1402,6 +1715,7 @@ class OpenClawCommandAdapter:
                 "status": "rejected",
                 "decision_id": decision_id,
                 "resolution": resolved.get("resolution"),
+                "approval": rejection_result,
             }
             self._record_control_event(
                 action="reject_decision",
@@ -1455,23 +1769,34 @@ class OpenClawCommandAdapter:
             assigned_roles = control_payload.get("assigned_roles") if isinstance(control_payload.get("assigned_roles"), list) else []
             if not signal_pack_id:
                 return {"accepted": False, "reason": "missing_signal_pack_id", "control_id": control_id}
-            rerouted = self._runtime.reroute_signal_pack(
-                signal_pack_id=signal_pack_id,
-                assigned_roles=assigned_roles,
-                reason=clean_reason,
-            )
+            if get_settings().CEO_APPROVAL_REQUIRED_FOR_MAJOR_REROUTES and hasattr(self._orchestrator, "request_signal_pack_reroute"):
+                rerouted = self._orchestrator.request_signal_pack_reroute(
+                    run_id=run_id,
+                    agent_id=agent_id,
+                    signal_pack_id=signal_pack_id,
+                    assigned_roles=list(assigned_roles),
+                    reason=clean_reason,
+                )
+                status = "pending_approval"
+            else:
+                rerouted = self._runtime.reroute_signal_pack(
+                    signal_pack_id=signal_pack_id,
+                    assigned_roles=assigned_roles,
+                    reason=clean_reason,
+                )
+                status = "rerouted"
             if not rerouted.get("accepted"):
                 return {**rerouted, "control_id": control_id}
             self._record_control_event(
                 action="reroute_signal_pack",
-                status="rerouted",
+                status=status,
                 reason=clean_reason,
                 run_id=str(rerouted.get("run_id") or run_id),
                 agent_id=agent_id,
                 control_id=control_id,
                 payload={"signal_pack_id": signal_pack_id, "assigned_roles": list(assigned_roles)},
             )
-            return {"accepted": True, "control_id": control_id, "action": "reroute_signal_pack", "status": "rerouted", "result": rerouted}
+            return {"accepted": True, "control_id": control_id, "action": "reroute_signal_pack", "status": status, "result": rerouted}
 
         if clean_action == "knowledge_stats":
             stats = self._orchestrator.knowledge_stats()

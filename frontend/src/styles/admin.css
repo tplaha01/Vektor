@@ -1282,27 +1282,42 @@
 
 .market-watch-shell {
   display: grid;
-  gap: 14px;
+  gap: 16px;
 }
 
 .market-watch-top-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.8fr);
-  gap: 14px;
+  grid-template-columns: minmax(0, 1.45fr) minmax(340px, 0.85fr);
+  gap: 16px;
   align-items: start;
 }
 
 .market-watch-bottom-grid {
   display: grid;
   grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.1fr);
-  gap: 14px;
-  align-items: start;
+  gap: 16px;
+  align-items: stretch;
 }
 
 .market-watch-panel {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
+  padding: 14px;
+  border-radius: calc(var(--r) + 2px);
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  background:
+    radial-gradient(circle at top right, rgba(57, 198, 167, 0.08), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.024), rgba(255, 255, 255, 0.012)),
+    rgba(7, 10, 14, 0.95);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
+}
+
+.market-watch-news-panel,
+.market-watch-rack-panel {
+  height: 100%;
+  min-height: 1140px;
+  align-content: start;
 }
 
 .market-watch-chart-grid,
@@ -1322,11 +1337,21 @@
 .market-watch-chart-card,
 .market-watch-mini-card,
 .market-watch-video-card {
-  padding: 10px;
+  padding: 12px;
   border-radius: var(--r);
   border: 1px solid rgba(255, 255, 255, 0.05);
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(255, 255, 255, 0.024);
   min-width: 0;
+}
+
+.market-watch-chart-card {
+  min-height: 460px;
+  align-content: start;
+}
+
+.market-watch-mini-card {
+  min-height: 380px;
+  align-content: start;
 }
 
 .market-watch-chart-head {
@@ -1344,28 +1369,485 @@
   color: var(--txt2);
 }
 
+.market-watch-ticker-strip {
+  position: relative;
+  overflow: hidden;
+  border-radius: calc(var(--r) + 4px);
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  background:
+    linear-gradient(90deg, rgba(11, 15, 20, 1), rgba(11, 15, 20, 0.16) 8%, rgba(11, 15, 20, 0.16) 92%, rgba(11, 15, 20, 1)),
+    rgba(255, 255, 255, 0.02);
+}
+
+.market-watch-ticker-track {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: max-content;
+  padding: 12px 0;
+  animation: marketTickerScroll 42s linear infinite;
+}
+
+.market-watch-ticker-strip:hover .market-watch-ticker-track {
+  animation-play-state: paused;
+}
+
+.market-watch-ticker-item {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.032);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  white-space: nowrap;
+}
+
+.market-watch-ticker-logo {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18);
+  flex-shrink: 0;
+}
+
+.market-watch-ticker-logo-image {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.94);
+  padding: 2px;
+  box-shadow: inset 0 0 0 1px rgba(12, 13, 16, 0.08);
+  flex-shrink: 0;
+}
+
+.market-watch-ticker-item strong {
+  font-size: 12px;
+  color: var(--txt);
+}
+
+.market-watch-ticker-item span {
+  font-size: 11px;
+  color: var(--txt3);
+}
+
+.market-watch-ticker-item b {
+  font-size: 12px;
+  color: var(--txt);
+}
+
+.market-watch-ticker-item small {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.market-watch-ticker-item.positive small {
+  color: #3ecf8e;
+}
+
+.market-watch-ticker-item.negative small {
+  color: #ff7c7c;
+}
+
 .market-watch-video-stack {
   display: grid;
   gap: 10px;
 }
 
+.market-watch-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.market-watch-section-copy {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--txt2);
+  max-width: 520px;
+}
+
+.market-watch-results-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--txt3);
+}
+
+.market-watch-quick-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.market-watch-quick-toggle {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--txt2);
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.market-watch-quick-toggle.active {
+  color: #f6fbff;
+  border-color: rgba(125, 168, 255, 0.26);
+  background: rgba(78, 120, 214, 0.16);
+}
+
+.market-watch-video-meta {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 10px;
+}
+
+.market-watch-video-kicker {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--txt3);
+}
+
 .market-watch-video-card strong {
   display: block;
-  margin-bottom: 8px;
-  font-size: 12px;
+  font-size: 13px;
+}
+
+.market-watch-video-card span {
+  font-size: 11px;
+  color: var(--txt2);
+}
+
+.market-watch-live-link {
+  display: inline-flex;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--blue);
+  text-decoration: none;
+}
+
+.market-watch-live-link:hover {
+  color: #8dc1ff;
 }
 
 .market-watch-video-card iframe {
   width: 100%;
-  height: 210px;
+  aspect-ratio: 16 / 9;
+  min-height: 215px;
   border: 0;
   border-radius: var(--r-sm);
-  background: #000;
+  background:
+    radial-gradient(circle at top right, rgba(245, 166, 35, 0.18), transparent 35%),
+    #000;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 .market-watch-chart-card .tv-wrap,
 .market-watch-mini-card .tv-wrap {
   min-height: 0 !important;
+}
+
+.market-watch-headline-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-content: start;
+}
+
+.market-watch-newsroom {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.market-watch-lead-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: calc(var(--r) + 2px);
+  border: 1px solid rgba(125, 168, 255, 0.12);
+  background:
+    radial-gradient(circle at top right, rgba(78, 120, 214, 0.14), transparent 30%),
+    linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.014)),
+    rgba(255,255,255,0.024);
+}
+
+.market-watch-lead-title-row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.market-watch-lead-title-copy {
+  display: grid;
+  gap: 8px;
+}
+
+.market-watch-lead-link {
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.market-watch-lead-summary {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--txt2);
+}
+
+.market-watch-support-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.market-watch-brief-card {
+  display: grid;
+  gap: 8px;
+  padding: 10px 11px;
+  border-radius: var(--r-sm);
+  border: 1px solid rgba(255,255,255,0.05);
+  background: rgba(255,255,255,0.02);
+  align-content: start;
+}
+
+.market-watch-wire-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-content: start;
+}
+
+.market-watch-pagination {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.market-watch-page-btn {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--txt);
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.market-watch-page-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.market-watch-page-label {
+  font-size: 11px;
+  color: var(--txt3);
+  min-width: 52px;
+  text-align: center;
+}
+
+.market-watch-sector-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.market-watch-sector-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.market-watch-sector-filter-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  padding: 10px 0 6px;
+  background: linear-gradient(180deg, rgba(7, 10, 14, 0.98), rgba(7, 10, 14, 0.9));
+  backdrop-filter: blur(10px);
+}
+
+.market-watch-sector-chip {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.022);
+  color: var(--txt2);
+  border-radius: 999px;
+  padding: 7px 11px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.market-watch-sector-chip:hover {
+  color: var(--txt);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.market-watch-sector-chip.active {
+  color: #d8f7ef;
+  border-color: rgba(62, 207, 142, 0.22);
+  background: rgba(62, 207, 142, 0.12);
+}
+
+.market-watch-sector-group {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: var(--r);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.market-watch-sector-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.market-watch-sector-head strong {
+  font-size: 12px;
+}
+
+.market-watch-sector-head span {
+  font-size: 11px;
+  color: var(--txt3);
+}
+
+.market-watch-sector-list {
+  display: grid;
+  gap: 10px;
+}
+
+.market-watch-news-card {
+  display: grid;
+  gap: 6px;
+  padding: 9px 10px;
+  border-radius: var(--r-sm);
+  border: 1px solid rgba(255, 255, 255, 0.045);
+  background: rgba(255, 255, 255, 0.02);
+  min-height: 146px;
+  align-content: start;
+}
+
+.market-watch-news-card.compact {
+  min-height: 112px;
+}
+
+.market-watch-news-title-row {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.market-watch-source-mark {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  display: block;
+  margin-top: 1px;
+}
+
+.market-watch-source-mark.large {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+}
+
+.market-watch-source-mark-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.06);
+  color: var(--txt2);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.market-watch-news-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.market-watch-news-tags.tight {
+  margin-bottom: 6px;
+}
+
+.market-watch-news-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #d8f7ef;
+  background: rgba(62, 207, 142, 0.12);
+  border: 1px solid rgba(62, 207, 142, 0.18);
+}
+
+.market-watch-news-pill.subdued {
+  color: var(--txt2);
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.market-watch-news-link {
+  color: var(--txt);
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.market-watch-news-link:hover {
+  color: #8dc1ff;
+}
+
+.market-watch-news-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--txt3);
+}
+
+.market-watch-report-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.market-watch-report-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(125, 168, 255, 0.18);
+  background: rgba(78, 120, 214, 0.1);
+  color: #b7d0ff;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.market-watch-report-pill:hover {
+  background: rgba(78, 120, 214, 0.16);
+  color: #d2e2ff;
 }
 
 @media (max-width: 1400px) {
@@ -1378,6 +1860,20 @@
   .market-watch-bottom-grid {
     grid-template-columns: 1fr;
   }
+
+  .market-watch-chart-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .market-watch-support-grid,
+  .market-watch-wire-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .market-watch-news-panel,
+  .market-watch-rack-panel {
+    min-height: 0;
+  }
 }
 
 @media (max-width: 1100px) {
@@ -1388,9 +1884,25 @@
 
   .market-watch-chart-grid,
   .market-watch-mini-grid,
+  .market-watch-support-grid,
+  .market-watch-wire-grid,
+  .market-watch-headline-grid,
   .ceo-brief-grid,
   .context-action-row {
     grid-template-columns: 1fr;
+  }
+
+  .market-watch-section-head {
+    flex-direction: column;
+  }
+}
+
+@keyframes marketTickerScroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
   }
 }
 
@@ -6203,4 +6715,57 @@ button.kb-trace-card:hover {
   display: flex;
   justify-content: flex-start;
   margin-top: 16px;
+}
+
+.command-help-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.command-help-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.command-help-card strong {
+  font-size: 13px;
+  color: var(--txt);
+}
+
+.command-help-chip-row,
+.deliverable-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.deliverable-list.compact {
+  gap: 8px;
+}
+
+.deliverable-list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.deliverable-list-row strong {
+  font-size: 12px;
+  color: var(--txt);
+}
+
+.deliverable-list-row span {
+  font-size: 12px;
+  color: var(--txt2);
 }

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+ï»¿import React, { useEffect, useMemo, useState } from "react";
 import { adminAPI } from "../api/adminAPI";
 import { getAnalytics } from "../api";
 
@@ -74,7 +74,7 @@ export default function PublicPnlPage() {
       <header style={{ borderBottom: "1px solid var(--line)", background: "var(--bg1)", position: "sticky", top: 0, zIndex: 2 }}>
         <div style={{ maxWidth: 1320, margin: "0 auto", padding: "14px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <img src="/VektorLogo.png" alt="Vektor Logo" style={{ height: "48px", width: "auto", objectFit: "contain" }} />
+            <img src="/VektorLogo.png?v=20260422b" alt="Vektor Logo" style={{ height: "48px", width: "auto", objectFit: "contain" }} />
             <div>
               <div className="label" style={{ marginBottom: 4 }}>Vektor Public Board</div>
               <h1 style={{ fontSize: 24 }}>Live Paper PnL</h1>
@@ -139,8 +139,8 @@ export default function PublicPnlPage() {
             <div className="panel panel-pad">
               <h2 style={{ fontSize: 18, marginBottom: 12 }}>Portfolio posture</h2>
               <div style={{ display: "grid", gap: 10 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span className="label">Best contributor</span><strong>{totals.biggestWinner?.symbol || 'n/a'} · {currency(totals.biggestWinner?.unrealized_pnl)}</strong></div>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span className="label">Worst contributor</span><strong>{totals.biggestLoser?.symbol || 'n/a'} · {currency(totals.biggestLoser?.unrealized_pnl)}</strong></div>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span className="label">Best contributor</span><strong>{totals.biggestWinner?.symbol || 'n/a'} Â· {currency(totals.biggestWinner?.unrealized_pnl)}</strong></div>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span className="label">Worst contributor</span><strong>{totals.biggestLoser?.symbol || 'n/a'} Â· {currency(totals.biggestLoser?.unrealized_pnl)}</strong></div>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span className="label">Realized PnL</span><strong>{currency(metrics.realized_pnl || 0)}</strong></div>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span className="label">External flows</span><strong>{currency(metrics.external_capital_flow_usd || 0)}</strong></div>
               </div>
@@ -186,3 +186,5 @@ export default function PublicPnlPage() {
     </div>
   );
 }
+
+

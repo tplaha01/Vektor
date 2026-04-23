@@ -1,17 +1,24 @@
-import "./globals.css";
+﻿import "./globals.css";
 import { ThemeProvider } from "./ThemeProvider";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
 export const metadata = {
   metadataBase: new URL(siteUrl),
-  title: "Vektor | AI-Native Hedge Fund OS",
+  title: {
+    default: "Vektor - Landing",
+    template: "Vektor - %s",
+  },
   description:
     "Vektor is a paper-first AI-native hedge fund operating system with multi-agent orchestration, decision traceability, and sleeve-level capital allocation.",
   applicationName: "Vektor",
+  icons: {
+    icon: "/VektorLogo.png?v=20260422b",
+    apple: "/VektorLogo.png?v=20260422b",
+  },
   openGraph: {
     type: "website",
-    title: "Vektor | AI-Native Hedge Fund OS",
+    title: "Vektor - Landing",
     description:
       "Build and operate an AI-native hedge fund stack with institutional controls and auditability.",
     url: "/",
@@ -19,7 +26,7 @@ export const metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Vektor | AI-Native Hedge Fund OS",
+    title: "Vektor - Landing",
     description:
       "Paper-first multi-agent hedge fund operations with full decision lineage.",
   },
@@ -36,3 +43,5 @@ export default function RootLayout({ children }) {
     </html>
   );
 }
+
+

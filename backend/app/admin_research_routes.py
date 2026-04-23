@@ -1572,6 +1572,7 @@ async def get_decision_detail(decision_id: str):
             break
 
     audit_timeline_path = f"/api/admin/audit/orders/{order_id}/timeline" if order_id else None
+    pending_approval = firm_orchestrator.find_pending_trade_approval(decision_id=key)
     return {
         "decision_id": decision.decision_id,
         "run_id": decision.run_id,
@@ -1584,6 +1585,7 @@ async def get_decision_detail(decision_id: str):
         "context": context,
         "blocked_reasons": blocked_reasons,
         "order_id": order_id,
+        "approval_request_id": pending_approval.get("request_id") if pending_approval else None,
         "audit_timeline_path": audit_timeline_path,
         "lineage_detail_path": f"/api/admin/lineage/run/{decision.run_id}",
         "events": timeline,
@@ -1595,25 +1597,10 @@ async def approve_decision(decision_id: str):
     decision = next((item for item in decision_ledger.list_decisions() if item.decision_id == decision_id), None)
     if decision is None:
         raise HTTPException(status_code=404, detail="decision_not_found")
-
-    decision_ledger.update_status(
-        decision_id,
-        "approved",
-        {
-            "approved_by": "api.admin",
-            "approved_at": _utc_now().isoformat(),
-            "decision_id": decision_id,
-        },
-    )
-    audit_log.record(
-        "decision.manual_approved",
-        {
-            "decision_id": decision_id,
-            "agent_id": "api.admin",
-            "run_id": decision.run_id,
-        },
-    )
-    return {"status": "approved", "decision_id": decision_id}
+    request = firm_orchestrator.find_pending_trade_approval(decision_id=decision_id)
+    if request is None:
+        raise HTTPException(status_code=404, detail="approval_request_not_found")
+    return firm_orchestrator.approve_request(str(request.get("request_id") or ""), reviewed_by="api.admin")
 
 
 @router.post("/decisions/{decision_id}/reject")
@@ -1621,27 +1608,10 @@ async def reject_decision(decision_id: str):
     decision = next((item for item in decision_ledger.list_decisions() if item.decision_id == decision_id), None)
     if decision is None:
         raise HTTPException(status_code=404, detail="decision_not_found")
-
-    decision_ledger.update_status(
-        decision_id,
-        "blocked",
-        {
-            "reason": "manual_reject",
-            "rejected_by": "api.admin",
-            "rejected_at": _utc_now().isoformat(),
-            "decision_id": decision_id,
-        },
-    )
-    audit_log.record(
-        "decision.manual_rejected",
-        {
-            "decision_id": decision_id,
-            "agent_id": "api.admin",
-            "run_id": decision.run_id,
-            "blocked_reasons": ["manual_reject"],
-        },
-    )
-    return {"status": "rejected", "decision_id": decision_id}
+    request = firm_orchestrator.find_pending_trade_approval(decision_id=decision_id)
+    if request is None:
+        raise HTTPException(status_code=404, detail="approval_request_not_found")
+    return firm_orchestrator.reject_request(str(request.get("request_id") or ""), reviewed_by="api.admin")
 
 
 @router.get("/sleeves/budgets", response_model=dict)
@@ -2337,6 +2307,76 @@ async def get_ceo_position(symbol: str):
 @router.get("/ceo/performance-breakdown", response_model=dict)
 async def get_ceo_performance_breakdown():
     return vektor_ceo_service.portfolio_performance_breakdown()
+
+
+@router.get("/ceo/positions", response_model=dict)
+async def get_ceo_positions():
+    return vektor_ceo_service.positions_summary()
+
+
+@router.get("/ceo/winners-losers", response_model=dict)
+async def get_ceo_winners_losers():
+    return vektor_ceo_service.winners_losers()
+
+
+@router.get("/ceo/exposure", response_model=dict)
+async def get_ceo_exposure():
+    return vektor_ceo_service.exposure_by_asset_class()
+
+
+@router.get("/ceo/risk-alerts", response_model=dict)
+async def get_ceo_risk_alerts():
+    return vektor_ceo_service.risk_alerts()
+
+
+@router.get("/ceo/command-help", response_model=dict)
+async def get_ceo_command_help():
+    return vektor_ceo_service.command_help()
+
+
+@router.get("/ceo/digests", response_model=dict)
+async def get_ceo_digests(
+    limit: int = Query(default=20, ge=1, le=200),
+    digest_type: str | None = Query(default=None, min_length=3, max_length=64),
+):
+    return {"digests": vektor_ceo_service.list_digests(limit=limit, digest_type=digest_type)}
+
+
+@router.post("/ceo/digest/generate", response_model=dict)
+async def generate_ceo_digest():
+    return vektor_ceo_service.persist_digest(digest_type="manual", generated_by="api.admin")
+
+
+@router.get("/ceo/approvals/pending", response_model=dict)
+async def get_pending_approvals(
+    limit: int = Query(default=50, ge=1, le=500),
+    request_type: str | None = Query(default=None, min_length=3, max_length=64),
+):
+    return {"approvals": firm_orchestrator.list_pending_approvals(limit=limit, request_type=request_type)}
+
+
+@router.get("/ceo/approvals/{request_id}", response_model=dict)
+async def get_approval_detail(request_id: str):
+    approval = firm_orchestrator.get_approval_request(request_id)
+    if approval is None:
+        raise HTTPException(status_code=404, detail="approval_request_not_found")
+    return approval
+
+
+@router.post("/ceo/approvals/{request_id}/approve", response_model=dict)
+async def approve_request(request_id: str, body: RuntimeControlIn):
+    try:
+        return firm_orchestrator.approve_request(request_id, reviewed_by="api.admin", notes=body.reason)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/ceo/approvals/{request_id}/reject", response_model=dict)
+async def reject_request(request_id: str, body: RuntimeControlIn):
+    try:
+        return firm_orchestrator.reject_request(request_id, reviewed_by="api.admin", notes=body.reason)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.get("/ceo/editorial/pending", response_model=dict)

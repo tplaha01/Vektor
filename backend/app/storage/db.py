@@ -490,6 +490,201 @@ def load_decision_records() -> List[Dict[str, Any]]:
     return out
 
 
+def save_approval_request(request: Dict[str, Any]) -> None:
+    row = dict(request or {})
+    request_id = str(row.get("request_id") or "").strip()
+    if not request_id:
+        return
+    now = datetime.utcnow().isoformat()
+    with get_db() as db:
+        db.execute(
+            """
+            INSERT INTO fund_approval_requests (
+                request_id, run_id, request_type, subject_id, requested_by, status,
+                summary, payload_json, created_at, updated_at, expires_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(request_id) DO UPDATE SET
+                run_id=excluded.run_id,
+                request_type=excluded.request_type,
+                subject_id=excluded.subject_id,
+                requested_by=excluded.requested_by,
+                status=excluded.status,
+                summary=excluded.summary,
+                payload_json=excluded.payload_json,
+                updated_at=excluded.updated_at,
+                expires_at=excluded.expires_at
+            """,
+            (
+                request_id,
+                row.get("run_id"),
+                str(row.get("request_type") or "unknown"),
+                row.get("subject_id"),
+                str(row.get("requested_by") or "system"),
+                str(row.get("status") or "pending"),
+                str(row.get("summary") or "Approval required"),
+                json.dumps(dict(row.get("payload") or {}), ensure_ascii=False),
+                str(row.get("created_at") or now),
+                str(row.get("updated_at") or now),
+                row.get("expires_at"),
+            ),
+        )
+
+
+def load_approval_requests(
+    *,
+    limit: int = 100,
+    status: str | None = None,
+    request_type: str | None = None,
+    run_id: str | None = None,
+    subject_id: str | None = None,
+) -> List[Dict[str, Any]]:
+    query = (
+        "SELECT request_id, run_id, request_type, subject_id, requested_by, status, summary, "
+        "payload_json, created_at, updated_at, expires_at FROM fund_approval_requests"
+    )
+    clauses: list[str] = []
+    params: list[Any] = []
+    if status:
+        clauses.append("status = ?")
+        params.append(str(status))
+    if request_type:
+        clauses.append("request_type = ?")
+        params.append(str(request_type))
+    if run_id:
+        clauses.append("run_id = ?")
+        params.append(str(run_id))
+    if subject_id:
+        clauses.append("subject_id = ?")
+        params.append(str(subject_id))
+    if clauses:
+        query += " WHERE " + " AND ".join(clauses)
+    query += " ORDER BY created_at DESC LIMIT ?"
+    params.append(int(limit))
+    with get_db() as db:
+        rows = db.execute(query, params).fetchall()
+    out: list[Dict[str, Any]] = []
+    for raw in rows:
+        row = dict(raw)
+        try:
+            payload = json.loads(row.get("payload_json") or "{}")
+            if not isinstance(payload, dict):
+                payload = {}
+        except Exception:
+            payload = {}
+        out.append(
+            {
+                "request_id": row.get("request_id"),
+                "run_id": row.get("run_id"),
+                "request_type": row.get("request_type"),
+                "subject_id": row.get("subject_id"),
+                "requested_by": row.get("requested_by"),
+                "status": row.get("status"),
+                "summary": row.get("summary"),
+                "payload": payload,
+                "created_at": row.get("created_at"),
+                "updated_at": row.get("updated_at"),
+                "expires_at": row.get("expires_at"),
+            }
+        )
+    return out
+
+
+def load_approval_request(request_id: str) -> Dict[str, Any] | None:
+    key = str(request_id or "").strip()
+    if not key:
+        return None
+    with get_db() as db:
+        row = db.execute(
+            """
+            SELECT request_id, run_id, request_type, subject_id, requested_by, status, summary,
+                   payload_json, created_at, updated_at, expires_at
+            FROM fund_approval_requests
+            WHERE request_id = ?
+            LIMIT 1
+            """,
+            (key,),
+        ).fetchone()
+    if not row:
+        return None
+    record = dict(row)
+    try:
+        payload = json.loads(record.get("payload_json") or "{}")
+        if not isinstance(payload, dict):
+            payload = {}
+    except Exception:
+        payload = {}
+    return {
+        "request_id": record.get("request_id"),
+        "run_id": record.get("run_id"),
+        "request_type": record.get("request_type"),
+        "subject_id": record.get("subject_id"),
+        "requested_by": record.get("requested_by"),
+        "status": record.get("status"),
+        "summary": record.get("summary"),
+        "payload": payload,
+        "created_at": record.get("created_at"),
+        "updated_at": record.get("updated_at"),
+        "expires_at": record.get("expires_at"),
+    }
+
+
+def save_ceo_digest(digest: Dict[str, Any]) -> None:
+    row = dict(digest or {})
+    digest_id = str(row.get("digest_id") or "").strip()
+    if not digest_id:
+        return
+    with get_db() as db:
+        db.execute(
+            """
+            INSERT INTO fund_ceo_digests (digest_id, digest_type, generated_by, payload_json, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(digest_id) DO UPDATE SET
+                digest_type=excluded.digest_type,
+                generated_by=excluded.generated_by,
+                payload_json=excluded.payload_json,
+                created_at=excluded.created_at
+            """,
+            (
+                digest_id,
+                str(row.get("digest_type") or "scheduled"),
+                str(row.get("generated_by") or "vektor"),
+                json.dumps(dict(row.get("payload") or {}), ensure_ascii=False),
+                str(row.get("created_at") or datetime.utcnow().isoformat()),
+            ),
+        )
+
+
+def load_ceo_digests(*, limit: int = 50, digest_type: str | None = None) -> List[Dict[str, Any]]:
+    query = "SELECT digest_id, digest_type, generated_by, payload_json, created_at FROM fund_ceo_digests"
+    params: list[Any] = []
+    if digest_type:
+        query += " WHERE digest_type = ?"
+        params.append(str(digest_type))
+    query += " ORDER BY created_at DESC LIMIT ?"
+    params.append(int(limit))
+    with get_db() as db:
+        rows = db.execute(query, params).fetchall()
+    out: list[Dict[str, Any]] = []
+    for raw in rows:
+        row = dict(raw)
+        try:
+            payload = json.loads(row.get("payload_json") or "{}")
+            if not isinstance(payload, dict):
+                payload = {}
+        except Exception:
+            payload = {}
+        out.append(
+            {
+                "digest_id": row.get("digest_id"),
+                "digest_type": row.get("digest_type"),
+                "generated_by": row.get("generated_by"),
+                "payload": payload,
+                "created_at": row.get("created_at"),
+            }
+        )
+    return out
+
+
 def save_decision_event(event: Dict[str, Any]) -> None:
     row = dict(event or {})
     event_id = str(row.get("event_id") or "").strip()

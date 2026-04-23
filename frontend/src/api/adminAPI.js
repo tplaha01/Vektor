@@ -179,6 +179,41 @@ export const adminAPI = {
   getCeoDigest: async () => fetchJson(`${API_BASE}/admin/ceo/digest`),
   getCeoPositionBrief: async (symbol) => fetchJson(`${API_BASE}/admin/ceo/position/${encodeURIComponent(symbol)}`),
   getCeoPerformanceBreakdown: async () => fetchJson(`${API_BASE}/admin/ceo/performance-breakdown`),
+  getCeoPositions: async () => fetchJson(`${API_BASE}/admin/ceo/positions`),
+  getCeoWinnersLosers: async () => fetchJson(`${API_BASE}/admin/ceo/winners-losers`),
+  getCeoExposure: async () => fetchJson(`${API_BASE}/admin/ceo/exposure`),
+  getCeoRiskAlerts: async () => fetchJson(`${API_BASE}/admin/ceo/risk-alerts`),
+  getCeoCommandHelp: async () => fetchJson(`${API_BASE}/admin/ceo/command-help`),
+  getCeoDigests: async (limit = 20, digestType = "") => {
+    const params = new URLSearchParams();
+    params.set("limit", String(limit));
+    if (digestType) params.set("digest_type", digestType);
+    return fetchJson(`${API_BASE}/admin/ceo/digests?${params.toString()}`);
+  },
+  generateCeoDigest: async () =>
+    fetchJson(`${API_BASE}/admin/ceo/digest/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    }),
+  getPendingApprovals: async (limit = 50, requestType = "") => {
+    const params = new URLSearchParams();
+    params.set("limit", String(limit));
+    if (requestType) params.set("request_type", requestType);
+    return fetchJson(`${API_BASE}/admin/ceo/approvals/pending?${params.toString()}`);
+  },
+  getApprovalDetail: async (requestId) => fetchJson(`${API_BASE}/admin/ceo/approvals/${encodeURIComponent(requestId)}`),
+  approveRequest: async (requestId, notes = "Approved by CEO in admin") =>
+    fetchJson(`${API_BASE}/admin/ceo/approvals/${encodeURIComponent(requestId)}/approve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ notes }),
+    }),
+  rejectRequest: async (requestId, notes = "Rejected by CEO in admin") =>
+    fetchJson(`${API_BASE}/admin/ceo/approvals/${encodeURIComponent(requestId)}/reject`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ notes }),
+    }),
   getPendingEditorial: async () => fetchJson(`${API_BASE}/admin/ceo/editorial/pending`),
   getEditorialDetail: async (postId) => fetchJson(`${API_BASE}/admin/ceo/editorial/${encodeURIComponent(postId)}`),
   approveEditorial: async (postId, reason = "Approved by CEO") =>

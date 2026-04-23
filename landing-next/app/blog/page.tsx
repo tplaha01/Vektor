@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -55,6 +55,7 @@ export default function BlogPage() {
   const [selectedCategory, setSelectedCategory] = useState(null);
 
   useEffect(() => {
+    document.title = "Vektor - Blog";
     setMounted(true);
 
     // Intersection observer for animations
@@ -89,7 +90,7 @@ export default function BlogPage() {
       <header className="topbar">
         <div className="container topbar-inner">
           <a href="/" className="brand" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <img src="/VektorLogo.png" alt="Vektor Logo" style={{ height: "48px", width: "auto", objectFit: "contain" }} />
+            <img src="/VektorLogo.png?v=20260422b" alt="Vektor Logo" style={{ height: "48px", width: "auto", objectFit: "contain" }} />
             <span>Vektor <em>Blog</em></span>
           </a>
           <nav className="hero-actions" style={{ alignItems: 'center' }}>
@@ -153,7 +154,7 @@ export default function BlogPage() {
                 ))}
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'var(--muted)', fontSize: '13px', borderTop: '1px solid var(--line)', paddingTop: '16px', marginTop: 'auto' }}>
-                <span>{post.author} • {post.readTime} min</span>
+                <span>{post.author} â€¢ {post.readTime} min</span>
                 <span>{new Date(post.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
               </div>
               <Link href={`/blog/${post.slug}`} className="btn ghost" style={{ marginTop: '16px', width: '100%', textAlign: 'center' }}>
@@ -173,7 +174,7 @@ export default function BlogPage() {
       <footer className="footer">
         <div className="container">
            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-              <span>Vektor Fund OS • Research & Insights</span>
+              <span>Vektor Fund OS â€¢ Research & Insights</span>
               <div style={{display: 'flex', gap: '24px'}}>
                  <Link href="/">Home</Link>
                  <a href={productUrl}>PnL</a>
@@ -185,3 +186,5 @@ export default function BlogPage() {
     </>
   );
 }
+
+

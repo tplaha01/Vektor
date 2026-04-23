@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+import statistics
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
@@ -11,8 +12,11 @@ from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from app.config import get_settings
+from app.data.market_data import FEED
+from app.data.news import latest_news
 from app.fund.ai_role_adapter import TemporaryProviderCapacityError, ai_role_adapter
 from app.fund.allocation_policy import infer_asset_class
+from app.fund.ceo_service import vektor_ceo_service
 from app.fund.contracts import (
     ProvenanceRef,
     ResearchReport as ContractResearchReport,
@@ -273,6 +277,11 @@ class FundAgentRuntime:
         blog_weekahead_report_hour_et: int = 18,
         blog_weekahead_report_minute_et: int = 0,
         blog_market_report_symbols: Iterable[str] | None = None,
+        ceo_digest_enabled: bool = True,
+        ceo_digest_interval_seconds: float = 21600.0,
+        discovery_min_score: float = 0.58,
+        discovery_min_confidence: float = 0.55,
+        discovery_news_limit: int = 8,
     ) -> None:
         self._orchestrator = orchestrator
         self._task_bus = task_bus_service
@@ -340,6 +349,16 @@ class FundAgentRuntime:
         self._blog_editorial_last_run_id: str | None = None
         self._blog_editorial_last_run_at: str | None = None
         self._blog_editorial_last_error: str | None = None
+        self._ceo_digest_enabled = bool(ceo_digest_enabled)
+        self._ceo_digest_interval_seconds = max(300.0, float(ceo_digest_interval_seconds))
+        self._ceo_digest_task: asyncio.Task | None = None
+        self._ceo_digest_cycles = 0
+        self._ceo_digest_last_digest_id: str | None = None
+        self._ceo_digest_last_run_at: str | None = None
+        self._ceo_digest_last_error: str | None = None
+        self._discovery_min_score = max(0.0, min(1.0, float(discovery_min_score)))
+        self._discovery_min_confidence = max(0.0, min(1.0, float(discovery_min_confidence)))
+        self._discovery_news_limit = max(1, int(discovery_news_limit))
 
     async def start(self) -> None:
         if not self._enabled or self._started:
@@ -367,6 +386,8 @@ class FundAgentRuntime:
             self._autopilot_task = asyncio.create_task(self._autopilot_loop(), name="fund-autopilot")
         if self._blog_editorial_enabled and self._blog_editorial_target_per_day > 0:
             self._blog_editorial_task = asyncio.create_task(self._blog_editorial_loop(), name="fund-blog-editorial")
+        if self._ceo_digest_enabled:
+            self._ceo_digest_task = asyncio.create_task(self._ceo_digest_loop(), name="fund-ceo-digest")
 
     async def stop(self) -> None:
         tasks = list(self._worker_tasks.values())
@@ -378,6 +399,9 @@ class FundAgentRuntime:
         if self._blog_editorial_task is not None:
             tasks.append(self._blog_editorial_task)
             self._blog_editorial_task = None
+        if self._ceo_digest_task is not None:
+            tasks.append(self._ceo_digest_task)
+            self._ceo_digest_task = None
         for task in tasks:
             task.cancel()
         if tasks:
@@ -440,6 +464,15 @@ class FundAgentRuntime:
                 "last_run_id": self._blog_editorial_last_run_id,
                 "last_run_at": self._blog_editorial_last_run_at,
                 "last_error": self._blog_editorial_last_error,
+            }
+            ceo_digest = {
+                "enabled": self._ceo_digest_enabled,
+                "running": self._ceo_digest_task is not None and not self._ceo_digest_task.done(),
+                "interval_seconds": self._ceo_digest_interval_seconds,
+                "cycles": self._ceo_digest_cycles,
+                "last_digest_id": self._ceo_digest_last_digest_id,
+                "last_run_at": self._ceo_digest_last_run_at,
+                "last_error": self._ceo_digest_last_error,
             }
             halt_guard = {
                 "halted": data_integrity_guard.halted(),
@@ -553,6 +586,7 @@ class FundAgentRuntime:
             "data_integrity": data_integrity_guard.status(),
             "halt_guard": halt_guard,
             "blog_editorial": blog_editorial,
+            "ceo_digest": ceo_digest,
         }
 
     def enqueue_ceo_command(
@@ -1087,6 +1121,23 @@ class FundAgentRuntime:
                     self._blog_editorial_last_run_at = _utc_iso()
             await asyncio.sleep(self._blog_market_report_scheduler_interval_seconds)
 
+    async def _ceo_digest_loop(self) -> None:
+        while True:
+            try:
+                digest = vektor_ceo_service.persist_digest(digest_type="scheduled", generated_by="vektor")
+                with self._state_lock:
+                    self._ceo_digest_cycles += 1
+                    self._ceo_digest_last_digest_id = str(digest.get("digest_id") or "")
+                    self._ceo_digest_last_run_at = _utc_iso()
+                    self._ceo_digest_last_error = None
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                with self._state_lock:
+                    self._ceo_digest_last_error = str(exc)
+                    self._ceo_digest_last_run_at = _utc_iso()
+            await asyncio.sleep(self._ceo_digest_interval_seconds)
+
     def _enqueue_autopilot_cycle(self, run_id: str) -> dict[str, Any]:
         session = self._market_session()
         if self._session_guard_enabled and (not session.get("open") or not session.get("trading_day")):
@@ -1151,28 +1202,67 @@ class FundAgentRuntime:
             scored.append(opportunity)
 
         if not scored:
-            fallback = tuple(self._autopilot_symbols[: self._autopilot_scout_max_symbols])
+            fallback = tuple(self._autopilot_symbols[: self._autopilot_scout_max_symbols]) if not self._allow_cash_hold else ()
             return fallback, {
                 "dynamic_universe_enabled": True,
                 "candidate_count": len(self._autopilot_scout_symbols),
                 "selected_symbols": list(fallback),
-                "reason": "scout_no_scores_fallback_to_seed",
+                "reason": "scout_no_scores_fallback_to_seed" if fallback else "no_trade_candidates_meet_threshold",
             }
 
         scored.sort(key=lambda item: (-float(item.get("score") or 0.0), str(item.get("symbol") or "")))
-        selected = tuple(str(item.get("symbol") or "") for item in scored[: self._autopilot_scout_max_symbols])
+        qualified = [
+            item
+            for item in scored
+            if float(item.get("score") or 0.0) >= self._discovery_min_score
+            and float(item.get("confidence") or 0.0) >= self._discovery_min_confidence
+        ]
+        if (
+            not qualified
+            and self._allow_cash_hold
+            and len(self._autopilot_scout_symbols) > self._autopilot_scout_max_symbols
+        ):
+            return (), {
+                "dynamic_universe_enabled": True,
+                "candidate_count": len(self._autopilot_scout_symbols),
+                "selected_symbols": [],
+                "reason": "no_trade_candidates_meet_threshold",
+                "thresholds": {
+                    "min_score": self._discovery_min_score,
+                    "min_confidence": self._discovery_min_confidence,
+                },
+                "top_scores": [
+                    {
+                        "symbol": str(item.get("symbol") or ""),
+                        "score": round(float(item.get("score") or 0.0), 4),
+                        "confidence": round(float(item.get("confidence") or 0.0), 4),
+                        "asset_class": item.get("asset_class"),
+                        "direction": item.get("direction"),
+                    }
+                    for item in scored[:5]
+                ],
+            }
+
+        pool = qualified or scored
+        selected = tuple(str(item.get("symbol") or "") for item in pool[: self._autopilot_scout_max_symbols])
         return selected, {
             "dynamic_universe_enabled": True,
             "candidate_count": len(self._autopilot_scout_symbols),
             "selected_symbols": list(selected),
+            "qualified_count": len(qualified),
+            "thresholds": {
+                "min_score": self._discovery_min_score,
+                "min_confidence": self._discovery_min_confidence,
+            },
             "top_scores": [
                 {
                     "symbol": str(item.get("symbol") or ""),
                     "score": round(float(item.get("score") or 0.0), 4),
+                    "confidence": round(float(item.get("confidence") or 0.0), 4),
                     "asset_class": item.get("asset_class"),
                     "direction": item.get("direction"),
                 }
-                for item in scored[:5]
+                for item in pool[:5]
             ],
         }
 
@@ -1281,6 +1371,8 @@ class FundAgentRuntime:
             technical = market_ingestion.build_technical_report(normalized)
             ml = market_ingestion.build_ml_timeseries_report(normalized)
             sentiment = market_ingestion.build_sentiment(normalized)
+            history = FEED.history(normalized, bars=60)
+            news_rows = latest_news(normalized, limit=self._discovery_news_limit)
         except Exception:
             return None
 
@@ -1291,8 +1383,54 @@ class FundAgentRuntime:
         sentiment_norm = max(0.0, min(1.0, (_to_float(sentiment.sentiment_score, 0.0) + 1.0) / 2.0))
         tech_conf = max(0.0, min(1.0, _to_float(technical.confidence, 0.5)))
         ml_conf = max(0.0, min(1.0, _to_float(ml.confidence, 0.5)))
-        score = (ml_prob_up * 0.55) + (sentiment_norm * 0.15) + (tech_conf * 0.15) + (ml_conf * 0.15)
-        direction = "long_bias" if ml_prob_up >= 0.5 else "short_bias"
+        closes = []
+        volumes = []
+        if hasattr(history, "empty") and not history.empty:
+            try:
+                closes = [float(value) for value in list(history["close"].tail(30)) if value is not None]
+                volumes = [float(value) for value in list(history["volume"].tail(30)) if value is not None]
+            except Exception:
+                closes = []
+                volumes = []
+        liquidity_score = 0.35
+        if closes and volumes:
+            avg_dollar_volume = sum(max(0.0, c) * max(0.0, v) for c, v in zip(closes, volumes)) / max(1, len(closes))
+            liquidity_score = max(0.05, min(1.0, avg_dollar_volume / 150_000_000.0))
+        returns = []
+        if len(closes) >= 2:
+            for idx in range(1, len(closes)):
+                prev = closes[idx - 1]
+                curr = closes[idx]
+                if prev:
+                    returns.append((curr / prev) - 1.0)
+        realized_vol = 0.0
+        if len(returns) >= 5:
+            try:
+                realized_vol = statistics.pstdev(returns[-20:])
+            except Exception:
+                realized_vol = 0.0
+        volatility_score = 1.0 - max(0.0, min(1.0, abs(realized_vol - 0.025) / 0.04))
+        news_intensity_count = len(news_rows or [])
+        catalyst_score = max(0.0, min(1.0, news_intensity_count / max(1, self._discovery_news_limit)))
+        regime_alignment = max(0.0, min(1.0, ((ml_prob_up + sentiment_norm + tech_conf) / 3.0)))
+        confidence = max(
+            0.0,
+            min(1.0, ((tech_conf * 0.25) + (ml_conf * 0.25) + (liquidity_score * 0.2) + (catalyst_score * 0.15) + (regime_alignment * 0.15))),
+        )
+        score = (
+            (regime_alignment * 0.30)
+            + (ml_prob_up * 0.20)
+            + (sentiment_norm * 0.10)
+            + (liquidity_score * 0.15)
+            + (volatility_score * 0.10)
+            + (catalyst_score * 0.15)
+        )
+        direction = "long_bias" if regime_alignment >= 0.5 else "short_bias"
+        top_headlines = [str(item.get("headline") or "").strip() for item in (news_rows or [])[:3] if str(item.get("headline") or "").strip()]
+        math_summary = (
+            f"score={score:.3f} from regime={regime_alignment:.3f}, ml={ml_prob_up:.3f}, "
+            f"liquidity={liquidity_score:.3f}, vol={volatility_score:.3f}, catalyst={catalyst_score:.3f}."
+        )
         opportunity = self._orchestrator.record_discovery_opportunity(
             {
                 "run_id": self._autopilot_last_run_id or "autopilot-discovery",
@@ -1302,23 +1440,31 @@ class FundAgentRuntime:
                 "strategy_family": "multi_signal_scout",
                 "direction": direction,
                 "score": score,
-                "confidence": max(0.0, min(1.0, (tech_conf + ml_conf + sentiment_norm) / 3.0)),
+                "confidence": confidence,
                 "horizon": "swing",
-                "thesis": f"{normalized} ranked by multi-signal scout with {direction.replace('_', ' ')} bias.",
-                "catalysts": list(dict.fromkeys([str(technical.summary), str(sentiment.source), "ml_timeseries"])),
+                "thesis": f"{normalized} ranked by multi-signal scout with {direction.replace('_', ' ')} bias and discovery confidence {confidence:.2f}.",
+                "catalysts": list(dict.fromkeys([*top_headlines, str(technical.summary), str(sentiment.source), "ml_timeseries"])),
                 "evidence": [
                     str(technical.summary),
                     str(ml.summary),
                     f"Sentiment score {round(_to_float(sentiment.sentiment_score, 0.0), 3)}",
+                    math_summary,
                 ],
                 "ml": {
                     "directional_probability_up": round(ml_prob_up, 4),
                     "technical_confidence": round(tech_conf, 4),
                     "ml_confidence": round(ml_conf, 4),
                     "sentiment_normalized": round(sentiment_norm, 4),
+                    "liquidity_score": round(liquidity_score, 4),
+                    "volatility_score": round(volatility_score, 4),
+                    "news_intensity_count": news_intensity_count,
+                    "regime_alignment": round(regime_alignment, 4),
+                    "math_summary": math_summary,
                 },
                 "metadata": {
                     "source": "autopilot_dynamic_universe",
+                    "news_intensity_count": news_intensity_count,
+                    "macro_risk_level": "elevated" if news_intensity_count >= self._discovery_news_limit else "normal",
                 },
                 "status": "candidate",
             }
@@ -2091,6 +2237,11 @@ def _build_runtime() -> FundAgentRuntime:
         blog_weekahead_report_hour_et=settings.BLOG_WEEKAHEAD_REPORT_HOUR_ET,
         blog_weekahead_report_minute_et=settings.BLOG_WEEKAHEAD_REPORT_MINUTE_ET,
         blog_market_report_symbols=_parse_symbol_csv(settings.BLOG_MARKET_REPORT_SYMBOLS),
+        ceo_digest_enabled=settings.CEO_DIGEST_ENABLED,
+        ceo_digest_interval_seconds=settings.CEO_DIGEST_INTERVAL_SECONDS,
+        discovery_min_score=settings.AGENT_RUNTIME_DISCOVERY_MIN_SCORE,
+        discovery_min_confidence=settings.AGENT_RUNTIME_DISCOVERY_MIN_CONFIDENCE,
+        discovery_news_limit=settings.AGENT_RUNTIME_DISCOVERY_NEWS_LIMIT,
     )
 
 

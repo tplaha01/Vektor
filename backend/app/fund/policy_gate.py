@@ -19,6 +19,29 @@ def _safe_float(value: object) -> float:
         return 0.0
 
 
+def _symbol_group(symbol: str, asset_class: str, metadata: dict[str, object] | None = None) -> str:
+    meta = metadata if isinstance(metadata, dict) else {}
+    explicit = str(meta.get("correlation_group") or "").strip().lower()
+    if explicit:
+        return explicit
+    normalized_symbol = str(symbol or "").upper().strip()
+    if asset_class == "forex":
+        return "fx_usd"
+    if asset_class == "crypto":
+        return "crypto_beta"
+    if asset_class == "commodities":
+        return "commodity_macro"
+    if normalized_symbol in {"SPY", "QQQ", "IWM", "DIA", "AAPL", "MSFT", "NVDA", "AMD", "AMZN", "GOOGL", "META", "TSLA", "XLK"}:
+        return "equity_growth"
+    if normalized_symbol in {"XLF", "JPM", "BAC", "GS"}:
+        return "equity_financials"
+    if normalized_symbol in {"XLE", "USO", "UNG", "GLD", "SLV"}:
+        return "commodity_macro"
+    if normalized_symbol in {"TLT", "IEF", "SHY"}:
+        return "rates_duration"
+    return f"{asset_class}_general"
+
+
 @dataclass(frozen=True)
 class PolicyLimits:
     max_open_positions: int = 8
@@ -105,6 +128,7 @@ class PolicyGate:
             asset_class = str(intent.metadata.get("asset_class") or intent.asset_class or "").strip().lower()
             routing_mode = str(intent.metadata.get("routing_mode") or intent.routing_mode or "").strip().lower()
             instrument_type = str(intent.metadata.get("instrument_type") or intent.instrument_type or "").strip().lower()
+            correlation_group = _symbol_group(intent.symbol, asset_class, intent.metadata)
 
             if "available_cash" in intent.metadata:
                 available_cash = _safe_float(intent.metadata.get("available_cash"))
@@ -151,6 +175,33 @@ class PolicyGate:
                         minimum_cash = equity * min_cash_reserve_pct
                         if post_trade_cash < minimum_cash:
                             blocked.append("cash_reserve_floor_breached")
+                if bool(constraints.get("risk_off_mode_enabled", False)) and intent.side == "buy":
+                    macro_risk_level = str(intent.metadata.get("macro_risk_level") or "").strip().lower()
+                    if macro_risk_level in {"risk_off", "stressed", "volatile"}:
+                        blocked.append("risk_off_regime_block")
+                if bool(constraints.get("thesis_invalidation_required", False)):
+                    thesis_state = str(intent.metadata.get("thesis_state") or "valid").strip().lower()
+                    if thesis_state in {"degraded", "broken"}:
+                        blocked.append(f"thesis_{thesis_state}")
+                if bool(constraints.get("event_risk_news_threshold")) and intent.side == "buy":
+                    news_count = _safe_float(intent.metadata.get("news_intensity_count"))
+                    if news_count >= _safe_float(constraints.get("event_risk_news_threshold")) and bool(intent.metadata.get("event_risk_active", True)):
+                        blocked.append("event_risk_gate")
+                max_correlated_group_exposure_pct = _safe_float(constraints.get("max_correlated_group_exposure_pct"))
+                if intent.side == "buy" and equity > 0 and max_correlated_group_exposure_pct > 0:
+                    current_group_exposure = 0.0
+                    for position in open_positions:
+                        position_meta = position.get("metadata") if isinstance(position.get("metadata"), dict) else {}
+                        position_asset_class = str(position.get("asset_class") or "equities").strip().lower()
+                        group = _symbol_group(str(position.get("symbol") or ""), position_asset_class, position_meta)
+                        if group != correlation_group:
+                            continue
+                        current_group_exposure += max(
+                            _safe_float(position.get("market_value")),
+                            _safe_float(position.get("qty")) * _safe_float(position.get("market_price")),
+                        )
+                    if ((current_group_exposure + notional) / equity) > max_correlated_group_exposure_pct:
+                        blocked.append("correlated_group_exposure_limit_exceeded")
                 if intent.side == "buy" and asset_class == "options":
                     max_options_notional_pct = _safe_float(constraints.get("max_options_notional_pct"))
                     if max_options_notional_pct > 0 and equity > 0 and (notional / equity) > max_options_notional_pct:

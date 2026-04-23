@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -10,6 +10,7 @@ export default function HowItWorksPage() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    document.title = "Vektor - How It Works";
     setMounted(true);
     const nodes = Array.from(document.querySelectorAll(".cinematic-fade"));
     const observer = new IntersectionObserver(
@@ -31,7 +32,7 @@ export default function HowItWorksPage() {
       <header className="topbar">
         <div className="container topbar-inner">
           <a href="/" className="brand" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <img src="/VektorLogo.png" alt="Vektor Logo" style={{ height: "48px", width: "auto", objectFit: "contain" }} />
+            <img src="/VektorLogo.png?v=20260422b" alt="Vektor Logo" style={{ height: "48px", width: "auto", objectFit: "contain" }} />
             <span>Vektor <em>Fund OS</em></span>
           </a>
           <nav className="hero-actions" style={{ alignItems: 'center' }}>
@@ -57,10 +58,10 @@ export default function HowItWorksPage() {
             Vektor continuously reads market data from multiple sources: news feeds, financial statements, technical indicators, and macro events. Our Research Agent processes thousands of data points to identify patterns humans might miss.
           </p>
           <ul style={{ color: 'var(--muted)', paddingLeft: '24px', marginBottom: '0' }}>
-            <li style={{ marginBottom: '12px' }}>📰 News Analysis: Real-time financial news with sentiment scoring</li>
-            <li style={{ marginBottom: '12px' }}>📊 Technical Signals: Price action, volume, momentum indicators</li>
-            <li style={{ marginBottom: '12px' }}>💹 Macro Data: Interest rates, GDP, employment, inflation</li>
-            <li style={{ marginBottom: '12px' }}>📈 Company Fundamentals: Earnings, growth rates, valuations</li>
+            <li style={{ marginBottom: '12px' }}>ðŸ“° News Analysis: Real-time financial news with sentiment scoring</li>
+            <li style={{ marginBottom: '12px' }}>ðŸ“Š Technical Signals: Price action, volume, momentum indicators</li>
+            <li style={{ marginBottom: '12px' }}>ðŸ’¹ Macro Data: Interest rates, GDP, employment, inflation</li>
+            <li style={{ marginBottom: '12px' }}>ðŸ“ˆ Company Fundamentals: Earnings, growth rates, valuations</li>
           </ul>
         </div>
 
@@ -87,14 +88,14 @@ Risk Level: MODERATE`}
         <div className="dark-card cinematic-fade" style={{ marginBottom: '60px' }}>
           <h2 style={{ fontSize: '32px', marginBottom: '24px', color: 'var(--text)' }}>3. Risk Assessment (The Auditor)</h2>
           <p style={{ color: 'var(--muted)', marginBottom: '20px', lineHeight: '1.8' }}>
-            Before any trade executes, our Risk Auditor runs independent checks. This is a separate agent with its own logic—it doesn't blindly follow the Fund Manager. It validates:
+            Before any trade executes, our Risk Auditor runs independent checks. This is a separate agent with its own logicâ€”it doesn't blindly follow the Fund Manager. It validates:
           </p>
           <ul style={{ color: 'var(--muted)', paddingLeft: '24px', marginBottom: '20px' }}>
-            <li style={{ marginBottom: '12px' }}>✓ Position sizing: Are we risking too much?</li>
-            <li style={{ marginBottom: '12px' }}>✓ Portfolio concentration: Too much in one sector?</li>
-            <li style={{ marginBottom: '12px' }}>✓ Volatility limits: Is this trade too risky right now?</li>
-            <li style={{ marginBottom: '12px' }}>✓ Regulatory compliance: Does this violate fund rules?</li>
-            <li style={{ marginBottom: '12px' }}>✓ Circuit breakers: Is the market in a stressed state?</li>
+            <li style={{ marginBottom: '12px' }}>âœ“ Position sizing: Are we risking too much?</li>
+            <li style={{ marginBottom: '12px' }}>âœ“ Portfolio concentration: Too much in one sector?</li>
+            <li style={{ marginBottom: '12px' }}>âœ“ Volatility limits: Is this trade too risky right now?</li>
+            <li style={{ marginBottom: '12px' }}>âœ“ Regulatory compliance: Does this violate fund rules?</li>
+            <li style={{ marginBottom: '12px' }}>âœ“ Circuit breakers: Is the market in a stressed state?</li>
           </ul>
           <p style={{ color: 'var(--muted)', lineHeight: '1.8' }}>
             If ANY check fails, the trade is REJECTED. No exceptions. No override without manual approval.
@@ -104,13 +105,13 @@ Risk Level: MODERATE`}
         <div className="dark-card cinematic-fade" style={{ marginBottom: '60px' }}>
           <h2 style={{ fontSize: '32px', marginBottom: '24px', color: 'var(--text)' }}>4. Paper Trading First (The Execution Layer)</h2>
           <p style={{ color: 'var(--muted)', marginBottom: '20px', lineHeight: '1.8' }}>
-            All trades start in PAPER MODE—simulated execution with fake money. This lets us validate our strategies without real capital at risk. You can:
+            All trades start in PAPER MODEâ€”simulated execution with fake money. This lets us validate our strategies without real capital at risk. You can:
           </p>
           <ul style={{ color: 'var(--muted)', paddingLeft: '24px', marginBottom: '20px' }}>
-            <li style={{ marginBottom: '12px' }}>📊 Watch performance over time</li>
-            <li style={{ marginBottom: '12px' }}>🔍 Review decision logic in the admin console</li>
-            <li style={{ marginBottom: '12px' }}>⏸️ Pause or override any trade</li>
-            <li style={{ marginBottom: '12px' }}>🎓 Learn why each decision was made</li>
+            <li style={{ marginBottom: '12px' }}>ðŸ“Š Watch performance over time</li>
+            <li style={{ marginBottom: '12px' }}>ðŸ” Review decision logic in the admin console</li>
+            <li style={{ marginBottom: '12px' }}>â¸ï¸ Pause or override any trade</li>
+            <li style={{ marginBottom: '12px' }}>ðŸŽ“ Learn why each decision was made</li>
           </ul>
           <p style={{ color: 'var(--muted)', lineHeight: '1.8' }}>
             Only after you're confident and have explicitly enabled live trading does real capital get deployed.
@@ -139,27 +140,27 @@ Risk Level: MODERATE`}
           <h2 style={{ fontSize: '32px', marginBottom: '24px', color: 'var(--text)' }}>Key Features</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', marginTop: '24px' }}>
             <div style={{ padding: '20px', background: 'var(--surface)', borderRadius: '8px' }}>
-              <h3 style={{ margin: '0 0 12px', color: 'var(--text)', fontSize: '18px' }}>🔐 Cryptographic Signatures</h3>
+              <h3 style={{ margin: '0 0 12px', color: 'var(--text)', fontSize: '18px' }}>ðŸ” Cryptographic Signatures</h3>
               <p style={{ margin: '0', color: 'var(--muted)', fontSize: '14px', lineHeight: '1.6' }}>Every event in the system is signed. No tampering possible. Complete audit trail.</p>
             </div>
             <div style={{ padding: '20px', background: 'var(--surface)', borderRadius: '8px' }}>
-              <h3 style={{ margin: '0 0 12px', color: 'var(--text)', fontSize: '18px' }}>🤖 Multi-Agent Orchestration</h3>
+              <h3 style={{ margin: '0 0 12px', color: 'var(--text)', fontSize: '18px' }}>ðŸ¤– Multi-Agent Orchestration</h3>
               <p style={{ margin: '0', color: 'var(--muted)', fontSize: '14px', lineHeight: '1.6' }}>Independent agents with different objectives. No single point of failure.</p>
             </div>
             <div style={{ padding: '20px', background: 'var(--surface)', borderRadius: '8px' }}>
-              <h3 style={{ margin: '0 0 12px', color: 'var(--text)', fontSize: '18px' }}>📈 Live Performance Tracking</h3>
+              <h3 style={{ margin: '0 0 12px', color: 'var(--text)', fontSize: '18px' }}>ðŸ“ˆ Live Performance Tracking</h3>
               <p style={{ margin: '0', color: 'var(--muted)', fontSize: '14px', lineHeight: '1.6' }}>Public PnL page shows exactly how well we're doing. No hidden metrics.</p>
             </div>
             <div style={{ padding: '20px', background: 'var(--surface)', borderRadius: '8px' }}>
-              <h3 style={{ margin: '0 0 12px', color: 'var(--text)', fontSize: '18px' }}>🛑 Hard Safety Stops</h3>
+              <h3 style={{ margin: '0 0 12px', color: 'var(--text)', fontSize: '18px' }}>ðŸ›‘ Hard Safety Stops</h3>
               <p style={{ margin: '0', color: 'var(--muted)', fontSize: '14px', lineHeight: '1.6' }}>Circuit breakers automatically pause trading during market stress.</p>
             </div>
             <div style={{ padding: '20px', background: 'var(--surface)', borderRadius: '8px' }}>
-              <h3 style={{ margin: '0 0 12px', color: 'var(--text)', fontSize: '18px' }}>👤 Manual Override</h3>
+              <h3 style={{ margin: '0 0 12px', color: 'var(--text)', fontSize: '18px' }}>ðŸ‘¤ Manual Override</h3>
               <p style={{ margin: '0', color: 'var(--muted)', fontSize: '14px', lineHeight: '1.6' }}>You can pause, review, or reject any trade at any time.</p>
             </div>
             <div style={{ padding: '20px', background: 'var(--surface)', borderRadius: '8px' }}>
-              <h3 style={{ margin: '0 0 12px', color: 'var(--text)', fontSize: '18px' }}>📚 Explainable AI</h3>
+              <h3 style={{ margin: '0 0 12px', color: 'var(--text)', fontSize: '18px' }}>ðŸ“š Explainable AI</h3>
               <p style={{ margin: '0', color: 'var(--muted)', fontSize: '14px', lineHeight: '1.6' }}>Every decision linked to sources and reasoning. No black boxes.</p>
             </div>
           </div>
@@ -195,7 +196,7 @@ Risk Level: MODERATE`}
       <footer className="footer">
         <div className="container">
            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-              <span>Vektor Fund OS • Technical Documentation</span>
+              <span>Vektor Fund OS â€¢ Technical Documentation</span>
               <div style={{display: 'flex', gap: '24px'}}>
                  <Link href="/">Back to Home</Link>
                  <Link href="/blog">Blog</Link>
@@ -207,3 +208,5 @@ Risk Level: MODERATE`}
     </>
   );
 }
+
+

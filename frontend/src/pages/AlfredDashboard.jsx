@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+﻿import React, { useEffect, useState, useRef } from "react";
 import { getSignal, getPositions, placeOrder, wsConnect, getNews, getHealth } from "../api";
 import SignalCard    from "../components/SignalCard";
 import OrderPanel   from "../components/OrderPanel";
@@ -82,14 +82,14 @@ export default function AlfredDashboard() {
   return (
     <div className="layout">
 
-      {/* ── TOP BAR ─────────────────────────── */}
+      {/* â”€â”€ TOP BAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <header style={{
         gridArea:"topbar", background:"var(--bg1)", borderBottom:"1px solid var(--line)",
         display:"flex", alignItems:"center", padding:"0 14px", gap:12, zIndex:200,
       }}>
         {/* Logo */}
         <div style={{ display:"flex", alignItems:"center", gap:8, flexShrink:0 }}>
-          <img src="/VektorLogo.png" alt="Vektor Logo" style={{ height: "28px", width: "auto", objectFit: "contain" }} />
+          <img src="/VektorLogo.png?v=20260422b" alt="Vektor Logo" style={{ height: "28px", width: "auto", objectFit: "contain" }} />
           <span style={{ fontFamily:"'Outfit'", fontWeight:700, fontSize:14, letterSpacing:"0.12em", color:"var(--amber)" }}>ALFRED</span>
         </div>
 
@@ -107,14 +107,14 @@ export default function AlfredDashboard() {
           </button>
         </div>
 
-        {/* Ticker info — hidden on mobile */}
+        {/* Ticker info â€” hidden on mobile */}
         {tick && (
           <div className="topbar-ticker" style={{ display:"flex", alignItems:"baseline", gap:8 }}>
             <span style={{ fontFamily:"var(--f-data)", fontSize:11, color:"var(--txt2)" }}>{symbol}</span>
             <span style={{ fontFamily:"var(--f-data)", fontSize:15, fontWeight:600 }}>${tick.price?.toFixed(2)}</span>
             <span style={{ fontFamily:"var(--f-data)", fontSize:11,
               color: tick.change>=0?"var(--green)":"var(--red)" }}>
-              {tick.change>=0?"▲":"▼"} {Math.abs(tick.change||0).toFixed(2)}
+              {tick.change>=0?"â–²":"â–¼"} {Math.abs(tick.change||0).toFixed(2)}
               {" "}({tick.change_pct>=0?"+":""}{(tick.change_pct||0).toFixed(2)}%)
             </span>
           </div>
@@ -139,7 +139,7 @@ export default function AlfredDashboard() {
         </div>
       </header>
 
-      {/* ── LEFT SIDEBAR ────────────────────── */}
+      {/* â”€â”€ LEFT SIDEBAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <aside className="sidebar" style={{
         gridArea:"sidebar", background:"var(--bg1)", borderRight:"1px solid var(--line)",
         overflowY:"auto", display:"flex", flexDirection:"column", gap:0,
@@ -178,7 +178,7 @@ export default function AlfredDashboard() {
                       </div>
                     </>
                   ) : (
-                    <span style={{ fontFamily:"var(--f-data)", fontSize:10, color:"var(--txt3)" }}>—</span>
+                    <span style={{ fontFamily:"var(--f-data)", fontSize:10, color:"var(--txt3)" }}>â€”</span>
                   )}
                 </div>
               </div>
@@ -210,7 +210,7 @@ export default function AlfredDashboard() {
         </div>
       </aside>
 
-      {/* ── MAIN ────────────────────────────── */}
+      {/* â”€â”€ MAIN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <main style={{
         gridArea:"main", overflowY:"auto", background:"var(--bg0)",
         display:"flex", flexDirection:"column", gap:10, padding:"10px 12px",
@@ -230,7 +230,7 @@ export default function AlfredDashboard() {
         </div>
       </main>
 
-      {/* ── NEWS ────────────────────────────── */}
+      {/* â”€â”€ NEWS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <aside className="news-col" style={{
         gridArea:"news", background:"var(--bg1)", borderLeft:"1px solid var(--line)",
         overflowY:"auto", display:"flex", flexDirection:"column",
@@ -250,3 +250,5 @@ function Clock() {
     </span>
   );
 }
+
+

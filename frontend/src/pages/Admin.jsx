@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity,
   AlertCircle,
@@ -134,16 +134,184 @@ const TICKER_LABELS = {
   XLK: 'Technology Select Sector SPDR Fund',
 };
 
+const TICKER_LOGO_DOMAINS = {
+  AAPL: 'apple.com',
+  AMD: 'amd.com',
+  AMZN: 'amazon.com',
+  DIA: 'ssga.com',
+  GLD: 'spdrgoldshares.com',
+  GOOGL: 'google.com',
+  IWM: 'ishares.com',
+  META: 'meta.com',
+  MSFT: 'microsoft.com',
+  NVDA: 'nvidia.com',
+  QQQ: 'invesco.com',
+  SLV: 'ishares.com',
+  SPY: 'ssga.com',
+  TLT: 'ishares.com',
+  TSLA: 'tesla.com',
+  UNG: 'uscfunds.com',
+  USO: 'uscfunds.com',
+  XLE: 'ssga.com',
+  XLF: 'ssga.com',
+  XLK: 'ssga.com',
+};
+
+const SYMBOL_SECTORS = {
+  AAPL: 'Technology',
+  MSFT: 'Technology',
+  NVDA: 'Technology',
+  AMD: 'Technology',
+  AMZN: 'Consumer',
+  TSLA: 'Consumer',
+  META: 'Communication Services',
+  GOOGL: 'Communication Services',
+  SPY: 'Macro / Indices',
+  QQQ: 'Macro / Indices',
+  IWM: 'Macro / Indices',
+  DIA: 'Macro / Indices',
+  GLD: 'Macro / Commodities',
+  TLT: 'Macro / Rates',
+  SLV: 'Macro / Commodities',
+  USO: 'Macro / Commodities',
+  UNG: 'Macro / Commodities',
+  XLE: 'Energy',
+  XLF: 'Financials',
+  XLK: 'Technology',
+};
+
 const FINANCE_VIDEO_FEEDS = [
-  { id: 'stream-bloomberg', title: 'Bloomberg Television', src: 'https://www.youtube-nocookie.com/embed/live_stream?channel=UCIALMKvObZNtJ6AmdCLP7Lg&autoplay=0' },
-  { id: 'stream-cnbc', title: 'CNBC Television', src: 'https://www.youtube-nocookie.com/embed/live_stream?channel=UCrp_UI8XtuYfpiqluWLD7Lw&autoplay=0' },
-  { id: 'stream-yahoo-finance', title: 'Yahoo Finance', src: 'https://www.youtube-nocookie.com/embed/live_stream?channel=UCEAZeUIeJs0IjQiqTCdVSIg&autoplay=0' },
+  {
+    id: 'desk-bloomberg-live',
+    title: 'Bloomberg Live Desk',
+    subtitle: 'Playlist rotation with automatic next-video playback',
+    src: 'https://www.youtube-nocookie.com/embed/videoseries?list=UU7UFcUbAd8oyCBWCogVpJ6g&autoplay=1&mute=1&playsinline=1&cc_load_policy=1&cc_lang_pref=en&rel=0&modestbranding=1&loop=1',
+    href: 'https://www.youtube.com/@BloombergLive/videos',
+  },
+  {
+    id: 'desk-bloomberg-tv',
+    title: 'Bloomberg Television',
+    subtitle: 'Channel uploads queue for market desk continuity',
+    src: 'https://www.youtube-nocookie.com/embed/videoseries?list=UUIALMKvObZNtJ6AmdCLP7Lg&autoplay=1&mute=1&playsinline=1&cc_load_policy=1&cc_lang_pref=en&rel=0&modestbranding=1&loop=1',
+    href: 'https://www.youtube.com/@BloombergTV/videos',
+  },
+  {
+    id: 'desk-yahoo-live',
+    title: 'Yahoo Finance',
+    subtitle: 'Continuous latest-video rotation for earnings and macro coverage',
+    src: 'https://www.youtube-nocookie.com/embed/videoseries?list=UUEAZeUIeJs0IjQiqTCdVSIg&autoplay=1&mute=1&playsinline=1&cc_load_policy=1&cc_lang_pref=en&rel=0&modestbranding=1&loop=1',
+    href: 'https://www.youtube.com/@YahooFinance/videos',
+  },
 ];
+
+const NEWS_PAGE_SIZE = 10;
+const SOURCE_FILTER_ALIASES = {
+  'reuters.com': 'Reuters',
+  'www.reuters.com': 'Reuters',
+  'bloomberg.com': 'Bloomberg',
+  'www.bloomberg.com': 'Bloomberg',
+  'finance.yahoo.com': 'Yahoo Finance',
+  'yahoo.com': 'Yahoo',
+  'www.yahoo.com': 'Yahoo',
+  'cnbc.com': 'CNBC',
+  'www.cnbc.com': 'CNBC',
+  'wsj.com': 'WSJ',
+  'www.wsj.com': 'WSJ',
+  'ft.com': 'Financial Times',
+  'www.ft.com': 'Financial Times',
+  'techcrunch.com': 'TechCrunch',
+  'www.techcrunch.com': 'TechCrunch',
+  'theinformation.com': 'The Information',
+  'www.theinformation.com': 'The Information',
+  'marketwatch.com': 'MarketWatch',
+  'www.marketwatch.com': 'MarketWatch',
+  'investing.com': 'Investing.com',
+  'www.investing.com': 'Investing.com',
+  'benzinga.com': 'Benzinga',
+  'www.benzinga.com': 'Benzinga',
+  'seekingalpha.com': 'Seeking Alpha',
+  'www.seekingalpha.com': 'Seeking Alpha',
+};
 
 const tickerFullName = (symbol) => {
   const normalized = String(symbol || '').trim().toUpperCase();
   if (!normalized) return 'Multi-asset context';
   return TICKER_LABELS[normalized] || normalized;
+};
+
+const tickerSector = (symbol) => {
+  const normalized = String(symbol || '').trim().toUpperCase();
+  if (!normalized) return 'Cross-Asset';
+  return SYMBOL_SECTORS[normalized] || 'Cross-Asset';
+};
+
+const sourceDomainLabel = (href, fallback = '') => {
+  try {
+    const url = new URL(href);
+    return url.hostname.replace(/^www\./, '');
+  } catch {
+    return String(fallback || 'unknown source').trim().toLowerCase();
+  }
+};
+
+const sourceFilterMeta = (href, fallback = '') => {
+  const raw = sourceDomainLabel(href, fallback);
+  const normalized = raw.toLowerCase();
+  return {
+    key: normalized,
+    label: SOURCE_FILTER_ALIASES[normalized] || raw,
+  };
+};
+
+const tickerLogoStyle = (ticker) => {
+  const normalized = String(ticker || '').trim().toUpperCase();
+  let seed = 0;
+  for (const char of normalized) seed += char.charCodeAt(0);
+  const hue = seed % 360;
+  return {
+    background: `linear-gradient(135deg, hsla(${hue}, 72%, 54%, 0.95), hsla(${(hue + 42) % 360}, 78%, 42%, 0.9))`,
+  };
+};
+
+const tickerLogoText = (ticker) => {
+  const normalized = String(ticker || '').trim().toUpperCase();
+  if (!normalized) return '?';
+  if (normalized.length <= 2) return normalized;
+  return normalized.replace(/[^A-Z]/g, '').slice(0, 2) || normalized.slice(0, 2);
+};
+
+function MarketTickerLogo({ symbol }) {
+  const normalized = String(symbol || '').trim().toUpperCase();
+  const [failed, setFailed] = useState(false);
+  const logoDomain = TICKER_LOGO_DOMAINS[normalized];
+
+  if (!logoDomain || failed) {
+    return (
+      <span className="market-watch-ticker-logo" style={tickerLogoStyle(normalized)} aria-hidden="true">
+        {tickerLogoText(normalized)}
+      </span>
+    );
+  }
+
+  return (
+    <img
+      className="market-watch-ticker-logo-image"
+      src={`https://logo.clearbit.com/${logoDomain}`}
+      alt={`${tickerFullName(normalized)} logo`}
+      loading="lazy"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
+const sectorHeadlineCategory = (sector) => {
+  if (sector === 'Technology') return 'Tech';
+  if (sector === 'Financials') return 'Finance';
+  if (sector === 'Communication Services') return 'Media';
+  if (sector === 'Consumer') return 'Consumer';
+  if (sector === 'Energy') return 'Energy';
+  if (String(sector).startsWith('Macro')) return 'World';
+  return 'World';
 };
 
 const jsonPreview = (value, max = 220) => summarizeText(JSON.stringify(value || {}), max);
@@ -192,6 +360,12 @@ const Admin = () => {
   const [performanceSnapshots, setPerformanceSnapshots] = useState([]);
   const [ceoDigest, setCeoDigest] = useState(null);
   const [portfolioBreakdown, setPortfolioBreakdown] = useState(null);
+  const [ceoWinnersLosers, setCeoWinnersLosers] = useState(null);
+  const [ceoExposure, setCeoExposure] = useState(null);
+  const [ceoRiskAlerts, setCeoRiskAlerts] = useState([]);
+  const [ceoCommandHelp, setCeoCommandHelp] = useState(null);
+  const [digestHistory, setDigestHistory] = useState([]);
+  const [pendingApprovals, setPendingApprovals] = useState([]);
   const [pendingEditorial, setPendingEditorial] = useState([]);
   const [marketWatch, setMarketWatch] = useState(null);
   const [reports, setReports] = useState([]);
@@ -206,6 +380,8 @@ const Admin = () => {
   const [contextBusy, setContextBusy] = useState(false);
   const [performanceBusy, setPerformanceBusy] = useState('');
   const [allocationSaving, setAllocationSaving] = useState(false);
+  const [approvalBusy, setApprovalBusy] = useState('');
+  const [digestBusy, setDigestBusy] = useState(false);
   const [selectedContext, setSelectedContext] = useState(null);
   const [contextRailTab, setContextRailTab] = useState('focus');
   const [deliverableDrawerOpen, setDeliverableDrawerOpen] = useState(false);
@@ -216,6 +392,9 @@ const Admin = () => {
   const [timelineZoom, setTimelineZoom] = useState(8);
   const [taskTrailPage, setTaskTrailPage] = useState(1);
   const [treePanelOpen, setTreePanelOpen] = useState(true);
+  const [marketNewsCategoryFilter, setMarketNewsCategoryFilter] = useState('All');
+  const [marketNewsFilter, setMarketNewsFilter] = useState('All');
+  const [marketNewsPage, setMarketNewsPage] = useState(1);
   const [allocationDraft, setAllocationDraft] = useState({
     totalCapitalUsd: 100000,
     reserveCashUsd: 10000,
@@ -280,6 +459,12 @@ const Admin = () => {
         adminAPI.getPerformanceSnapshots({ limit: 240 }),
         adminAPI.getCeoDigest(),
         adminAPI.getCeoPerformanceBreakdown(),
+        adminAPI.getCeoWinnersLosers(),
+        adminAPI.getCeoExposure(),
+        adminAPI.getCeoRiskAlerts(),
+        adminAPI.getCeoCommandHelp(),
+        adminAPI.getCeoDigests(20),
+        adminAPI.getPendingApprovals(50),
         adminAPI.getPendingEditorial(),
         adminAPI.getMarketWatch(),
         researchAPI.getReports({ surface: 'kb', limit: 24 }),
@@ -310,6 +495,12 @@ const Admin = () => {
         performanceSnapshotsResult,
         ceoDigestResult,
         performanceBreakdownResult,
+        winnersLosersResult,
+        exposureResult,
+        riskAlertsResult,
+        ceoCommandHelpResult,
+        digestHistoryResult,
+        pendingApprovalsResult,
         pendingEditorialResult,
         marketWatchResult,
         reportsResult,
@@ -335,6 +526,12 @@ const Admin = () => {
       if (performanceSnapshotsResult.status === 'fulfilled') setPerformanceSnapshots(adminAPI.normalizeArray(performanceSnapshotsResult.value, 'snapshots'));
       if (ceoDigestResult.status === 'fulfilled') setCeoDigest(ceoDigestResult.value);
       if (performanceBreakdownResult.status === 'fulfilled') setPortfolioBreakdown(performanceBreakdownResult.value);
+      if (winnersLosersResult.status === 'fulfilled') setCeoWinnersLosers(winnersLosersResult.value);
+      if (exposureResult.status === 'fulfilled') setCeoExposure(exposureResult.value);
+      if (riskAlertsResult.status === 'fulfilled') setCeoRiskAlerts(adminAPI.normalizeArray(riskAlertsResult.value, 'alerts'));
+      if (ceoCommandHelpResult.status === 'fulfilled') setCeoCommandHelp(ceoCommandHelpResult.value);
+      if (digestHistoryResult.status === 'fulfilled') setDigestHistory(adminAPI.normalizeArray(digestHistoryResult.value, 'digests'));
+      if (pendingApprovalsResult.status === 'fulfilled') setPendingApprovals(adminAPI.normalizeArray(pendingApprovalsResult.value, 'approvals'));
       if (pendingEditorialResult.status === 'fulfilled') setPendingEditorial(adminAPI.normalizeArray(pendingEditorialResult.value, 'items'));
       if (marketWatchResult.status === 'fulfilled') setMarketWatch(marketWatchResult.value);
       if (reportsResult.status === 'fulfilled') setReports(adminAPI.normalizeArray(reportsResult.value, 'reports'));
@@ -444,7 +641,7 @@ const Admin = () => {
             `${Math.round(Number(report.confidence || 0) * 100)}% confidence`,
             report.provider_used,
             report.model_used,
-          ].filter(Boolean).join(' Ãƒâ€šÃ‚Â· '),
+          ].filter(Boolean).join(' ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· '),
           timestamp: report.published_at || report.created_at,
           href: report.surface === 'public' ? deliverableHref('research', report.report_id) : '',
           preview: summarizeText(report.summary || report.thesis || report.executive_summary, 180),
@@ -469,7 +666,7 @@ const Admin = () => {
             post.status,
             post.providerUsed,
             post.modelUsed,
-          ].filter(Boolean).join(' Â· '),
+          ].filter(Boolean).join(' Ã‚Â· '),
           timestamp: post.published_at || post.created_at,
           href: String(post.status || '').toLowerCase() === 'published' ? deliverableHref('blog', post.id) : '',
           preview: summarizeText(post.excerpt || post.summary || post.content, 180),
@@ -489,7 +686,7 @@ const Admin = () => {
         type: 'Editorial Review',
         title: post.title,
         subtitle: `${post.category || 'Research'} | ${post.authorRole || post.author_role || 'editorial'}`,
-        detail: [post.status || 'pending_review', post.providerUsed, post.modelUsed].filter(Boolean).join(' Ã‚Â· '),
+        detail: [post.status || 'pending_review', post.providerUsed, post.modelUsed].filter(Boolean).join(' Ãƒâ€šÃ‚Â· '),
         timestamp: post.publishedAt || post.createdAt || new Date().toISOString(),
         href: '',
         preview: summarizeText(post.excerpt || post.summary || post.content, 180),
@@ -498,6 +695,76 @@ const Admin = () => {
         data: post,
       })),
     [pendingEditorial]
+  );
+
+  const pendingApprovalRows = useMemo(
+    () =>
+      pendingApprovals.map((request) => {
+        const payload = request.payload || {};
+        const intent = payload.intent || {};
+        const metadata = payload.metadata || {};
+        const symbol = String(
+          intent.symbol ||
+          metadata.symbol ||
+          payload.symbol ||
+          payload.subject_symbol ||
+          payload.signal_pack_id ||
+          request.subject_id ||
+          'multi-asset'
+        ).toUpperCase();
+        const estimatedNotional = Number(payload.estimated_notional_usd || payload.total_capital_usd || 0);
+        return {
+          id: request.request_id,
+          kind: 'approval',
+          type: String(request.request_type || 'approval').replace(/_/g, ' '),
+          title: request.summary || `${symbol} approval`,
+          subtitle: [symbol, request.request_type, request.requested_by].filter(Boolean).join(' · '),
+          detail: [
+            estimatedNotional > 0 ? currency(estimatedNotional) : '',
+            request.expires_at ? `expires ${formatRelative(request.expires_at)}` : '',
+            request.run_id ? String(request.run_id).slice(0, 18) : '',
+          ].filter(Boolean).join(' · '),
+          timestamp: request.created_at || new Date().toISOString(),
+          preview: summarizeText(
+            payload.intent?.thesis ||
+            payload.reason ||
+            payload.review?.notes ||
+            request.summary,
+            180
+          ),
+          metaBadges: [request.request_type, symbol !== 'MULTI-ASSET' ? symbol : ''].filter(Boolean),
+          status: request.status || 'pending',
+          data: request,
+        };
+      }),
+    [pendingApprovals]
+  );
+
+  const digestHistoryRows = useMemo(
+    () =>
+      digestHistory.map((digest) => {
+        const payload = digest.payload || {};
+        const summary = payload.summary || {};
+        return {
+          id: digest.digest_id,
+          kind: 'digest',
+          type: digest.digest_type || 'digest',
+          title: `${roleLabel(digest.digest_type || 'scheduled')} digest`,
+          subtitle: [digest.generated_by || 'vektor', formatRelative(digest.created_at)].filter(Boolean).join(' · '),
+          detail: [
+            `${summary.positions_count ?? 0} positions`,
+            `${summary.pending_approvals ?? 0} approvals`,
+            `${summary.pending_editorial ?? 0} editorial`,
+          ].join(' · '),
+          timestamp: digest.created_at,
+          preview: payload.best_area?.asset_class
+            ? `Best area ${payload.best_area.asset_class}; worst area ${payload.worst_area?.asset_class || 'n/a'}.`
+            : 'Stored CEO digest snapshot.',
+          status: digest.digest_type || 'scheduled',
+          data: digest,
+        };
+      }),
+    [digestHistory]
   );
 
   const missionStats = [
@@ -517,9 +784,9 @@ const Admin = () => {
       detail: `${blogDeliverables.length} blogs available`,
     },
     {
-      label: 'Last Sync',
-      value: formatRelative(lastUpdate),
-      detail: connectionStatus === 'connected' ? 'backend live' : 'connection degraded',
+      label: 'Approvals',
+      value: pendingApprovalRows.length,
+      detail: `${ceoRiskAlerts.length} risk alerts live`,
     },
   ];
 
@@ -528,29 +795,167 @@ const Admin = () => {
     agents: workerRows.length,
     performance: Number(performanceSummary?.snapshot_count ?? 0),
     deliverables: reportDeliverables.length + blogDeliverables.length,
-    decisions: Number(metrics?.decisionQueue?.pending ?? 0),
+    decisions: pendingApprovalRows.length || Number(metrics?.decisionQueue?.pending ?? 0),
     risk: Number(systemStatus?.halt?.halted ? 1 : 0),
     positions: Number(metrics?.portfolio?.positions ?? metrics?.portfolio?.holdings ?? 0),
     marketwatch: Number((marketWatch?.news || []).length || 0),
     settings: Number(controlHistory.length || 0),
-  }), [activeTasks.length, blogDeliverables.length, controlHistory.length, marketWatch?.news, metrics, performanceSummary?.snapshot_count, reportDeliverables.length, systemStatus, workerRows.length]);
+  }), [activeTasks.length, blogDeliverables.length, controlHistory.length, marketWatch?.news, metrics, pendingApprovalRows.length, performanceSummary?.snapshot_count, reportDeliverables.length, systemStatus, workerRows.length]);
 
   const marketChartSymbols = useMemo(() => {
     const chartSymbols = Array.isArray(marketWatch?.chart_symbols) ? marketWatch.chart_symbols : [];
-    return chartSymbols.slice(0, 8);
+    return chartSymbols.slice(0, 12);
   }, [marketWatch]);
+
+  const focusChartSymbols = useMemo(() => marketChartSymbols.slice(0, 6), [marketChartSymbols]);
+  const secondaryChartSymbols = useMemo(() => marketChartSymbols.slice(6, 12), [marketChartSymbols]);
 
   const marketNewsRows = useMemo(
     () =>
       (Array.isArray(marketWatch?.news) ? marketWatch.news : []).map((row, index) => ({
         id: `${row.symbol || 'news'}-${index}`,
+        symbol: String(row.symbol || '').trim().toUpperCase(),
         title: row.headline || 'Market headline',
+        source: row.source || 'source unknown',
+        sourceFilter: sourceFilterMeta(row.url, row.source || 'source unknown'),
+        publishedAt: row.published_at || '',
         subtitle: `${row.symbol || 'Market'} | ${row.source || 'source unknown'}`,
         detail: formatDateTime(row.published_at),
         href: row.url || '#',
       })),
     [marketWatch]
   );
+
+  const marketTickerRows = useMemo(
+    () => (Array.isArray(marketWatch?.ticker_snapshots) ? marketWatch.ticker_snapshots : []),
+    [marketWatch]
+  );
+
+  const reportLookup = useMemo(() => {
+    const bySymbol = new Map();
+    const bySector = new Map();
+    const sortedReports = [...reportDeliverables].sort(
+      (a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()
+    );
+    sortedReports.forEach((report) => {
+      const payload = report.data || {};
+      const symbols = Array.isArray(payload.asset_universe) ? payload.asset_universe : [];
+      const normalizedSymbols = symbols.map((symbol) => String(symbol || '').trim().toUpperCase()).filter(Boolean);
+      normalizedSymbols.forEach((symbol) => {
+        if (!bySymbol.has(symbol)) bySymbol.set(symbol, []);
+        bySymbol.get(symbol).push({
+          id: report.id,
+          title: report.title,
+          item: report,
+        });
+        const sector = tickerSector(symbol);
+        if (!bySector.has(sector)) bySector.set(sector, []);
+        bySector.get(sector).push({
+          id: report.id,
+          title: report.title,
+          item: report,
+        });
+      });
+    });
+    return { bySymbol, bySector };
+  }, [reportDeliverables]);
+
+  const marketNewsItems = useMemo(
+    () =>
+      [...marketNewsRows]
+        .map((row) => {
+          const sector = tickerSector(row.symbol);
+          const directReports = (reportLookup.bySymbol.get(row.symbol) || []).slice(0, 2);
+          const sectorReports = directReports.length ? directReports : (reportLookup.bySector.get(sector) || []).slice(0, 2);
+          return {
+            ...row,
+            sector,
+            category: sectorHeadlineCategory(sector),
+            reports: sectorReports,
+            sourceFavicon: row.href && row.href !== '#' ? `https://www.google.com/s2/favicons?sz=64&domain_url=${encodeURIComponent(row.href)}` : '',
+          };
+        })
+        .sort((a, b) => new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime()),
+    [marketNewsRows, reportLookup]
+  );
+
+  const marketNewsQuickFilters = useMemo(
+    () => ['All', 'Tech', 'Finance', 'World'],
+    []
+  );
+
+  const topicFilteredMarketNewsItems = useMemo(
+    () =>
+      marketNewsCategoryFilter === 'All'
+        ? marketNewsItems
+        : marketNewsItems.filter((item) => item.category === marketNewsCategoryFilter),
+    [marketNewsCategoryFilter, marketNewsItems]
+  );
+
+  const marketNewsFilterOptions = useMemo(
+    () => [
+      { key: 'All', label: 'All' },
+      ...Array.from(
+        new Map(
+          topicFilteredMarketNewsItems.map((item) => [item.sourceFilter.key, { key: item.sourceFilter.key, label: item.sourceFilter.label }])
+        ).values()
+      ).sort((a, b) => a.label.localeCompare(b.label)),
+    ],
+    [topicFilteredMarketNewsItems]
+  );
+
+  const filteredMarketNewsItems = useMemo(
+    () =>
+      marketNewsFilter === 'All'
+        ? topicFilteredMarketNewsItems
+        : topicFilteredMarketNewsItems.filter((item) => item.sourceFilter.key === marketNewsFilter),
+    [marketNewsFilter, topicFilteredMarketNewsItems]
+  );
+
+  const marketNewsTotalPages = useMemo(
+    () => Math.max(1, Math.ceil(filteredMarketNewsItems.length / NEWS_PAGE_SIZE)),
+    [filteredMarketNewsItems.length]
+  );
+
+  const pagedMarketNewsItems = useMemo(() => {
+    const start = (marketNewsPage - 1) * NEWS_PAGE_SIZE;
+    return filteredMarketNewsItems.slice(start, start + NEWS_PAGE_SIZE);
+  }, [filteredMarketNewsItems, marketNewsPage]);
+
+  const featuredMarketHeadline = pagedMarketNewsItems[0] || null;
+  const supportingMarketHeadlines = useMemo(
+    () => pagedMarketNewsItems.slice(1, 4),
+    [pagedMarketNewsItems]
+  );
+  const wireMarketHeadlines = useMemo(
+    () => pagedMarketNewsItems.slice(4),
+    [pagedMarketNewsItems]
+  );
+
+  useEffect(() => {
+    setMarketNewsPage(1);
+  }, [marketNewsFilter]);
+
+  useEffect(() => {
+    if (marketNewsFilter !== 'All' && !marketNewsFilterOptions.some((option) => option.key === marketNewsFilter)) {
+      setMarketNewsFilter('All');
+    }
+    setMarketNewsPage(1);
+  }, [marketNewsCategoryFilter, marketNewsFilter, marketNewsFilterOptions]);
+
+  useEffect(() => {
+    if (marketNewsPage > marketNewsTotalPages) {
+      setMarketNewsPage(marketNewsTotalPages);
+    }
+  }, [marketNewsPage, marketNewsTotalPages]);
+
+  useEffect(() => {
+    if (activeTab !== 'marketwatch') return undefined;
+    const handle = window.setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+    }, 180);
+    return () => window.clearTimeout(handle);
+  }, [activeTab]);
 
   const broadcastRows = useMemo(
     () =>
@@ -673,6 +1078,30 @@ const Admin = () => {
     [systemStatus]
   );
 
+  const decisionScoringRows = useMemo(
+    () =>
+      discoveryRows.slice(0, 8).map((row) => ({
+        id: row.opportunity_id || `${row.symbol}-${row.updated_at}`,
+        symbol: String(row.symbol || 'multi-asset').toUpperCase(),
+        assetClass: row.asset_class || 'equities',
+        score: Number(row.score || 0),
+        confidence: Number(row.confidence || 0),
+        direction: row.direction || 'neutral',
+        thesis: row.thesis || 'No thesis recorded.',
+        mathSummary: row.ml?.math_summary || row.math_summary || 'No ML math summary recorded.',
+        metrics: [
+          { label: 'Regression', value: `${Math.round(Number(row.ml?.directional_probability_up || 0) * 100)}% up` },
+          { label: 'Classification', value: `${Math.round(Number(row.ml?.technical_confidence || 0) * 100)}% technical` },
+          { label: 'Regime', value: `${Math.round(Number(row.ml?.regime_alignment || 0) * 100)}% aligned` },
+          { label: 'Liquidity', value: `${Math.round(Number(row.ml?.liquidity_score || 0) * 100)}%` },
+          { label: 'Volatility', value: `${Math.round(Number(row.ml?.volatility_score || 0) * 100)}%` },
+          { label: 'News', value: `${Number(row.ml?.news_intensity_count || 0)} catalysts` },
+        ],
+        raw: row,
+      })),
+    [discoveryRows]
+  );
+
   const swarmActiveContexts = useMemo(
     () => Array.isArray(systemStatus?.swarm_snapshot?.active_contexts) ? systemStatus.swarm_snapshot.active_contexts : [],
     [systemStatus]
@@ -695,7 +1124,7 @@ const Admin = () => {
               `Dispatch ${formatDateTime(wave.scheduled_for)} (${formatCountdown(wave.scheduled_for, nowTick)})`,
               `${wave.matched_signal_pack_ids?.length || 0} packs`,
               `${wave.capacity_remaining ?? 0} slots free`,
-            ].join(' Ãƒâ€šÃ‚Â· '),
+            ].join(' ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· '),
             status: wave.dispatch_status || (new Date(wave.scheduled_for).getTime() <= nowTick ? 'running' : 'queued'),
             data: wave,
           }))
@@ -728,8 +1157,8 @@ const Admin = () => {
         ? workersStatus.pending_decisions.map((decision) => ({
             id: decision.decision_id,
             title: `${String(decision.symbol || 'multi-asset').toUpperCase()} decision`,
-            subtitle: `${decision.side || 'buy'} Ãƒâ€šÃ‚Â· ${decision.sleeve || 'tactical'} Ãƒâ€šÃ‚Â· ${Math.round(Number(decision.confidence || 0) * 100)}%`,
-            detail: `${decision.thesis || 'Pending fund-manager decision'} Ãƒâ€šÃ‚Â· ${formatDateTime(decision.created_at)}`,
+            subtitle: `${decision.side || 'buy'} ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ${decision.sleeve || 'tactical'} ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ${Math.round(Number(decision.confidence || 0) * 100)}%`,
+            detail: `${decision.thesis || 'Pending fund-manager decision'} ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ${formatDateTime(decision.created_at)}`,
             status: decision.status || 'proposed',
             data: decision,
           }))
@@ -803,7 +1232,7 @@ const Admin = () => {
         type: 'JSON Packet',
         title: `${pack.symbol} signal pack`,
         subtitle: `${pack.completed_roles?.length || 0}/${pack.expected_roles?.length || 0} specialist roles complete`,
-        detail: `Run ${pack.run_id || 'n/a'} Ãƒâ€šÃ‚Â· report ${String(pack.composite_report_id || '').slice(0, 8) || 'pending'}`,
+        detail: `Run ${pack.run_id || 'n/a'} ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· report ${String(pack.composite_report_id || '').slice(0, 8) || 'pending'}`,
         timestamp: workersStatus?.autopilot?.last_run_at || lastUpdate.toISOString(),
         preview: jsonPreview(pack, 240),
         data: pack,
@@ -1064,6 +1493,48 @@ const Admin = () => {
     });
   }, []);
 
+  const openApprovalContext = useCallback(async (row) => {
+    if (!row?.id) return;
+    setContextBusy(true);
+    setSelectedContext({
+      kind: 'approval',
+      id: row.id,
+      title: row.title,
+      subtitle: row.subtitle,
+      preview: row.preview,
+      loading: true,
+      data: row.data,
+    });
+    try {
+      const detail = await adminAPI.getApprovalDetail(row.id);
+      setSelectedContext({
+        kind: 'approval',
+        id: row.id,
+        title: row.title,
+        subtitle: row.subtitle,
+        preview: row.preview,
+        loading: false,
+        data: detail,
+      });
+    } catch (err) {
+      showError(`Unable to load approval detail: ${err.message}`);
+      setSelectedContext((prev) => ({ ...prev, loading: false, error: err.message }));
+    } finally {
+      setContextBusy(false);
+    }
+  }, [showError]);
+
+  const openDigestContext = useCallback((row) => {
+    setSelectedContext({
+      kind: 'digest',
+      id: row.id,
+      title: row.title,
+      subtitle: row.subtitle,
+      preview: row.preview,
+      data: row.data,
+    });
+  }, []);
+
   const openTimelineContext = useCallback((item, index) => {
     setTimelineIndex(index);
     setContextRailTab('focus');
@@ -1179,6 +1650,51 @@ const Admin = () => {
       setContextBusy(false);
     }
   }, [fetchAdminState, selectedContext?.id, showError, success]);
+
+  const approveSelectedRequest = useCallback(async () => {
+    const requestId = selectedContext?.id;
+    if (!requestId || approvalBusy) return;
+    try {
+      setApprovalBusy(requestId);
+      await adminAPI.approveRequest(requestId, 'Approved by CEO in admin review queue');
+      await fetchAdminState();
+      success('Approval request accepted');
+    } catch (err) {
+      showError(`Unable to approve request: ${err.message}`);
+    } finally {
+      setApprovalBusy('');
+    }
+  }, [approvalBusy, fetchAdminState, selectedContext?.id, showError, success]);
+
+  const rejectSelectedRequest = useCallback(async () => {
+    const requestId = selectedContext?.id;
+    if (!requestId || approvalBusy) return;
+    try {
+      setApprovalBusy(requestId);
+      await adminAPI.rejectRequest(requestId, 'Rejected by CEO in admin review queue');
+      await fetchAdminState();
+      success('Approval request rejected');
+    } catch (err) {
+      showError(`Unable to reject request: ${err.message}`);
+    } finally {
+      setApprovalBusy('');
+    }
+  }, [approvalBusy, fetchAdminState, selectedContext?.id, showError, success]);
+
+  const generateDigestNow = useCallback(async () => {
+    if (digestBusy) return;
+    try {
+      setDigestBusy(true);
+      const result = await adminAPI.generateCeoDigest();
+      await fetchAdminState();
+      const digestId = result?.digest_id ? ` ${result.digest_id}` : '';
+      success(`Digest generated${digestId}`);
+    } catch (err) {
+      showError(`Unable to generate digest: ${err.message}`);
+    } finally {
+      setDigestBusy(false);
+    }
+  }, [digestBusy, fetchAdminState, showError, success]);
 
   const openArtifactContext = useCallback((item) => {
     setDeliverableDrawerOpen(false);
@@ -1494,6 +2010,7 @@ const Admin = () => {
     }
     if (selectedContext.kind === 'decision') {
       const decision = selectedContext.data || {};
+      const linkedScore = decisionScoringRows.find((row) => row.symbol === String(decision.symbol || '').toUpperCase());
       return (
         <div className="context-block">
           <div className="context-title-row">
@@ -1506,6 +2023,96 @@ const Admin = () => {
             <div><span>Side</span><strong>{decision.side || 'n/a'}</strong></div>
             <div><span>Qty</span><strong>{decision.quantity || 'n/a'}</strong></div>
             <div><span>Created</span><strong>{formatRelative(decision.created_at)}</strong></div>
+          </div>
+          {linkedScore ? (
+            <>
+              <div className="context-kv-list">
+                <div><span>Composite score</span><strong>{linkedScore.score.toFixed(3)}</strong></div>
+                <div><span>Confidence</span><strong>{Math.round(linkedScore.confidence * 100)}%</strong></div>
+                <div><span>Direction</span><strong>{linkedScore.direction}</strong></div>
+                <div><span>Asset class</span><strong>{linkedScore.assetClass}</strong></div>
+              </div>
+              <div className="context-memory-card">
+                <span>ML math summary</span>
+                <strong>{linkedScore.mathSummary}</strong>
+                <small>
+                  {linkedScore.metrics.map((metric) => `${metric.label}: ${metric.value}`).join(' · ')}
+                </small>
+              </div>
+            </>
+          ) : null}
+        </div>
+      );
+    }
+    if (selectedContext.kind === 'approval') {
+      const approval = selectedContext.data || {};
+      const payload = approval.payload || {};
+      const review = payload.review || {};
+      const intent = payload.intent || {};
+      const metadata = payload.metadata || {};
+      const symbol = String(intent.symbol || metadata.symbol || payload.signal_pack_id || approval.subject_id || 'multi-asset').toUpperCase();
+      return (
+        <div className="context-block">
+          <div className="context-title-row">
+            <span className={`ops-role-chip ops-role-chip-${badgeTone(approval.status)}`}>{approval.status || 'pending'}</span>
+            <strong>{symbol}</strong>
+          </div>
+          <p>{approval.summary || 'Approval review item.'}</p>
+          <div className="context-kv-list">
+            <div><span>Request</span><strong>{approval.request_id ? String(approval.request_id).slice(0, 12) : 'n/a'}</strong></div>
+            <div><span>Type</span><strong>{String(approval.request_type || 'approval').replace(/_/g, ' ')}</strong></div>
+            <div><span>Requested by</span><strong>{approval.requested_by || 'vektor'}</strong></div>
+            <div><span>Created</span><strong>{formatRelative(approval.created_at)}</strong></div>
+            <div><span>Run</span><strong>{approval.run_id ? String(approval.run_id).slice(0, 16) : 'n/a'}</strong></div>
+            <div><span>Subject</span><strong>{approval.subject_id ? String(approval.subject_id).slice(0, 16) : 'n/a'}</strong></div>
+          </div>
+          {(intent.thesis || payload.reason || metadata.reason) ? (
+            <div className="context-memory-card">
+              <span>Review basis</span>
+              <strong>{intent.thesis || payload.reason || metadata.reason}</strong>
+              <small>{payload.estimated_notional_usd ? `Estimated notional ${currency(payload.estimated_notional_usd)}` : 'No notional estimate stored.'}</small>
+            </div>
+          ) : null}
+          {approval.status === 'pending' ? (
+            <div className="settings-actions">
+              <button type="button" className="btn-secondary" onClick={approveSelectedRequest} disabled={approvalBusy === approval.request_id}>
+                {approvalBusy === approval.request_id ? 'Approving...' : 'Approve request'}
+              </button>
+              <button type="button" className="btn-secondary danger" onClick={rejectSelectedRequest} disabled={approvalBusy === approval.request_id}>
+                {approvalBusy === approval.request_id ? 'Rejecting...' : 'Reject request'}
+              </button>
+            </div>
+          ) : review?.resolution ? (
+            <div className="context-memory-card">
+              <span>Review decision</span>
+              <strong>{review.resolution}</strong>
+              <small>{review.reviewed_by || 'ceo'} · {formatRelative(review.reviewed_at)}</small>
+            </div>
+          ) : null}
+        </div>
+      );
+    }
+    if (selectedContext.kind === 'digest') {
+      const digest = selectedContext.data || {};
+      const payload = digest.payload || {};
+      const summary = payload.summary || {};
+      return (
+        <div className="context-block">
+          <div className="context-title-row">
+            <span className="ops-role-chip ops-role-chip-ok">{digest.digest_type || 'digest'}</span>
+            <strong>{digest.generated_by || 'vektor'}</strong>
+          </div>
+          <p>{selectedContext.preview || 'Stored CEO digest.'}</p>
+          <div className="context-kv-list">
+            <div><span>Digest</span><strong>{digest.digest_id ? String(digest.digest_id).slice(0, 14) : 'n/a'}</strong></div>
+            <div><span>Created</span><strong>{formatRelative(digest.created_at)}</strong></div>
+            <div><span>Positions</span><strong>{summary.positions_count ?? 0}</strong></div>
+            <div><span>Approvals</span><strong>{summary.pending_approvals ?? 0}</strong></div>
+          </div>
+          <div className="context-memory-card">
+            <span>Digest highlights</span>
+            <strong>{payload.best_area?.asset_class || 'n/a'} best · {payload.worst_area?.asset_class || 'n/a'} worst</strong>
+            <small>{payload.provider_rail?.mode || 'router'} · {(payload.provider_rail?.providers || []).join(', ') || 'no providers recorded'}</small>
           </div>
         </div>
       );
@@ -1777,7 +2384,7 @@ const Admin = () => {
               {taskEvents.map((event, index) => (
                 <div key={`${event.task_id || event.timestamp || index}`} className="drawer-audit-row">
                   <div>
-                    <strong>{event.role || 'agent'} Ãƒâ€šÃ‚Â· {event.status || 'status'}</strong>
+                    <strong>{event.role || 'agent'} ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· {event.status || 'status'}</strong>
                     <span>{event.event || 'task event'}</span>
                   </div>
                   <small>{formatRelative(event.timestamp)}</small>
@@ -1864,7 +2471,7 @@ const Admin = () => {
         <aside className={`admin-sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
           <div className="sidebar-header">
             <div className="sidebar-logo">
-              <img src="/VektorLogo.png" alt="Vektor Logo" style={{ height: '34px', width: 'auto', objectFit: 'contain' }} />
+              <img src="/VektorLogo.png?v=20260422b" alt="Vektor Logo" style={{ height: '34px', width: 'auto', objectFit: 'contain' }} />
               <span>Vektor Admin</span>
               <span className={`admin-title-dot ${connectionStatus === 'connected' ? 'connected' : connectionStatus === 'connecting' ? 'connecting' : 'error'}`} />
             </div>
@@ -1899,7 +2506,7 @@ const Admin = () => {
                   onClick={() => {
                     setActiveTab(item.id);
                   }}
-                  title={`${item.label} Ãƒâ€šÃ‚Â· ${item.description}`}
+                  title={`${item.label} ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ${item.description}`}
                 >
                   <Icon size={16} className="nav-icon" />
                   <span className="nav-label">{item.label}</span>
@@ -2171,12 +2778,12 @@ const Admin = () => {
                                 <strong>{ceoDigest?.summary?.pending_decisions ?? pendingDecisionRows.length}</strong>
                               </div>
                               <div className="theater-meta-card">
-                                <span>Pending editorial</span>
-                                <strong>{ceoDigest?.summary?.pending_editorial ?? pendingEditorialRows.length}</strong>
+                                <span>Pending approvals</span>
+                                <strong>{ceoDigest?.summary?.pending_approvals ?? pendingApprovalRows.length}</strong>
                               </div>
                               <div className="theater-meta-card">
-                                <span>Total PnL</span>
-                                <strong>{currency(ceoDigest?.summary?.total_pnl ?? performanceLatest?.total_pnl)}</strong>
+                                <span>Pending editorial</span>
+                                <strong>{ceoDigest?.summary?.pending_editorial ?? pendingEditorialRows.length}</strong>
                               </div>
                             </div>
                             <div className="ceo-brief-grid">
@@ -2200,9 +2807,47 @@ const Admin = () => {
                                 </div>
                                 <p>{(portfolioBreakdown?.worst_area?.symbols || []).join(', ') || 'No grouped performance yet.'}</p>
                               </article>
+                              <article className="deliverable-card">
+                                <div className="deliverable-head">
+                                  <div>
+                                    <strong>Risk alerts</strong>
+                                    <span>{ceoRiskAlerts.length} active</span>
+                                  </div>
+                                  <span className="deliverable-pill">{currency(ceoDigest?.summary?.total_pnl ?? performanceLatest?.total_pnl)}</span>
+                                </div>
+                                <p>{ceoRiskAlerts[0]?.message || 'No active risk alerts from the CEO layer.'}</p>
+                              </article>
                             </div>
                           </section>
 
+                          <section className="content-section">
+                            <div className="section-header section-header-tight">
+                              <h3 className="section-subtitle">Pending approvals</h3>
+                            </div>
+                            {renderFeedRows(pendingApprovalRows.slice(0, 4), 'No CEO approvals waiting.', {
+                              selectable: true,
+                              onSelect: openApprovalContext,
+                              selectedId: selectedContext?.id,
+                              openLabel: 'Review',
+                            })}
+                          </section>
+                        </div>
+
+                        <div className="content-grid two-up-tight">
+                          <section className="content-section">
+                            <div className="section-header section-header-tight">
+                              <h3 className="section-subtitle">Digest history</h3>
+                              <button type="button" className="btn-secondary" onClick={generateDigestNow} disabled={digestBusy}>
+                                {digestBusy ? 'Generating...' : 'Generate digest'}
+                              </button>
+                            </div>
+                            {renderFeedRows(digestHistoryRows.slice(0, 6), 'No stored digests yet.', {
+                              selectable: true,
+                              onSelect: openDigestContext,
+                              selectedId: selectedContext?.id,
+                              openLabel: 'Inspect',
+                            })}
+                          </section>
                           <section className="content-section">
                             <div className="section-header section-header-tight">
                               <h3 className="section-subtitle">Editorial approval queue</h3>
@@ -2239,21 +2884,28 @@ const Admin = () => {
 
                           <section className="content-section">
                             <div className="section-header section-header-tight">
-                              <h3 className="section-subtitle">Discovery pipeline</h3>
+                              <h3 className="section-subtitle">ML decision scoring</h3>
                             </div>
                             <div className="deliverable-list">
-                              {discoveryRows.length ? discoveryRows.slice(0, 5).map((row) => (
-                                <article key={row.opportunity_id || `${row.symbol}-${row.updated_at}`} className="deliverable-card">
+                              {decisionScoringRows.length ? decisionScoringRows.slice(0, 5).map((row) => (
+                                <article key={row.id} className="deliverable-card">
                                   <div className="deliverable-head">
                                     <div>
                                       <strong>{row.symbol}</strong>
-                                      <span>{row.asset_class || 'equities'} Ãƒâ€šÃ‚Â· {row.direction || 'candidate'}</span>
+                                      <span>{row.assetClass || 'equities'} · {row.direction || 'candidate'}</span>
                                     </div>
-                                    <span className="deliverable-pill">{Number(row.score || 0).toFixed(2)}</span>
+                                    <span className="deliverable-pill">{Number(row.score || 0).toFixed(3)}</span>
                                   </div>
-                                  <p>{row.thesis || 'No thesis summary available.'}</p>
+                                  <p>{row.mathSummary}</p>
+                                  <div className="deliverable-meta-row">
+                                    {row.metrics.slice(0, 4).map((metric) => (
+                                      <span key={`${row.id}-${metric.label}`} className="deliverable-pill subdued">
+                                        {metric.label}: {metric.value}
+                                      </span>
+                                    ))}
+                                  </div>
                                 </article>
-                              )) : <div className="empty-state">No discovery opportunities recorded yet.</div>}
+                              )) : <div className="empty-state">No ML-backed scoring packets recorded yet.</div>}
                             </div>
                           </section>
                         </div>
@@ -2355,7 +3007,7 @@ const Admin = () => {
                                   id: ctx.task_id,
                                   type: 'task',
                                   title: ctx.role || ctx.agent_id || 'active_context',
-                                  subtitle: [ctx.symbol, ctx.run_id].filter(Boolean).join(' Ãƒâ€šÃ‚Â· '),
+                                  subtitle: [ctx.symbol, ctx.run_id].filter(Boolean).join(' ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· '),
                                   summary: ctx.command || JSON.stringify(ctx.context || {}),
                                   badge: 'Live context',
                                   data: ctx,
@@ -2499,7 +3151,7 @@ const Admin = () => {
                             </div>
                             <div className="openclaw-layer-card">
                               <span>LLM stack</span>
-                              <strong>{workersStatus?.ai_role_adapter?.provider || 'n/a'} Ãƒâ€šÃ‚Â· {workersStatus?.ai_role_adapter?.default_model || 'n/a'}</strong>
+                              <strong>{workersStatus?.ai_role_adapter?.provider || 'n/a'} ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· {workersStatus?.ai_role_adapter?.default_model || 'n/a'}</strong>
                               <small>{workersStatus?.ai_role_adapter?.last_error || 'No adapter error reported'}</small>
                             </div>
                           </div>
@@ -2866,10 +3518,40 @@ const Admin = () => {
 
                     {activeTab === 'decisions' && (
                       <div className="tab-decisions">
-                        <section className="content-section">
-                          <h2 className="section-title">Decision Queue</h2>
-                          <DecisionQueue expanded />
-                        </section>
+                        <div className="content-grid two-up-tight">
+                          <section className="content-section">
+                            <div className="section-header section-header-tight">
+                              <h2 className="section-title">Approval review queue</h2>
+                            </div>
+                            {renderFeedRows(pendingApprovalRows, 'No approval requests pending.', {
+                              selectable: true,
+                              onSelect: openApprovalContext,
+                              selectedId: selectedContext?.id,
+                              openLabel: 'Review',
+                            })}
+                          </section>
+                          <section className="content-section">
+                            <div className="section-header section-header-tight">
+                              <h2 className="section-title">Review detail</h2>
+                            </div>
+                            {renderContextBody()}
+                          </section>
+                        </div>
+                        <div className="content-grid two-up-tight">
+                          <section className="content-section">
+                            <h2 className="section-title">Decision queue</h2>
+                            <DecisionQueue expanded />
+                          </section>
+                          <section className="content-section">
+                            <h2 className="section-title">Digest history</h2>
+                            {renderFeedRows(digestHistoryRows, 'No stored CEO digests.', {
+                              selectable: true,
+                              onSelect: openDigestContext,
+                              selectedId: selectedContext?.id,
+                              openLabel: 'Inspect',
+                            })}
+                          </section>
+                        </div>
                         <section className="content-section">
                           <h2 className="section-title">Lineage and Traceability</h2>
                           <LineagePanel />
@@ -2909,15 +3591,71 @@ const Admin = () => {
 
                     {activeTab === 'positions' && (
                       <div className="tab-positions">
-                        <section className="content-section">
-                          <h2 className="section-title">Portfolio Positions</h2>
-                          <PositionsPanel />
-                        </section>
+                        <div className="content-grid two-up-tight">
+                          <section className="content-section">
+                            <h2 className="section-title">Portfolio Positions</h2>
+                            <PositionsPanel />
+                          </section>
+                          <section className="content-section">
+                            <h2 className="section-title">CEO Position Breakdown</h2>
+                            <div className="deliverable-list">
+                              <article className="deliverable-card">
+                                <div className="deliverable-head">
+                                  <div>
+                                    <strong>Top winners</strong>
+                                    <span>{(ceoWinnersLosers?.winners || []).length} names</span>
+                                  </div>
+                                </div>
+                                <div className="deliverable-meta-row">
+                                  {(ceoWinnersLosers?.winners || []).map((row) => (
+                                    <span key={`winner-${row.symbol}`} className="deliverable-pill">
+                                      {row.symbol} {currency(row.unrealized_pnl)}
+                                    </span>
+                                  ))}
+                                </div>
+                              </article>
+                              <article className="deliverable-card">
+                                <div className="deliverable-head">
+                                  <div>
+                                    <strong>Top losers</strong>
+                                    <span>{(ceoWinnersLosers?.losers || []).length} names</span>
+                                  </div>
+                                </div>
+                                <div className="deliverable-meta-row">
+                                  {(ceoWinnersLosers?.losers || []).map((row) => (
+                                    <span key={`loser-${row.symbol}`} className="deliverable-pill subdued">
+                                      {row.symbol} {currency(row.unrealized_pnl)}
+                                    </span>
+                                  ))}
+                                </div>
+                              </article>
+                              <article className="deliverable-card">
+                                <div className="deliverable-head">
+                                  <div>
+                                    <strong>Exposure by asset class</strong>
+                                    <span>{(ceoExposure?.rows || []).length} buckets</span>
+                                  </div>
+                                </div>
+                                <div className="deliverable-list compact">
+                                  {(ceoExposure?.rows || []).map((row) => (
+                                    <div key={`exposure-${row.asset_class}`} className="deliverable-list-row">
+                                      <strong>{row.asset_class}</strong>
+                                      <span>{currency(row.market_value)} · {percent((row.weight || 0) * 100)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </article>
+                            </div>
+                          </section>
+                        </div>
                       </div>
                     )}
 
-                    {activeTab === 'marketwatch' && (
-                      <div className="tab-positions">
+                    <div
+                      className={`tab-marketwatch ${activeTab === 'marketwatch' ? 'is-active' : 'is-hidden'}`}
+                      hidden={activeTab !== 'marketwatch'}
+                      aria-hidden={activeTab !== 'marketwatch'}
+                    >
                         <section className="content-section market-watch-shell">
                           <div className="section-header section-header-tight">
                             <div>
@@ -2925,12 +3663,266 @@ const Admin = () => {
                               <h2 className="section-title">Live markets and news flow</h2>
                             </div>
                           </div>
+                          <section className="market-watch-ticker-strip" aria-label="Live market tape">
+                            <div className="market-watch-ticker-track">
+                              {[...marketTickerRows, ...marketTickerRows].map((row, index) => {
+                                const positive = Number(row.change_pct || 0) >= 0;
+                                return (
+                                  <div
+                                    key={`${row.symbol || 'ticker'}-${index}`}
+                                    className={`market-watch-ticker-item ${positive ? 'positive' : 'negative'}`}
+                                  >
+                                    <MarketTickerLogo symbol={row.symbol} />
+                                    <strong>{row.symbol}</strong>
+                                    <span>{tickerFullName(row.symbol)}</span>
+                                    <b>{currency(row.price)}</b>
+                                    <small>{positive ? '+' : ''}{Number(row.change_pct || 0).toFixed(2)}%</small>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </section>
                           <div className="market-watch-top-grid">
                             <div className="market-watch-panel">
                               <h3 className="section-subtitle">Focus charts</h3>
                               <div className="market-watch-chart-grid">
-                                {marketChartSymbols.slice(0, 4).map((symbol) => (
+                                {focusChartSymbols.map((symbol) => (
                                   <div key={symbol} className="market-watch-chart-card">
+                                    <div className="market-watch-chart-head">
+                                      <strong>{symbol}</strong>
+                                      <span>{tickerFullName(symbol)}</span>
+                                    </div>
+                                    <TradingViewWidget symbol={symbol} height={390} />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="market-watch-panel">
+                              <h3 className="section-subtitle">Market video desk</h3>
+                              <div className="market-watch-video-stack">
+                                {FINANCE_VIDEO_FEEDS.map((feed) => (
+                                  <article key={feed.id} className="market-watch-video-card">
+                                    <div className="market-watch-video-meta">
+                                      <div className="market-watch-video-kicker">Continuous video rotation</div>
+                                      <strong>{feed.title}</strong>
+                                      <span>{feed.subtitle}</span>
+                                    </div>
+                                    <iframe
+                                      src={feed.src}
+                                      title={feed.title}
+                                      loading="lazy"
+                                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                      allowFullScreen
+                                    />
+                                    <a className="market-watch-live-link" href={feed.href} target="_blank" rel="noreferrer">
+                                      Open live source
+                                    </a>
+                                  </article>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="market-watch-bottom-grid">
+                            <section className="market-watch-panel market-watch-news-panel">
+                              <div className="market-watch-section-head">
+                                <div>
+                                  <h3 className="section-subtitle">Headline desk</h3>
+                                  <p className="market-watch-section-copy">Lead market narrative, supporting briefs, and a dense wire with linked internal reports.</p>
+                                </div>
+                                <div className="market-watch-pagination">
+                                  <button
+                                    type="button"
+                                    className="market-watch-page-btn"
+                                    onClick={() => setMarketNewsPage((page) => Math.max(1, page - 1))}
+                                    disabled={marketNewsPage <= 1}
+                                  >
+                                    Prev
+                                  </button>
+                                  <span className="market-watch-page-label">{marketNewsPage} / {marketNewsTotalPages}</span>
+                                  <button
+                                    type="button"
+                                    className="market-watch-page-btn"
+                                    onClick={() => setMarketNewsPage((page) => Math.min(marketNewsTotalPages, page + 1))}
+                                    disabled={marketNewsPage >= marketNewsTotalPages}
+                                  >
+                                    Next
+                                  </button>
+                                </div>
+                              </div>
+                              <div className="market-watch-quick-filter-row">
+                                {marketNewsQuickFilters.map((category) => (
+                                  <button
+                                    key={category}
+                                    type="button"
+                                    className={`market-watch-quick-toggle ${marketNewsCategoryFilter === category ? 'active' : ''}`}
+                                    onClick={() => setMarketNewsCategoryFilter(category)}
+                                  >
+                                    {category}
+                                  </button>
+                                ))}
+                              </div>
+                              {marketNewsFilterOptions.length > 1 ? (
+                                <div className="market-watch-sector-filter market-watch-sector-filter-sticky">
+                                  {marketNewsFilterOptions.map((option) => (
+                                    <button
+                                      key={option.key}
+                                      type="button"
+                                      className={`market-watch-sector-chip ${marketNewsFilter === option.key ? 'active' : ''}`}
+                                      onClick={() => setMarketNewsFilter(option.key)}
+                                    >
+                                      {option.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              ) : null}
+                              <div className="market-watch-results-meta">
+                                <span>{filteredMarketNewsItems.length} headlines</span>
+                                <span>Lead + brief + wire layout</span>
+                              </div>
+                              {pagedMarketNewsItems.length ? (
+                                <div className="market-watch-newsroom">
+                                  {featuredMarketHeadline ? (
+                                    <article className="market-watch-lead-card">
+                                      <div className="market-watch-news-tags">
+                                        <span className="market-watch-news-pill">{featuredMarketHeadline.category}</span>
+                                        <span className="market-watch-news-pill subdued">{featuredMarketHeadline.sourceFilter.label}</span>
+                                      </div>
+                                      <div className="market-watch-lead-title-row">
+                                        {featuredMarketHeadline.sourceFavicon ? (
+                                          <img
+                                            className="market-watch-source-mark large"
+                                            src={featuredMarketHeadline.sourceFavicon}
+                                            alt=""
+                                            loading="lazy"
+                                          />
+                                        ) : (
+                                          <span className="market-watch-source-mark market-watch-source-mark-fallback large" aria-hidden="true">
+                                            {featuredMarketHeadline.sourceFilter.label.slice(0, 1)}
+                                          </span>
+                                        )}
+                                        <div className="market-watch-lead-title-copy">
+                                          <a className="market-watch-news-link market-watch-lead-link" href={featuredMarketHeadline.href} target="_blank" rel="noreferrer">
+                                            {featuredMarketHeadline.title}
+                                          </a>
+                                          <p className="market-watch-lead-summary">
+                                            {featuredMarketHeadline.symbol || 'Market'} is driving the current lead frame through the {featuredMarketHeadline.sector} lens. Open the source or jump straight into related internal reports below.
+                                          </p>
+                                        </div>
+                                      </div>
+                                      <div className="market-watch-news-meta">
+                                        <span>{featuredMarketHeadline.symbol || 'Market'}</span>
+                                        <span>{featuredMarketHeadline.sector}</span>
+                                        <span>{featuredMarketHeadline.source || 'source unknown'}</span>
+                                        <span>{featuredMarketHeadline.detail}</span>
+                                      </div>
+                                      {featuredMarketHeadline.reports?.length ? (
+                                        <div className="market-watch-report-links">
+                                          {featuredMarketHeadline.reports.map((report) => (
+                                            <button
+                                              key={`${featuredMarketHeadline.id}-${report.id}`}
+                                              type="button"
+                                              className="market-watch-report-pill"
+                                              onClick={() => openDeliverable(report.item)}
+                                            >
+                                              {report.title}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      ) : null}
+                                    </article>
+                                  ) : null}
+                                  <div className="market-watch-support-grid">
+                                    {supportingMarketHeadlines.map((row) => (
+                                      <article key={row.id} className="market-watch-brief-card">
+                                        <div className="market-watch-news-title-row">
+                                          {row.sourceFavicon ? (
+                                            <img
+                                              className="market-watch-source-mark"
+                                              src={row.sourceFavicon}
+                                              alt=""
+                                              loading="lazy"
+                                            />
+                                          ) : (
+                                            <span className="market-watch-source-mark market-watch-source-mark-fallback" aria-hidden="true">
+                                              {row.sourceFilter.label.slice(0, 1)}
+                                            </span>
+                                          )}
+                                          <div>
+                                            <div className="market-watch-news-tags tight">
+                                              <span className="market-watch-news-pill">{row.category}</span>
+                                              <span className="market-watch-news-pill subdued">{row.sourceFilter.label}</span>
+                                            </div>
+                                            <a className="market-watch-news-link" href={row.href} target="_blank" rel="noreferrer">
+                                              {row.title}
+                                            </a>
+                                          </div>
+                                        </div>
+                                        <div className="market-watch-news-meta">
+                                          <span>{row.symbol || 'Market'}</span>
+                                          <span>{row.detail}</span>
+                                        </div>
+                                      </article>
+                                    ))}
+                                  </div>
+                                  <div className="market-watch-wire-grid">
+                                    {wireMarketHeadlines.map((row) => (
+                                      <article key={row.id} className="market-watch-news-card compact">
+                                        <div className="market-watch-news-title-row">
+                                          {row.sourceFavicon ? (
+                                            <img
+                                              className="market-watch-source-mark"
+                                              src={row.sourceFavicon}
+                                              alt=""
+                                              loading="lazy"
+                                            />
+                                          ) : (
+                                            <span className="market-watch-source-mark market-watch-source-mark-fallback" aria-hidden="true">
+                                              {row.sourceFilter.label.slice(0, 1)}
+                                            </span>
+                                          )}
+                                          <div>
+                                            <a className="market-watch-news-link" href={row.href} target="_blank" rel="noreferrer">
+                                              {row.title}
+                                            </a>
+                                            <div className="market-watch-news-meta">
+                                              <span>{row.symbol || 'Market'}</span>
+                                              <span>{row.sourceFilter.label}</span>
+                                              <span>{row.detail}</span>
+                                            </div>
+                                          </div>
+                                        </div>
+                                        {row.reports?.length ? (
+                                          <div className="market-watch-report-links">
+                                            {row.reports.slice(0, 1).map((report) => (
+                                              <button
+                                                key={`${row.id}-${report.id}`}
+                                                type="button"
+                                                className="market-watch-report-pill"
+                                                onClick={() => openDeliverable(report.item)}
+                                              >
+                                                {report.title}
+                                              </button>
+                                            ))}
+                                          </div>
+                                        ) : null}
+                                      </article>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="context-empty">No headlines available for this filter.</div>
+                              )}
+                            </section>
+                            <section className="market-watch-panel market-watch-rack-panel">
+                              <div className="market-watch-section-head">
+                                <div>
+                                  <h3 className="section-subtitle">Chart rack</h3>
+                                  <p className="market-watch-section-copy">Secondary symbols and portfolio context with a taller monitoring rack.</p>
+                                </div>
+                              </div>
+                              <div className="market-watch-mini-grid">
+                                {secondaryChartSymbols.map((symbol) => (
+                                  <div key={`mini-${symbol}`} className="market-watch-mini-card">
                                     <div className="market-watch-chart-head">
                                       <strong>{symbol}</strong>
                                       <span>{tickerFullName(symbol)}</span>
@@ -2939,51 +3931,10 @@ const Admin = () => {
                                   </div>
                                 ))}
                               </div>
-                            </div>
-                            <div className="market-watch-panel">
-                              <h3 className="section-subtitle">Live finance video</h3>
-                              <div className="market-watch-video-stack">
-                                {FINANCE_VIDEO_FEEDS.map((feed) => (
-                                  <article key={feed.id} className="market-watch-video-card">
-                                    <strong>{feed.title}</strong>
-                                    <iframe
-                                      src={feed.src}
-                                      title={feed.title}
-                                      loading="lazy"
-                                      allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
-                                      allowFullScreen
-                                    />
-                                  </article>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="market-watch-bottom-grid">
-                            <section className="market-watch-panel">
-                              <h3 className="section-subtitle">Portfolio and index news</h3>
-                              {renderFeedRows(marketNewsRows, 'No live news rows available.', {
-                                selectable: false,
-                                openLabel: 'Open',
-                              })}
-                            </section>
-                            <section className="market-watch-panel">
-                              <h3 className="section-subtitle">Chart rack</h3>
-                              <div className="market-watch-mini-grid">
-                                {marketChartSymbols.slice(4, 8).map((symbol) => (
-                                  <div key={`mini-${symbol}`} className="market-watch-mini-card">
-                                    <div className="market-watch-chart-head">
-                                      <strong>{symbol}</strong>
-                                      <span>{tickerFullName(symbol)}</span>
-                                    </div>
-                                    <TradingViewWidget symbol={symbol} height={220} />
-                                  </div>
-                                ))}
-                              </div>
                             </section>
                           </div>
                         </section>
                       </div>
-                    )}
 
                     {activeTab === 'settings' && (
                       <div className="tab-settings">
@@ -3119,6 +4070,32 @@ const Admin = () => {
                                 </button>
                               </div>
                             </div>
+
+                            <div className="setting-group">
+                              <div className="section-header section-header-tight">
+                                <h3>CEO Command Grammar</h3>
+                                <button type="button" className="btn-secondary" onClick={generateDigestNow} disabled={digestBusy}>
+                                  {digestBusy ? 'Generating...' : 'Generate digest now'}
+                                </button>
+                              </div>
+                              <p className="setting-desc">
+                                This is the Discord-side control surface Vektor exposes to you. The backend workers stay underneath this layer.
+                              </p>
+                              <div className="command-help-grid">
+                                {Object.entries(ceoCommandHelp?.command_groups || {}).map(([group, commands]) => (
+                                  <article key={group} className="command-help-card">
+                                    <strong>{roleLabel(group)}</strong>
+                                    <div className="command-help-chip-row">
+                                      {(commands || []).map((command) => (
+                                        <span key={`${group}-${command}`} className="deliverable-pill subdued">
+                                          {command}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </article>
+                                ))}
+                              </div>
+                            </div>
                           </div>
                         </section>
                       </div>
@@ -3153,3 +4130,5 @@ const Admin = () => {
 };
 
 export default Admin;
+
+

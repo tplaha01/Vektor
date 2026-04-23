@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+﻿import React, { useState, useEffect, useRef } from "react";
 import { Menu, X, ArrowLeft, Share2, Bookmark, RefreshCw, AlertCircle } from "lucide-react";
 import "../styles/blog.css";
 import { blogAPI } from "../api/adminAPI";
@@ -480,7 +480,7 @@ export default function Blog() {
         <header className="blog-header" role="banner">
           <div className="blog-header-content">
             <div className="blog-logo" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <img src="/VektorLogo.png" alt="Vektor Logo" style={{ height: "36px", width: "auto", objectFit: "contain" }} />
+              <img src="/VektorLogo.png?v=20260422b" alt="Vektor Logo" style={{ height: "36px", width: "auto", objectFit: "contain" }} />
               <span>Vektor Blog</span>
             </div>
 
@@ -592,3 +592,5 @@ function isThisMonth(dateStr) {
     }
     fn();
   };
+
+

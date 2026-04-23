@@ -1,8 +1,32 @@
-import React, { useEffect, useRef } from "react"
+import React, { memo, useEffect, useRef } from "react"
 
-export default function TradingViewWidget({ symbol, height = 280 }) {
+let tradingViewLoader = null
+
+const ensureTradingView = () => {
+  if (window.TradingView) return Promise.resolve(window.TradingView)
+  if (tradingViewLoader) return tradingViewLoader
+  tradingViewLoader = new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[data-tradingview-loader="true"]')
+    if (existing) {
+      existing.addEventListener('load', () => resolve(window.TradingView), { once: true })
+      existing.addEventListener('error', reject, { once: true })
+      return
+    }
+    const s = document.createElement("script")
+    s.src = "https://s3.tradingview.com/tv.js"
+    s.async = true
+    s.dataset.tradingviewLoader = "true"
+    s.onload = () => resolve(window.TradingView)
+    s.onerror = reject
+    document.head.appendChild(s)
+  })
+  return tradingViewLoader
+}
+
+function TradingViewWidget({ symbol, height = 280 }) {
   const ref  = useRef()
   const uid  = useRef(`tv_${Math.random().toString(36).slice(2,9)}`)
+  const widgetRef = useRef(null)
 
   useEffect(() => {
     if (!ref.current) return
@@ -15,7 +39,7 @@ export default function TradingViewWidget({ symbol, height = 280 }) {
 
     const init = () => {
       if (!window.TradingView || !document.getElementById(uid.current)) return
-      new window.TradingView.widget({
+      widgetRef.current = new window.TradingView.widget({
         autosize:          true,
         symbol:            symbol,
         interval:          "15",
@@ -56,14 +80,10 @@ export default function TradingViewWidget({ symbol, height = 280 }) {
       })
     }
 
-    if (window.TradingView) {
-      init()
-    } else {
-      const s = document.createElement("script")
-      s.src = "https://s3.tradingview.com/tv.js"
-      s.async = true
-      s.onload = init
-      document.head.appendChild(s)
+    ensureTradingView().then(init).catch(() => {})
+
+    return () => {
+      widgetRef.current = null
     }
   }, [symbol])
 
@@ -71,3 +91,5 @@ export default function TradingViewWidget({ symbol, height = 280 }) {
     <div ref={ref} className="tv-wrap" style={{ height, minHeight: Math.min(height, 220) }} />
   )
 }
+
+export default memo(TradingViewWidget)

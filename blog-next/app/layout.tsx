@@ -1,4 +1,4 @@
-import type { Metadata, Viewport } from "next";
+﻿import type { Metadata, Viewport } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -15,11 +15,15 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
   title: {
-    default: siteConfig.name,
-    template: `%s - ${siteConfig.name}`,  
+    default: "Vektor - Blog",
+    template: `%s - Vektor - Blog`,
   },
   description: siteConfig.description,
   keywords: metadataKeywords,
+  icons: {
+    icon: "/VektorLogo.png?v=20260422b",
+    apple: "/VektorLogo.png?v=20260422b",
+  },
 };
 
 export default function RootLayout({
@@ -48,3 +52,5 @@ export default function RootLayout({
     </html>
   );
 }
+
+

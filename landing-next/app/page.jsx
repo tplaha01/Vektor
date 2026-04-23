@@ -11,6 +11,7 @@ const productUrl = process.env.NEXT_PUBLIC_PRODUCT_APP_URL || "http://localhost:
 
 export default function Page() {
   useEffect(() => {
+    document.title = "Vektor - Landing";
     const nodes = Array.from(document.querySelectorAll(".cinematic-fade"));
     const observer = new IntersectionObserver(
       (entries) => {

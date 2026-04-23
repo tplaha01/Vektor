@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+from dataclasses import asdict
 from datetime import datetime
 from decimal import Decimal
 from threading import RLock
@@ -24,6 +25,7 @@ from app.fund.allocation_policy import (
     infer_underlier_symbol,
     normalize_asset_class,
 )
+from app.fund.approval_center import ApprovalCenter, approval_center
 from app.fund.audit_log import AuditLog, audit_log
 from app.fund.contracts import (
     DecisionRecord,
@@ -85,6 +87,7 @@ class FirmOrchestrator:
         broker: PaperBroker = shared_broker,
         price_lookup: Callable[[str], float] = FEED.price,
         knowledge_graph_service: KnowledgeGraph = knowledge_graph,
+        approval_center_service: ApprovalCenter = approval_center,
     ) -> None:
         self._task_bus = task_bus_service
         self._decision_ledger = decision_ledger_service
@@ -96,11 +99,15 @@ class FirmOrchestrator:
         self._broker = broker
         self._price_lookup = price_lookup
         self._knowledge_graph = knowledge_graph_service
+        self._approval_center = approval_center_service
         self._execution_adapter = PaperExecutionAdapter(broker=broker, price_lookup=price_lookup)
         self._policy_version = "phase1.paper.v1"
         self._lock = RLock()
         settings = get_settings()
         self._broker_mode = str(settings.BROKER or "paper").strip().lower() or "paper"
+        self._require_trade_approval = bool(settings.CEO_APPROVAL_REQUIRED_FOR_TRADES)
+        self._require_allocation_approval = bool(settings.CEO_APPROVAL_REQUIRED_FOR_ALLOCATION_CHANGES)
+        self._require_major_reroute_approval = bool(settings.CEO_APPROVAL_REQUIRED_FOR_MAJOR_REROUTES)
         self._default_capital_usd = float(settings.FUND_DEFAULT_CAPITAL_USD)
         self._default_reserve_cash_usd = float(settings.FUND_DEFAULT_RESERVE_CASH_USD)
         self._default_sleeve_weights = self._parse_default_sleeve_weights(settings.FUND_DEFAULT_SLEEVE_WEIGHTS)
@@ -148,6 +155,110 @@ class FirmOrchestrator:
         return payload
 
     def set_allocation_policy(
+        self,
+        *,
+        run_id: str,
+        agent_id: str,
+        total_capital_usd: float | None = None,
+        reserve_cash_usd: float | None = None,
+        asset_weights: dict[str, Any] | None = None,
+        sleeve_weights: dict[str, Any] | None = None,
+        constraints: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        if self._require_allocation_approval:
+            return self.request_allocation_policy_change(
+                run_id=run_id,
+                agent_id=agent_id,
+                total_capital_usd=total_capital_usd,
+                reserve_cash_usd=reserve_cash_usd,
+                asset_weights=asset_weights,
+                sleeve_weights=sleeve_weights,
+                constraints=constraints,
+                metadata=metadata,
+            )
+        return self._apply_allocation_policy(
+            run_id=run_id,
+            agent_id=agent_id,
+            total_capital_usd=total_capital_usd,
+            reserve_cash_usd=reserve_cash_usd,
+            asset_weights=asset_weights,
+            sleeve_weights=sleeve_weights,
+            constraints=constraints,
+            metadata=metadata,
+        )
+
+    def request_allocation_policy_change(
+        self,
+        *,
+        run_id: str,
+        agent_id: str,
+        total_capital_usd: float | None = None,
+        reserve_cash_usd: float | None = None,
+        asset_weights: dict[str, Any] | None = None,
+        sleeve_weights: dict[str, Any] | None = None,
+        constraints: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        latest = self.get_allocation_policy(run_id=run_id)
+        total = float(total_capital_usd if total_capital_usd is not None else latest.get("total_capital_usd") or self._default_capital_usd)
+        reserve = float(reserve_cash_usd if reserve_cash_usd is not None else latest.get("reserve_cash_usd") or self._default_reserve_cash_usd)
+        merged_asset_weights = dict(latest.get("asset_weights") or {})
+        merged_asset_weights.update(dict(asset_weights or {}))
+        merged_sleeve_weights = dict(latest.get("sleeve_weights") or {})
+        merged_sleeve_weights.update(dict(sleeve_weights or {}))
+        merged_constraints = dict(latest.get("constraints") or {})
+        merged_constraints.update(dict(constraints or {}))
+        merged_metadata = dict(latest.get("metadata") or {})
+        merged_metadata.update(dict(metadata or {}))
+        preview_policy = build_default_policy(
+            run_id=run_id,
+            total_capital_usd=total,
+            reserve_cash_usd=reserve,
+            asset_weights=merged_asset_weights,
+            sleeve_weights=merged_sleeve_weights,
+            constraints=merged_constraints,
+            metadata=merged_metadata,
+        )
+        try:
+            request = self._approval_center.create_request(
+                request_type="allocation_change",
+                run_id=run_id,
+                subject_id=str(preview_policy.get("policy_id") or f"allocation-{run_id}"),
+                requested_by=agent_id,
+                summary=f"Allocation policy change requested for run {run_id}.",
+                payload={
+                    "run_id": run_id,
+                    "agent_id": agent_id,
+                    "total_capital_usd": total,
+                    "reserve_cash_usd": reserve,
+                    "asset_weights": merged_asset_weights,
+                    "sleeve_weights": merged_sleeve_weights,
+                    "constraints": merged_constraints,
+                    "metadata": merged_metadata,
+                    "preview_policy": preview_policy,
+                },
+            )
+        except RuntimeError:
+            return self._apply_allocation_policy(
+                run_id=run_id,
+                agent_id=agent_id,
+                total_capital_usd=total,
+                reserve_cash_usd=reserve,
+                asset_weights=merged_asset_weights,
+                sleeve_weights=merged_sleeve_weights,
+                constraints=merged_constraints,
+                metadata=merged_metadata,
+            )
+        self._log_event(
+            "allocation.policy.approval_requested",
+            run_id=run_id,
+            agent_id=agent_id,
+            payload={"request_id": request.get("request_id"), "asset_weights": merged_asset_weights},
+        )
+        return {"request": request, "preview_policy": preview_policy}
+
+    def _apply_allocation_policy(
         self,
         *,
         run_id: str,
@@ -700,77 +811,77 @@ class FirmOrchestrator:
                 "reasons": list(reasons),
             }
 
+        if self._require_trade_approval:
+            try:
+                approval_request = self._approval_center.create_request(
+                    request_type="trade_execution",
+                    run_id=run_id,
+                    subject_id=decision_id,
+                    requested_by=agent_id,
+                    summary=f"Trade execution approval required for {normalized_symbol} {normalized_side} {float(quantity):g}.",
+                    payload={
+                        "run_id": run_id,
+                        "agent_id": agent_id,
+                        "decision_id": decision_id,
+                        "risk_id": risk_id,
+                        "intent_id": intent_id,
+                        "trader_task_id": trader_task.task_id,
+                        "intent": asdict(intent),
+                        "effective_price": float(effective_price),
+                        "estimated_notional_usd": estimated_notional,
+                        "thesis_id": thesis_id,
+                        "asset_class": asset_class,
+                        "metadata": dict(metadata or {}),
+                    },
+                )
+            except RuntimeError:
+                approval_request = None
+            if approval_request is not None:
+                self._task_bus.set_status(
+                    trader_task.task_id,
+                    "blocked",
+                    {
+                        "decision_id": decision_id,
+                        "reason": "waiting_ceo_approval",
+                        "approval_request_id": approval_request.get("request_id"),
+                    },
+                )
+                self._decision_ledger.add_event(
+                    event_type="approval.requested",
+                    decision_id=decision_id,
+                    order_id=None,
+                    payload={
+                        "request_id": approval_request.get("request_id"),
+                        "request_type": "trade_execution",
+                        "risk_id": risk_id,
+                        "intent_id": intent_id,
+                    },
+                )
+                self._log_event(
+                    "decision.awaiting_ceo_approval",
+                    run_id=run_id,
+                    agent_id=agent_id,
+                    decision_id=decision_id,
+                    payload={
+                        "request_id": approval_request.get("request_id"),
+                        "asset_class": asset_class,
+                        "estimated_notional_usd": estimated_notional,
+                    },
+                )
+                return {
+                    "status": "pending_approval",
+                    "decision_id": decision_id,
+                    "risk_id": risk_id,
+                    "intent_id": intent_id,
+                    "approval_request": approval_request,
+                }
+
         self._decision_ledger.update_status(decision_id, "approved", {"risk_id": risk_id, "intent_id": intent_id})
-        execution_result = self._execution_adapter.execute(intent)
-        order_id = (execution_result.get("order") or {}).get("id")
-        execution_status = execution_result.get("status")
-        if execution_status == "executed":
-            self._update_run_sleeve_used_notional(
-                run_id=run_id,
-                sleeve=thesis.sleeve,
-                side=normalized_side,
-                quantity=float((execution_result.get("order") or {}).get("quantity") or quantity),
-                price=float((execution_result.get("order") or {}).get("avg_price") or effective_price),
-            )
-            with self._lock:
-                asset_used = self._run_asset_class_used_notional.setdefault(run_id, {})
-                delta = estimated_notional if normalized_side == "buy" else -estimated_notional
-                asset_used[asset_class] = max(0.0, float(asset_used.get(asset_class, 0.0)) + delta)
-
-        if execution_status == "executed":
-            decision_status = "executed"
-            self._task_bus.set_status(trader_task.task_id, "completed", {"order_id": order_id})
-        else:
-            decision_status = "blocked"
-            self._task_bus.set_status(
-                trader_task.task_id,
-                "blocked",
-                {"decision_id": decision_id, "reason": execution_result.get("reason")},
-            )
-
-        self._decision_ledger.update_status(
-            decision_id,
-            decision_status,
-            {"order_id": order_id, "execution_status": execution_status},
+        return self._execute_adapter_intent(
+            intent=intent,
+            trader_task_id=trader_task.task_id,
+            estimated_notional_usd=estimated_notional,
         )
-        self._decision_ledger.add_event(
-            event_type="execution.processed",
-            decision_id=decision_id,
-            order_id=order_id,
-            payload=execution_result,
-        )
-        self._audit_log.record(
-            "execution.intent.processed",
-            {
-                "run_id": run_id,
-                "decision_id": decision_id,
-                "risk_id": risk_id,
-                "intent_id": intent_id,
-                "order_id": order_id,
-                "status": execution_status,
-                "reason": execution_result.get("reason"),
-            },
-        )
-        self._log_event(
-            "decision.executed" if execution_status == "executed" else "decision.execution_rejected",
-            run_id=run_id,
-            agent_id=agent_id,
-            decision_id=decision_id,
-            payload={
-                "order_id": order_id,
-                "execution_status": execution_status,
-                "asset_class": asset_class,
-                "sleeve_budget": self._ensure_run_sleeve_budget(run_id=run_id, sleeve=thesis.sleeve),
-            },
-        )
-        return {
-            "status": execution_status,
-            "decision_id": decision_id,
-            "risk_id": risk_id,
-            "intent_id": intent_id,
-            "order_id": order_id,
-            "execution": execution_result,
-        }
 
     def list_active_tasks(self) -> list[dict[str, Any]]:
         return [task.model_dump(mode="json") for task in self._task_bus.active_tasks()]
@@ -849,6 +960,238 @@ class FirmOrchestrator:
 
     def list_pending_decisions(self) -> list[dict[str, Any]]:
         return [row.model_dump(mode="json") for row in self._decision_ledger.pending_decisions()]
+
+    def list_pending_approvals(self, *, limit: int = 100, request_type: str | None = None) -> list[dict[str, Any]]:
+        return self._approval_center.list_requests(limit=limit, status="pending", request_type=request_type)
+
+    def get_approval_request(self, request_id: str) -> dict[str, Any] | None:
+        return self._approval_center.get_request(request_id)
+
+    def find_pending_trade_approval(self, *, decision_id: str) -> dict[str, Any] | None:
+        return self._approval_center.find_pending_by_subject(request_type="trade_execution", subject_id=decision_id)
+
+    def find_pending_reroute_approval(self, *, signal_pack_id: str) -> dict[str, Any] | None:
+        return self._approval_center.find_pending_by_subject(request_type="signal_pack_reroute", subject_id=signal_pack_id)
+
+    def request_signal_pack_reroute(
+        self,
+        *,
+        run_id: str,
+        agent_id: str,
+        signal_pack_id: str,
+        assigned_roles: list[str],
+        reason: str | None = None,
+    ) -> dict[str, Any]:
+        normalized_roles = [str(role).strip().lower() for role in assigned_roles if str(role).strip()]
+        request = self._approval_center.create_request(
+            request_type="signal_pack_reroute",
+            run_id=run_id,
+            subject_id=signal_pack_id,
+            requested_by=agent_id,
+            summary=f"Signal pack reroute requested for {signal_pack_id}.",
+            payload={
+                "run_id": run_id,
+                "agent_id": agent_id,
+                "signal_pack_id": signal_pack_id,
+                "assigned_roles": normalized_roles,
+                "reason": reason or "operator_reroute",
+            },
+        )
+        self._log_event(
+            "signal_pack.reroute.approval_requested",
+            run_id=run_id,
+            agent_id=agent_id,
+            payload={"request_id": request.get("request_id"), "signal_pack_id": signal_pack_id, "assigned_roles": normalized_roles},
+        )
+        return {"request": request}
+
+    def approve_request(self, request_id: str, *, reviewed_by: str, notes: str | None = None) -> dict[str, Any]:
+        request = self._approval_center.get_request(request_id)
+        if not request:
+            raise ValueError("unknown_request_id")
+        if request.get("status") != "pending":
+            return {"status": request.get("status"), "request": request}
+        request_type = str(request.get("request_type") or "").strip().lower()
+        payload = dict(request.get("payload") or {})
+        if request_type == "trade_execution":
+            result = self._execute_approved_trade_request(request)
+            resolved = self._approval_center.resolve_request(
+                request_id,
+                resolution="approved",
+                reviewed_by=reviewed_by,
+                notes=notes,
+                resolution_payload={"execution_result": result},
+            )
+            return {"status": "approved", "request": resolved, "result": result}
+        if request_type == "allocation_change":
+            result = self._apply_allocation_policy(
+                run_id=str(payload.get("run_id") or ""),
+                agent_id=str(payload.get("agent_id") or reviewed_by),
+                total_capital_usd=payload.get("total_capital_usd"),
+                reserve_cash_usd=payload.get("reserve_cash_usd"),
+                asset_weights=payload.get("asset_weights") if isinstance(payload.get("asset_weights"), dict) else None,
+                sleeve_weights=payload.get("sleeve_weights") if isinstance(payload.get("sleeve_weights"), dict) else None,
+                constraints=payload.get("constraints") if isinstance(payload.get("constraints"), dict) else None,
+                metadata={**dict(payload.get("metadata") or {}), "approved_by": reviewed_by},
+            )
+            resolved = self._approval_center.resolve_request(
+                request_id,
+                resolution="approved",
+                reviewed_by=reviewed_by,
+                notes=notes,
+                resolution_payload={"allocation_result": result},
+            )
+            return {"status": "approved", "request": resolved, "result": result}
+        if request_type == "signal_pack_reroute":
+            result = self._apply_signal_pack_reroute_request(request)
+            resolved = self._approval_center.resolve_request(
+                request_id,
+                resolution="approved",
+                reviewed_by=reviewed_by,
+                notes=notes,
+                resolution_payload={"reroute_result": result},
+            )
+            return {"status": "approved", "request": resolved, "result": result}
+        resolved = self._approval_center.resolve_request(request_id, resolution="approved", reviewed_by=reviewed_by, notes=notes)
+        return {"status": "approved", "request": resolved}
+
+    def reject_request(self, request_id: str, *, reviewed_by: str, notes: str | None = None) -> dict[str, Any]:
+        request = self._approval_center.get_request(request_id)
+        if not request:
+            raise ValueError("unknown_request_id")
+        request_type = str(request.get("request_type") or "").strip().lower()
+        subject_id = str(request.get("subject_id") or "").strip()
+        if request_type == "trade_execution" and subject_id:
+            self._decision_ledger.update_status(subject_id, "blocked", {"reason": "ceo_rejected", "reviewed_by": reviewed_by})
+        resolved = self._approval_center.resolve_request(request_id, resolution="rejected", reviewed_by=reviewed_by, notes=notes)
+        return {"status": "rejected", "request": resolved}
+
+    def _execute_adapter_intent(
+        self,
+        *,
+        intent: AdapterExecutionIntent,
+        trader_task_id: str | None = None,
+        estimated_notional_usd: float | None = None,
+    ) -> dict[str, Any]:
+        execution_result = self._execution_adapter.execute(intent)
+        order_id = (execution_result.get("order") or {}).get("id")
+        execution_status = execution_result.get("status")
+        estimated_notional = float(
+            estimated_notional_usd
+            if estimated_notional_usd is not None
+            else float(intent.quantity) * float(intent.price or 0.0)
+        )
+        sleeve = Sleeve(str(intent.sleeve or "tactical"))
+        if execution_status == "executed":
+            self._update_run_sleeve_used_notional(
+                run_id=intent.run_id,
+                sleeve=sleeve,
+                side=intent.side,
+                quantity=float((execution_result.get("order") or {}).get("quantity") or intent.quantity),
+                price=float((execution_result.get("order") or {}).get("avg_price") or intent.price or 0.0),
+            )
+            with self._lock:
+                asset_used = self._run_asset_class_used_notional.setdefault(intent.run_id, {})
+                delta = estimated_notional if intent.side == "buy" else -estimated_notional
+                asset_used[intent.asset_class] = max(0.0, float(asset_used.get(intent.asset_class, 0.0)) + delta)
+
+        if trader_task_id:
+            if execution_status == "executed":
+                self._task_bus.set_status(trader_task_id, "completed", {"order_id": order_id})
+            else:
+                self._task_bus.set_status(
+                    trader_task_id,
+                    "blocked",
+                    {"decision_id": intent.decision_id, "reason": execution_result.get("reason")},
+                )
+
+        decision_status = "executed" if execution_status == "executed" else "blocked"
+        self._decision_ledger.update_status(
+            intent.decision_id,
+            decision_status,
+            {"order_id": order_id, "execution_status": execution_status},
+        )
+        self._decision_ledger.add_event(
+            event_type="execution.processed",
+            decision_id=intent.decision_id,
+            order_id=order_id,
+            payload=execution_result,
+        )
+        self._audit_log.record(
+            "execution.intent.processed",
+            {
+                "run_id": intent.run_id,
+                "decision_id": intent.decision_id,
+                "risk_id": intent.risk_id,
+                "intent_id": intent.intent_id,
+                "order_id": order_id,
+                "status": execution_status,
+                "reason": execution_result.get("reason"),
+            },
+        )
+        self._log_event(
+            "decision.executed" if execution_status == "executed" else "decision.execution_rejected",
+            run_id=intent.run_id,
+            agent_id=intent.agent_id,
+            decision_id=intent.decision_id,
+            payload={
+                "order_id": order_id,
+                "execution_status": execution_status,
+                "asset_class": intent.asset_class,
+                "sleeve_budget": self._ensure_run_sleeve_budget(run_id=intent.run_id, sleeve=sleeve),
+            },
+        )
+        return {
+            "status": execution_status,
+            "decision_id": intent.decision_id,
+            "risk_id": intent.risk_id,
+            "intent_id": intent.intent_id,
+            "order_id": order_id,
+            "execution": execution_result,
+        }
+
+    def _execute_approved_trade_request(self, request: dict[str, Any]) -> dict[str, Any]:
+        payload = dict(request.get("payload") or {})
+        raw_intent = payload.get("intent") if isinstance(payload.get("intent"), dict) else {}
+        if not raw_intent:
+            raise ValueError("missing_trade_intent")
+        intent = AdapterExecutionIntent(**raw_intent)
+        self._decision_ledger.update_status(
+            intent.decision_id,
+            "approved",
+            {
+                "risk_id": intent.risk_id,
+                "intent_id": intent.intent_id,
+                "approved_via_request_id": request.get("request_id"),
+            },
+        )
+        self._decision_ledger.add_event(
+            event_type="approval.approved",
+            decision_id=intent.decision_id,
+            order_id=None,
+            payload={"request_id": request.get("request_id"), "request_type": "trade_execution"},
+        )
+        return self._execute_adapter_intent(
+            intent=intent,
+            trader_task_id=str(payload.get("trader_task_id") or "").strip() or None,
+            estimated_notional_usd=float(payload.get("estimated_notional_usd") or 0.0),
+        )
+
+    def _apply_signal_pack_reroute_request(self, request: dict[str, Any]) -> dict[str, Any]:
+        payload = dict(request.get("payload") or {})
+        signal_pack_id = str(payload.get("signal_pack_id") or request.get("subject_id") or "").strip()
+        assigned_roles = payload.get("assigned_roles") if isinstance(payload.get("assigned_roles"), list) else []
+        if not signal_pack_id:
+            raise ValueError("missing_signal_pack_id")
+        if not assigned_roles:
+            raise ValueError("missing_assigned_roles")
+        from app.fund.agent_runtime import fund_agent_runtime
+
+        return fund_agent_runtime.reroute_signal_pack(
+            signal_pack_id=signal_pack_id,
+            assigned_roles=assigned_roles,
+            reason=str(payload.get("reason") or "approved_reroute"),
+        )
 
     def list_blocked_trades(self, limit: int = 100) -> list[dict[str, Any]]:
         return self._audit_log.list_blocked(limit=limit)

@@ -88,6 +88,36 @@ CREATE TABLE IF NOT EXISTS fund_decisions (
 
 CREATE INDEX IF NOT EXISTS idx_fund_decisions_run_status ON fund_decisions (run_id, status);
 
+CREATE TABLE IF NOT EXISTS fund_approval_requests (
+    request_id        TEXT PRIMARY KEY,
+    run_id            TEXT,
+    request_type      TEXT NOT NULL,
+    subject_id        TEXT,
+    requested_by      TEXT NOT NULL,
+    status            TEXT NOT NULL,
+    summary           TEXT NOT NULL,
+    payload_json      TEXT NOT NULL,
+    created_at        TEXT NOT NULL,
+    updated_at        TEXT NOT NULL,
+    expires_at        TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_fund_approval_requests_status_created
+ON fund_approval_requests (status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_fund_approval_requests_run_type
+ON fund_approval_requests (run_id, request_type, updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS fund_ceo_digests (
+    digest_id         TEXT PRIMARY KEY,
+    digest_type       TEXT NOT NULL,
+    generated_by      TEXT NOT NULL,
+    payload_json      TEXT NOT NULL,
+    created_at        TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_fund_ceo_digests_created
+ON fund_ceo_digests (created_at DESC);
+
 CREATE TABLE IF NOT EXISTS fund_decision_events (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     event_id     TEXT NOT NULL UNIQUE,
