@@ -6273,3 +6273,19 @@ files:
 - frontend/src/pages/AlfredDashboard.jsx
 validation: passed (frontend npm run build)
 notes: Removed mojibake separators from admin feed rows, decision cards, timeline labels, and orchestration labels; also fixed broken arrow/dash glyphs in AlfredDashboard so runtime labels render cleanly again.
+
+[2026-04-23T23:07:13Z] [END]
+entry_id: devlog-20260423-codex-blog-next-loader-fix
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-codex-20260423-blog-next-loader-fix
+git_branch: main
+git_commit_start: 7d37ea1dee5dd4fe498f9147aa4aefa3e7a2e14d
+git_commit_end: 
+scope: Alpha blog-next runtime fix for backend-fed text normalization
+files:
+- blog-next/lib/blog-loader.ts
+validation: passed (blog-next npm run build, live 3001 homepage clean, live blog detail clean)
+notes: Added loader-side normalization for mojibake coming from backend blog payloads so the archive and article pages render clean backend text instead of broken UTF-8 artifacts.

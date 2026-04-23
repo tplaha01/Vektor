@@ -48,6 +48,42 @@ function asBoolean(value: FrontmatterValue | undefined, fallback = false): boole
   return fallback;
 }
 
+function normalizeImportedText(value: unknown): string {
+  const raw = String(value ?? "");
+  if (!raw) return "";
+
+  const directReplacements: Array<[string, string]> = [
+    ["â", "‑"],
+    ["â", "–"],
+    ["â", "—"],
+    ["â", "‘"],
+    ["â", "’"],
+    ["â", "“"],
+    ["â", "”"],
+    ["â¦", "…"],
+  ];
+
+  let repaired = raw;
+  for (const [broken, fixed] of directReplacements) {
+    repaired = repaired.split(broken).join(fixed);
+  }
+
+  if (!/[ÃÂâ]/.test(repaired)) {
+    return repaired;
+  }
+
+  try {
+    const transcoded = Buffer.from(repaired, "latin1").toString("utf8");
+    if (transcoded && transcoded !== repaired && !/�/.test(transcoded)) {
+      return transcoded;
+    }
+  } catch {
+    return repaired;
+  }
+
+  return repaired;
+}
+
 function parseFrontmatter(content: string): { frontmatter: FrontmatterMap; body: string } {
   const normalized = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   const frontmatterRegex = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/;
@@ -121,7 +157,7 @@ function buildLocalBlogImageUrl(options: {
 }
 
 function parseImageHint(raw: unknown): string {
-  const value = String(raw || "").trim();
+  const value = normalizeImportedText(raw).trim();
   if (!value) return "";
   if (value.startsWith("vektor://blog-image/")) {
     return decodeURIComponent(value.replace("vektor://blog-image/", ""));
@@ -251,10 +287,10 @@ type BackendBlogDetailPayload = Record<string, unknown> | null;
 function mapBackendListItem(post: Record<string, unknown>): BlogPost {
   const metadata = typeof post["metadata"] === "object" && post["metadata"] ? (post["metadata"] as Record<string, unknown>) : {};
   const symbols = Array.isArray(metadata["symbols"]) ? metadata["symbols"].map((item) => String(item)) : [];
-  const title = String(post["title"] || "Untitled");
-  const description = String(post["excerpt"] || "");
-  const category = String(post["category"] || "");
-  const tags = Array.isArray(post["tags"]) ? post["tags"].map((item) => String(item)) : [];
+  const title = normalizeImportedText(post["title"] || "Untitled");
+  const description = normalizeImportedText(post["excerpt"] || "");
+  const category = normalizeImportedText(post["category"] || "");
+  const tags = Array.isArray(post["tags"]) ? post["tags"].map((item) => normalizeImportedText(item)) : [];
   const assetClass = inferAssetClass({ category, symbols, tags, title });
   const primarySymbol = symbols[0] || title.split(":")[0].trim();
   const variant = inferVisualVariant({
@@ -292,13 +328,13 @@ function mapBackendListItem(post: Record<string, unknown>): BlogPost {
     tags,
     featured: Boolean(post["featured"]),
     readTime: `${String(post["readTime"] || "3")} min read`,
-    author: String(post["author"] || "Vektor Editorial"),
+    author: normalizeImportedText(post["author"] || "Vektor Editorial"),
     authorImage: "",
     thumbnail,
     content: "",
     category,
     views: Number(post["views"] || 0),
-    imageQuery: imageHint || String(metadata["image_query"] || ""),
+    imageQuery: imageHint || normalizeImportedText(metadata["image_query"] || ""),
     assetClass,
     filterKey: filterGroup.key,
     filterLabel: filterGroup.label,
@@ -308,7 +344,7 @@ function mapBackendListItem(post: Record<string, unknown>): BlogPost {
 function mapBackendDetailItem(post: Record<string, unknown>): BlogPost {
   return {
     ...mapBackendListItem(post),
-    content: rewriteMarkdownImages(String(post["content"] || ""), post),
+    content: rewriteMarkdownImages(normalizeImportedText(post["content"] || ""), post),
   };
 }
 
