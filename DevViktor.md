@@ -65,10 +65,18 @@ Offline fallback (if backend API is unavailable):
 - Write a direct development event to repo KB using local Python and `KnowledgeGraph(storage_dir=\"../knowledge_graph\")` from `backend/`.
 - Then, once backend is available, replay the same entry via `/fund/knowledge/development/log` to keep API-visible lineage consistent.
 
-## 6) Validation and Exit
+## 6) Codex Agent Split (Mandatory)
+- Use the low-cost `planner` agent for read-only repo mapping, task decomposition, and risk review.
+- Use the higher-cost `executor` agent for actual file edits, tests, and implementation.
+- Do not ask the executor to do planning-only work when the planner can answer it cheaply.
+- Prefer a small, explicit plan before any non-trivial implementation.
+
+## 7) Validation and Exit
 Before ending a session:
 1. Run backend tests or focused tests for changed modules.
 2. Run frontend/build checks if UI code changed.
 3. Append `END` entry in `Dev_Logs.md`.
 4. Ingest `END` entry to KB via `/fund/knowledge/development/log`.
 5. Verify `END` entry exists in repo KB query results.
+6. Refresh the codebase-memory graph with `scripts/index-repo.ps1`.
+7. Verify the repo appears in the graph registry after indexing.

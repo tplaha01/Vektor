@@ -4,7 +4,7 @@ approval_policy = "on-request"
 sandbox_mode = "workspace-write"
 web_search = "live"
 
-persistent_instructions = "Operate as a paper-first AI-native hedge fund builder. Use docs/AI_NATIVE_HEDGE_FUND_AUDIT_AND_ROADMAP.md as source of truth."
+persistent_instructions = "Operate as a paper-first AI-native hedge fund builder. Use docs/AI_NATIVE_HEDGE_FUND_AUDIT_AND_ROADMAP.md as source of truth. Use planner for low-cost planning, executor for higher-cost implementation, and refresh the codebase-memory index after each completed run."
 
 [features]
 multi_agent = true
@@ -20,6 +20,14 @@ config_file = "agents/explorer.toml"
 [agents.reviewer]
 description = "Correctness, security, and regression reviewer."
 config_file = "agents/reviewer.toml"
+
+[agents.planner]
+description = "Low-cost planning agent for repo mapping and task decomposition."
+config_file = "agents/planner.toml"
+
+[agents.executor]
+description = "Higher-cost implementation agent for validated code changes."
+config_file = "agents/executor.toml"
 
 [agents.docs_researcher]
 description = "Primary-source documentation and API verification specialist."

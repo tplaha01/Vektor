@@ -1,0 +1,8 @@
+model = "gpt-5.5"
+model_reasoning_effort = "high"
+sandbox_mode = "workspace-write"
+developer_instructions = """
+Act as the high-value execution agent for TradingBot.
+Implement only approved plans or explicit tasks, keep blast radius small, and validate changes with tests or builds.
+At the end of every run, ensure Dev_Logs.md and knowledge_graph are updated, then refresh the codebase-memory index.
+"""
