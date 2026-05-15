@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Tuple
 
 from app.config import get_settings
 from app.fund.execution_adapter import ExecutionIntent
+from app.quant.regime import infer_portfolio_risk_regime
 
 
 def _utc_now() -> datetime:
@@ -143,13 +144,6 @@ def _with_adjustment(
     )
 
 
-def _position_market_value(position: dict[str, object]) -> float:
-    market_value = _safe_float(position.get("market_value"))
-    if market_value > 0:
-        return market_value
-    return max(0.0, _safe_float(position.get("qty")) * _safe_float(position.get("market_price")))
-
-
 def build_portfolio_threshold_context(
     *,
     symbol: str,
@@ -160,39 +154,18 @@ def build_portfolio_threshold_context(
     metadata: dict[str, object] | None = None,
 ) -> dict[str, object]:
     meta = metadata if isinstance(metadata, dict) else {}
-    constraints = meta.get("allocation_constraints") if isinstance(meta.get("allocation_constraints"), dict) else {}
-    normalized_symbol = str(symbol or "").upper().strip()
-    normalized_asset_class = str(asset_class or "").strip().lower()
-    symbol_exposure = 0.0
-    correlated_group_exposure = 0.0
-    correlation_group = _symbol_group(normalized_symbol, normalized_asset_class, meta)
-    for position in positions:
-        position_symbol = str(position.get("symbol") or "").upper().strip()
-        position_asset_class = str(position.get("asset_class") or normalized_asset_class or "equities").strip().lower()
-        position_meta = position.get("metadata") if isinstance(position.get("metadata"), dict) else {}
-        position_value = _position_market_value(position)
-        if position_symbol == normalized_symbol:
-            symbol_exposure += position_value
-        if _symbol_group(position_symbol, position_asset_class, position_meta) == correlation_group:
-            correlated_group_exposure += position_value
-    available_cash = _safe_float(meta.get("available_cash"))
-    min_cash_reserve_pct = _safe_float(constraints.get("min_cash_reserve_pct"))
-    asset_allocated = _safe_float(meta.get("asset_class_budget_allocated_usd"))
-    asset_used = _safe_float(meta.get("asset_class_budget_used_usd"))
-    projected_symbol_exposure = symbol_exposure + max(0.0, notional)
-    projected_group_exposure = correlated_group_exposure + max(0.0, notional)
-    projected_asset_usage = asset_used + max(0.0, notional)
-    post_trade_cash = available_cash - max(0.0, notional)
-    reserve_ratio = (post_trade_cash / equity) if equity > 0 else 0.0
+    risk_snapshot = infer_portfolio_risk_regime(
+        symbol=symbol,
+        asset_class=asset_class,
+        positions=positions,
+        equity=equity,
+        notional=notional,
+        metadata=meta,
+    )
     return {
-        "macro_risk_level": str(meta.get("macro_risk_level") or "").strip().lower(),
-        "symbol_exposure_ratio": round((projected_symbol_exposure / equity), 4) if equity > 0 else 0.0,
-        "correlated_group_exposure_ratio": round((projected_group_exposure / equity), 4) if equity > 0 else 0.0,
-        "asset_class_usage_ratio": round((projected_asset_usage / asset_allocated), 4) if asset_allocated > 0 else 0.0,
-        "cash_reserve_ratio": round(reserve_ratio, 4),
-        "min_cash_reserve_ratio": round(min_cash_reserve_pct, 4),
+        **risk_snapshot.to_dict(),
         "event_risk_active": bool(meta.get("event_risk_active", False)),
-        "correlation_group": correlation_group,
+        "correlation_group": _symbol_group(str(symbol or "").upper().strip(), str(asset_class or "").strip().lower(), meta),
     }
 
 

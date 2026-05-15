@@ -30,6 +30,7 @@ from app.fund.orchestrator import FirmOrchestrator, firm_orchestrator
 from app.fund.runtime_guard import data_integrity_guard
 from app.fund.task_bus import TaskBus, task_bus
 from app.fund.agent_hierarchy import agent_hierarchy
+from app.quant.regime import infer_market_regime
 from app.websocket.agent_events import publish_agent_event
 
 
@@ -1539,6 +1540,7 @@ class FundAgentRuntime:
             sentiment = market_ingestion.build_sentiment(normalized)
             history = FEED.history(normalized, bars=60)
             news_rows = latest_news(normalized, limit=self._discovery_news_limit)
+            regime_snapshot = infer_market_regime(history)
         except Exception:
             return None
 
@@ -1578,7 +1580,7 @@ class FundAgentRuntime:
         volatility_score = 1.0 - max(0.0, min(1.0, abs(realized_vol - 0.025) / 0.04))
         news_intensity_count = len(news_rows or [])
         catalyst_score = max(0.0, min(1.0, news_intensity_count / max(1, self._discovery_news_limit)))
-        regime_alignment = max(0.0, min(1.0, ((ml_prob_up + sentiment_norm + tech_conf) / 3.0)))
+        regime_alignment = max(0.0, min(1.0, float(regime_snapshot.confidence)))
         confidence = max(
             0.0,
             min(1.0, ((tech_conf * 0.25) + (ml_conf * 0.25) + (liquidity_score * 0.2) + (catalyst_score * 0.15) + (regime_alignment * 0.15))),
@@ -1591,7 +1593,7 @@ class FundAgentRuntime:
             + (volatility_score * 0.10)
             + (catalyst_score * 0.15)
         )
-        direction = "long_bias" if regime_alignment >= 0.5 else "short_bias"
+        direction = regime_snapshot.direction if regime_snapshot.direction in {"long_bias", "short_bias"} else ("long_bias" if ml_prob_up >= 0.5 else "short_bias")
         top_headlines = [str(item.get("headline") or "").strip() for item in (news_rows or [])[:3] if str(item.get("headline") or "").strip()]
         math_summary = (
             f"score={score:.3f} from regime={regime_alignment:.3f}, ml={ml_prob_up:.3f}, "
@@ -1625,12 +1627,18 @@ class FundAgentRuntime:
                     "volatility_score": round(volatility_score, 4),
                     "news_intensity_count": news_intensity_count,
                     "regime_alignment": round(regime_alignment, 4),
+                    "market_regime": regime_snapshot.regime,
+                    "regime_direction": regime_snapshot.direction,
+                    "regime_edge": round(float(regime_snapshot.edge), 4),
+                    "regime_notes": list(regime_snapshot.notes),
                     "math_summary": math_summary,
                 },
                 "metadata": {
                     "source": "autopilot_dynamic_universe",
                     "news_intensity_count": news_intensity_count,
                     "macro_risk_level": "elevated" if news_intensity_count >= self._discovery_news_limit else "normal",
+                    "market_regime": regime_snapshot.regime,
+                    "market_regime_confidence": round(float(regime_snapshot.confidence), 4),
                 },
                 "status": "candidate",
             }

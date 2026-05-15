@@ -257,8 +257,35 @@ def test_resolve_autopilot_symbols_records_no_trade_when_thresholds_fail(monkeyp
 
 
 @pytest.mark.anyio
-async def test_runtime_workers_execute_ceo_command_pipeline():
+async def test_runtime_workers_execute_ceo_command_pipeline(monkeypatch):
     bus, _, runtime = _build_stack()
+    from app.fund import agent_runtime as runtime_module
+
+    monkeypatch.setattr(
+        runtime_module,
+        "market_session_status",
+        lambda _settings: {
+            "open": True,
+            "trading_day": True,
+            "reason": "market_open",
+            "source": "test",
+            "checked_at": "2026-05-15T14:30:00Z",
+            "next_open": None,
+            "next_close": "2026-05-15T20:00:00Z",
+        },
+    )
+    monkeypatch.setattr(
+        runtime._orchestrator,
+        "execute_decision",
+        lambda **kwargs: {
+            "status": "executed",
+            "decision_id": kwargs.get("thesis_id", "decision-test"),
+            "risk_id": "risk-test",
+            "intent_id": "intent-test",
+            "order_id": "order-test",
+            "execution": {"status": "executed", "reason": None},
+        },
+    )
     await runtime.start()
     try:
         enqueued = runtime.enqueue_ceo_command(
@@ -295,8 +322,23 @@ async def test_runtime_workers_execute_ceo_command_pipeline():
 
 
 @pytest.mark.anyio
-async def test_runtime_autopilot_kick_enqueues_and_executes():
+async def test_runtime_autopilot_kick_enqueues_and_executes(monkeypatch):
     bus, orchestrator, runtime = _build_stack()
+    from app.fund import agent_runtime as runtime_module
+
+    monkeypatch.setattr(
+        runtime_module,
+        "market_session_status",
+        lambda _settings: {
+            "open": True,
+            "trading_day": True,
+            "reason": "market_open",
+            "source": "test",
+            "checked_at": "2026-05-15T14:30:00Z",
+            "next_open": None,
+            "next_close": "2026-05-15T20:00:00Z",
+        },
+    )
     runtime = FundAgentRuntime(
         orchestrator=orchestrator,
         task_bus_service=bus,
@@ -307,6 +349,18 @@ async def test_runtime_autopilot_kick_enqueues_and_executes():
         autopilot_symbols=("AAPL",),
         autopilot_default_side="buy",
         autopilot_default_quantity=1.0,
+    )
+    monkeypatch.setattr(
+        runtime._orchestrator,
+        "execute_decision",
+        lambda **kwargs: {
+            "status": "executed",
+            "decision_id": kwargs.get("thesis_id", "decision-test"),
+            "risk_id": "risk-test",
+            "intent_id": "intent-test",
+            "order_id": "order-test",
+            "execution": {"status": "executed", "reason": None},
+        },
     )
     await runtime.start()
     try:
