@@ -167,7 +167,9 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "dev-secret"
     API_KEY: str = "dev-api-key"
 
+    DB_BACKEND: str = "sqlite"
     SQLITE_PATH: str = "trading_bot.db"
+    DATABASE_URL: str | None = None
     OPENCLAW_INGEST_TOKEN: str | None = None
     OPENCLAW_COMMANDS_ENABLED: bool = False
     OPENCLAW_COMMAND_TOKEN: str | None = None

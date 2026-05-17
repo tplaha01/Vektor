@@ -1,18 +1,25 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any, Dict, Iterable, List, Sequence
 
 from .schema_sql import SCHEMA_SQL
 from ..config import get_settings
 
-_conn: sqlite3.Connection | None = None
+_conn: Any | None = None
+_db_backend = "sqlite"
+
+_INSERT_OR_REPLACE_RE = re.compile(
+    r"INSERT\s+OR\s+REPLACE\s+INTO\s+([A-Za-z_][A-Za-z0-9_]*)\s*\((.*?)\)\s*VALUES\s*\((.*?)\)",
+    re.IGNORECASE | re.DOTALL,
+)
 
 
-def _get_conn() -> sqlite3.Connection:
+def _get_conn() -> Any:
     global _conn
     if _conn is None:
         raise RuntimeError("Database not initialized - call init_db() at startup")
@@ -20,13 +27,43 @@ def _get_conn() -> sqlite3.Connection:
 
 
 def init_db() -> None:
-    """Called once at FastAPI startup. Creates the SQLite file + schema."""
-    global _conn
+    """Called once at FastAPI startup. Creates the configured database schema."""
+    global _conn, _db_backend
     settings = get_settings()
-    _conn = sqlite3.connect(settings.SQLITE_PATH, check_same_thread=False)
-    _conn.row_factory = sqlite3.Row
-    _conn.execute("PRAGMA journal_mode=WAL")
-    _conn.executescript(SCHEMA_SQL)
+    _db_backend = (settings.DB_BACKEND or "sqlite").strip().lower()
+    if _db_backend in {"postgres", "postgresql"}:
+        if not settings.DATABASE_URL:
+            raise RuntimeError("DATABASE_URL is required when DB_BACKEND=postgres")
+        try:
+            import psycopg
+        except ImportError as exc:
+            raise RuntimeError("psycopg[binary] is required when DB_BACKEND=postgres") from exc
+
+        raw_conn = psycopg.connect(settings.DATABASE_URL)
+        _conn = PostgresConnection(raw_conn)
+        _conn.executescript(to_postgres_schema_sql(SCHEMA_SQL))
+        _ensure_column(_conn, "orders", "asset_class", "TEXT")
+        _ensure_column(_conn, "orders", "instrument_type", "TEXT")
+        _ensure_column(_conn, "orders", "routing_mode", "TEXT")
+        _ensure_column(_conn, "orders", "underlier_symbol", "TEXT")
+        _ensure_column(_conn, "orders", "contract_multiplier", "DOUBLE PRECISION")
+        _ensure_column(_conn, "orders", "metadata_json", "TEXT")
+        _ensure_column(_conn, "positions", "asset_class", "TEXT")
+        _ensure_column(_conn, "positions", "instrument_type", "TEXT")
+        _ensure_column(_conn, "positions", "routing_mode", "TEXT")
+        _ensure_column(_conn, "positions", "underlier_symbol", "TEXT")
+        _ensure_column(_conn, "positions", "contract_multiplier", "DOUBLE PRECISION")
+        _ensure_column(_conn, "positions", "metadata_json", "TEXT")
+        _conn.commit()
+        print("Database initialized at hosted Postgres")
+        return
+
+    _db_backend = "sqlite"
+    raw_sqlite = sqlite3.connect(settings.SQLITE_PATH, check_same_thread=False)
+    raw_sqlite.row_factory = sqlite3.Row
+    raw_sqlite.execute("PRAGMA journal_mode=WAL")
+    raw_sqlite.executescript(SCHEMA_SQL)
+    _conn = raw_sqlite
     _ensure_column(_conn, "orders", "asset_class", "TEXT")
     _ensure_column(_conn, "orders", "instrument_type", "TEXT")
     _ensure_column(_conn, "orders", "routing_mode", "TEXT")
@@ -43,12 +80,129 @@ def init_db() -> None:
     print(f"Database initialized at {settings.SQLITE_PATH}")
 
 
-def _ensure_column(conn: sqlite3.Connection, table: str, column: str, column_sql: str) -> None:
+def _ensure_column(conn: Any, table: str, column: str, column_sql: str) -> None:
+    if isinstance(conn, PostgresConnection):
+        row = conn.execute(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = ? AND column_name = ?
+            """,
+            (table, column),
+        ).fetchone()
+        if row:
+            return
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {column_sql}")
+        return
     rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
     names = {str(row[1]) for row in rows}
     if column in names:
         return
     conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {column_sql}")
+
+
+def to_postgres_schema_sql(schema_sql: str) -> str:
+    sql = schema_sql
+    sql = re.sub(r"\bINTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT\b", "BIGSERIAL PRIMARY KEY", sql, flags=re.IGNORECASE)
+    sql = re.sub(r"\bREAL\b", "DOUBLE PRECISION", sql, flags=re.IGNORECASE)
+    return sql
+
+
+def _convert_placeholders(sql: str) -> str:
+    sql = re.sub(r":([A-Za-z_][A-Za-z0-9_]*)", r"%(\1)s", sql)
+    return sql.replace("?", "%s")
+
+
+def _parse_columns(columns_sql: str) -> list[str]:
+    return [part.strip().strip('"') for part in columns_sql.replace("\n", " ").split(",") if part.strip()]
+
+
+def _primary_key_columns(conn: Any, table: str) -> list[str]:
+    rows = conn.execute(
+        """
+        SELECT kcu.column_name, kcu.ordinal_position
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage kcu
+          ON tc.constraint_name = kcu.constraint_name
+         AND tc.table_schema = kcu.table_schema
+        WHERE tc.table_schema = 'public'
+          AND tc.table_name = ?
+          AND tc.constraint_type = 'PRIMARY KEY'
+        ORDER BY kcu.ordinal_position
+        """,
+        (table,),
+    ).fetchall()
+    return [str(row["column_name"]) for row in rows]
+
+
+def _postgres_upsert_sql(conn: Any, sql: str) -> str:
+    match = _INSERT_OR_REPLACE_RE.search(sql)
+    if not match:
+        return sql
+    table = match.group(1)
+    columns = _parse_columns(match.group(2))
+    pk_columns = _primary_key_columns(conn, table)
+    if not pk_columns:
+        return _INSERT_OR_REPLACE_RE.sub(
+            f"INSERT INTO {table} ({match.group(2)}) VALUES ({match.group(3)}) ON CONFLICT DO NOTHING",
+            sql,
+            count=1,
+        )
+    update_columns = [col for col in columns if col not in set(pk_columns)]
+    if update_columns:
+        assignments = ", ".join(f"{col}=EXCLUDED.{col}" for col in update_columns)
+        conflict_clause = f"ON CONFLICT ({', '.join(pk_columns)}) DO UPDATE SET {assignments}"
+    else:
+        conflict_clause = f"ON CONFLICT ({', '.join(pk_columns)}) DO NOTHING"
+    return _INSERT_OR_REPLACE_RE.sub(
+        f"INSERT INTO {table} ({match.group(2)}) VALUES ({match.group(3)}) {conflict_clause}",
+        sql,
+        count=1,
+    )
+
+
+class PostgresResult:
+    def __init__(self, rows: list[dict[str, Any]] | None = None):
+        self._rows = rows or []
+
+    def fetchone(self) -> dict[str, Any] | None:
+        return self._rows[0] if self._rows else None
+
+    def fetchall(self) -> list[dict[str, Any]]:
+        return list(self._rows)
+
+
+class PostgresConnection:
+    def __init__(self, conn: Any) -> None:
+        self._conn = conn
+
+    def execute(self, sql: str, params: Sequence[Any] | dict[str, Any] | None = None) -> PostgresResult:
+        sql = _postgres_upsert_sql(self, sql)
+        sql = _convert_placeholders(sql)
+        with self._conn.cursor() as cur:
+            cur.execute(sql, params)
+            if cur.description is None:
+                return PostgresResult()
+            names = [col.name for col in cur.description]
+            return PostgresResult([dict(zip(names, row)) for row in cur.fetchall()])
+
+    def executemany(self, sql: str, seq_of_params: Iterable[Sequence[Any] | dict[str, Any]]) -> None:
+        sql = _postgres_upsert_sql(self, sql)
+        sql = _convert_placeholders(sql)
+        with self._conn.cursor() as cur:
+            cur.executemany(sql, seq_of_params)
+
+    def executescript(self, sql_script: str) -> None:
+        statements = [stmt.strip() for stmt in sql_script.split(";") if stmt.strip()]
+        with self._conn.cursor() as cur:
+            for statement in statements:
+                cur.execute(statement)
+
+    def commit(self) -> None:
+        self._conn.commit()
+
+    def rollback(self) -> None:
+        self._conn.rollback()
 
 
 @contextmanager

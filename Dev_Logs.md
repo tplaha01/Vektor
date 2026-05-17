@@ -6970,3 +6970,7 @@ notes: Added -UseSslipHost to deploy_aws_backend.ps1 so an EC2 Elastic IP can se
 - Fix: `backend/app/main.py` now reads `settings.FRONTEND_URL`, `settings.FRONTEND_URLS`, and `settings.FRONTEND_ORIGIN_REGEX`; `backend/app/config.py` now defines `FRONTEND_ORIGIN_REGEX`.
 - Deployment: copied patched `main.py` and `config.py` to AWS EC2 at `35.168.170.143`, set `FRONTEND_URLS` and `FRONTEND_ORIGIN_REGEX=https://.*\.vercel\.app`, and restarted `vektor-backend`.
 - Validation: local compile passed; EC2 compile passed; backend health returned `status=ok`; CORS preflights returned 200 for custom domains, known Vercel domains, and generated Vercel previews; protected API request to `/api/admin/metrics/summary` returned 200.
+## 2026-05-17 16:19 MST - START run-20260517-us-west-postgres-cloud-storage
+- Goal: move the hosted backend target toward AWS us-west-2 for lower Phoenix latency and add a hosted Postgres implementation while preserving existing SQLite data.
+- Context: user wants the backend VM closer to Phoenix and wants local storage hosted/connected to the AWS backend without losing current data.
+- Verification plan: inspect current SQLite storage surface, add Postgres migration/provision/deploy tooling, validate scripts and Python modules locally, then attempt live AWS checks if credentials/network allow.
