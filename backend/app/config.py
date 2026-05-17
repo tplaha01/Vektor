@@ -321,6 +321,8 @@ class Settings(BaseSettings):
 
     # Set to your Vercel URL in production for CORS
     FRONTEND_URL: str | None = None
+    FRONTEND_URLS: str | None = None
+    FRONTEND_ORIGIN_REGEX: str | None = None
     SENTRY_DSN: str | None = None
     SENTRY_ENVIRONMENT: str = "production"
     SENTRY_TRACES_SAMPLE_RATE: float = 0.0

@@ -92,13 +92,22 @@ _ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
     "http://127.0.0.1:5174",
 ]
-_frontend_url = os.getenv("FRONTEND_URL")
+_frontend_url = settings.FRONTEND_URL or os.getenv("FRONTEND_URL")
 if _frontend_url:
     _ALLOWED_ORIGINS.append(_frontend_url)
+_frontend_urls = settings.FRONTEND_URLS or os.getenv("FRONTEND_URLS")
+if _frontend_urls:
+    _ALLOWED_ORIGINS.extend(
+        origin.strip()
+        for origin in _frontend_urls.split(",")
+        if origin.strip()
+    )
+_allowed_origin_regex = settings.FRONTEND_ORIGIN_REGEX or os.getenv("FRONTEND_ORIGIN_REGEX")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_ALLOWED_ORIGINS,
+    allow_origin_regex=_allowed_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

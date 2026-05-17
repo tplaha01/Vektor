@@ -6811,3 +6811,162 @@ files:
 - backend/app/admin_research_routes.py
 validation: in_progress
 notes: Automated session start on server boot
+[2026-05-17T11:28:51.5301218Z] [END]
+entry_id: codex-20260517-deterministic-vm-mode
+actor_name: codex
+actor_platform: openai_codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260517-deterministic-vm-mode
+git_branch: main
+git_commit_start: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+git_commit_end: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+scope: Disable AI runtime paths for deterministic quant/ML/stat mode; inspect data pipeline freshness and VM suitability
+files:
+- backend/app/config.py
+- backend/app/utils/sentiment.py
+- backend/app/data/market_data.py
+- backend/app/admin_research_routes.py
+- backend/.env.example
+- backend/.env
+- backend/tests/test_data_pipeline.py
+- backend/requirements-deterministic.txt
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: completed
+notes: Deterministic runtime mode enabled. LLM adapter/router/providers, OpenClaw command routing, agent runtime, autopilot, blog auto-editorial, live trading, and FinBERT are off. Quant data pipeline, strict real-data mode, paper broker, market streams, VADER sentiment, and local ML alpha model remain on. Fixed Alpaca daily bars request to fetch latest bars first; latest warehouse bars are now 2026-05-15 with quality_score=1.0 and features no longer stale_blocked.
+[2026-05-17T11:34:48.5513031Z] [START]
+entry_id: codex-20260517-aws-backend-domain-plan
+actor_name: codex
+actor_platform: openai_codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260517-aws-backend-domain-plan
+git_branch: main
+git_commit_start: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+scope: Prepare AWS EC2 deterministic backend deployment and free-domain routing plan
+files:
+- scripts/aws/setup_aws_backend.sh
+- scripts/aws/deploy_aws_backend.ps1
+- backend/.env.aws.deterministic.example
+- docs/DEPLOY_AWS_EC2_DETERMINISTIC.md
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: in_progress
+notes: User has Vercel frontend domains and AWS credits; requested free Vektor domain help and AWS VM backend hosting.
+[2026-05-17T11:41:50.8430130Z] [END]
+entry_id: codex-20260517-aws-backend-domain-plan
+actor_name: codex
+actor_platform: openai_codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260517-aws-backend-domain-plan
+git_branch: main
+git_commit_start: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+git_commit_end: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+scope: Prepare AWS EC2 deterministic backend deployment and free-domain routing plan
+files:
+- scripts/aws/setup_aws_backend.sh
+- scripts/aws/deploy_aws_backend.ps1
+- backend/.env.aws.deterministic.example
+- backend/app/config.py
+- backend/app/main.py
+- docs/DEPLOY_AWS_EC2_DETERMINISTIC.md
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: completed
+notes: Added AWS EC2 deterministic deployment artifacts, Caddy reverse proxy setup, CORS support for multiple frontend origins, and Vercel/custom-domain runbook. Syntax checks passed; focused backend tests passed. Actual AWS deployment requires EC2 host/IP and SSH key path.
+[2026-05-17T11:45:19.2745698Z] [START]
+entry_id: codex-20260517-vektortrading-domain
+actor_name: codex
+actor_platform: openai_codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260517-vektortrading-domain
+git_branch: main
+git_commit_start: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+scope: Update AWS/Vercel deployment docs for vektortrading.com
+files:
+- backend/.env.aws.deterministic.example
+- docs/DEPLOY_AWS_EC2_DETERMINISTIC.md
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: in_progress
+notes: User bought vektortrading.com and set nameservers to Vercel.
+[2026-05-17T11:46:04.7984869Z] [END]
+entry_id: codex-20260517-vektortrading-domain
+actor_name: codex
+actor_platform: openai_codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260517-vektortrading-domain
+git_branch: main
+git_commit_start: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+git_commit_end: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+scope: Update AWS/Vercel deployment docs for vektortrading.com
+files:
+- backend/.env.aws.deterministic.example
+- docs/DEPLOY_AWS_EC2_DETERMINISTIC.md
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: completed
+notes: Updated intended domain map: vektortrading.com/www for landing, app.vektortrading.com for admin/PnL, api.vektortrading.com for AWS backend. DNS was not resolving locally yet, consistent with recent nameserver propagation.
+[2026-05-17T11:49:24.6621780Z] [START]
+entry_id: codex-20260517-deploy-without-domain-prop
+actor_name: codex
+actor_platform: openai_codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260517-deploy-without-domain-prop
+git_branch: main
+git_commit_start: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+scope: Enable temporary HTTPS backend deployment before vektortrading.com DNS propagates
+files:
+- scripts/aws/deploy_aws_backend.ps1
+- docs/DEPLOY_AWS_EC2_DETERMINISTIC.md
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: in_progress
+notes: User wants to deploy before vektortrading.com is active at registrar/Vercel DNS.
+[2026-05-17T11:49:59.7550184Z] [END]
+entry_id: codex-20260517-deploy-without-domain-prop
+actor_name: codex
+actor_platform: openai_codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260517-deploy-without-domain-prop
+git_branch: main
+git_commit_start: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+git_commit_end: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+scope: Enable temporary HTTPS backend deployment before vektortrading.com DNS propagates
+files:
+- scripts/aws/deploy_aws_backend.ps1
+- docs/DEPLOY_AWS_EC2_DETERMINISTIC.md
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: completed
+notes: Added -UseSslipHost to deploy_aws_backend.ps1 so an EC2 Elastic IP can serve HTTPS as <ip>.sslip.io before api.vektortrading.com propagates. Actual AWS deploy still requires EC2 public IP and SSH key path; AWS CLI is not installed locally.
+## 2026-05-17 04:56 MST - START run-20260517-aws-ec2-live-deploy
+- Goal: finish live AWS EC2 backend deployment for deterministic Vektor backend using temporary sslip.io HTTPS host.
+- Context: EC2 instance and Elastic IP are provisioned; deployment archive has been uploaded to the VM.
+- Verification plan: run remote setup, check systemd backend health, check local VM health endpoint, check public HTTPS health endpoint.
+
+## 2026-05-17 05:04 MST - END run-20260517-aws-ec2-live-deploy
+- Deployed deterministic backend to AWS EC2 instance `i-04ea56940b293eda4` at Elastic IP `35.168.170.143`.
+- Public temporary API host verified: `https://35.168.170.143.sslip.io/health`.
+- `vektor-backend.service` and `caddy` verified active; local VM health returned `status=ok`.
+- Protected data pipeline status verified with VM-local API key: latest scheduled run completed at `2026-05-17T12:02:55Z`.
+- Stopped two stale local uvicorn backend processes that were holding Alpaca websocket connections.
+- After restart, Alpaca news and IEX market streams connected successfully; previous `connection limit exceeded` errors cleared.
+- Fixed deployment setup to create `knowledge_graph/`, `.run`, and backend log directories on VM installs.
+
+## 2026-05-17 16:10 MST - START run-20260517-vercel-cors-fetch-fix
+- Goal: fix Vercel frontend "unable to fetch data" against the AWS EC2 backend.
+- Context: frontend env vars were set, but browser requests to the public backend were failing.
+- Verification plan: check public backend health, reproduce CORS preflight, patch backend CORS config, restart EC2 service, verify preflight and protected API requests.
+
+## 2026-05-17 16:15 MST - END run-20260517-vercel-cors-fetch-fix
+- Root cause: backend CORS used `os.getenv("FRONTEND_URLS")`, but systemd did not export values from `backend/.env`; Pydantic settings read `.env`, but CORS ignored those settings.
+- Fix: `backend/app/main.py` now reads `settings.FRONTEND_URL`, `settings.FRONTEND_URLS`, and `settings.FRONTEND_ORIGIN_REGEX`; `backend/app/config.py` now defines `FRONTEND_ORIGIN_REGEX`.
+- Deployment: copied patched `main.py` and `config.py` to AWS EC2 at `35.168.170.143`, set `FRONTEND_URLS` and `FRONTEND_ORIGIN_REGEX=https://.*\.vercel\.app`, and restarted `vektor-backend`.
+- Validation: local compile passed; EC2 compile passed; backend health returned `status=ok`; CORS preflights returned 200 for custom domains, known Vercel domains, and generated Vercel previews; protected API request to `/api/admin/metrics/summary` returned 200.
