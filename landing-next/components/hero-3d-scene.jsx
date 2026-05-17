@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useMemo, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Float, Line, OrbitControls, PerspectiveCamera, Sparkles } from "@react-three/drei";
@@ -88,9 +89,9 @@ function SignalLinks() {
   );
 }
 
-export default function Hero3DScene() {
+function SceneContent() {
   return (
-    <Canvas dpr={[1, 1.8]} shadows>
+    <>
       <PerspectiveCamera makeDefault position={[0, 1.2, 5.6]} fov={40} />
       <color attach="background" args={["#030507"]} />
       <ambientLight intensity={0.55} />
@@ -107,6 +108,26 @@ export default function Hero3DScene() {
         minPolarAngle={Math.PI / 2.45}
         maxPolarAngle={Math.PI / 1.95}
       />
-    </Canvas>
+    </>
+  );
+}
+
+export default function Hero3DScene() {
+  return (
+    <Suspense fallback={<div className="hero-visual-loader">Loading scene...</div>}>
+      <Canvas
+        dpr={[1, 1.8]}
+        shadows
+        style={{
+          width: "100%",
+          height: "100%",
+          position: "absolute",
+          inset: 0,
+          borderRadius: "inherit",
+        }}
+      >
+        <SceneContent />
+      </Canvas>
+    </Suspense>
   );
 }
