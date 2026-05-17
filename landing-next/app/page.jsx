@@ -5,6 +5,7 @@ import Link from "next/link";
 import LiquidBackground from "../components/liquid-background";
 import { Typewriter } from "../components/typewriter";
 import { SiteFooter, SiteHeader } from "../components/site-chrome";
+import Hero3DScene from "../components/hero-3d-scene";
 
 const productUrl = process.env.NEXT_PUBLIC_PRODUCT_APP_URL || "http://localhost:9000";
 
@@ -110,6 +111,19 @@ export default function Page() {
       <SiteHeader active="home" />
 
       <main className="overflow-hidden">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              name: "Vektor",
+              url: process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+              description: "AI-native hedge fund operating system with transparent risk controls.",
+            }),
+          }}
+        />
+
         <section className="container hero cinematic-fade">
           <div className="hero-grid">
             <div className="hero-copy">
@@ -160,23 +174,30 @@ export default function Page() {
               </div>
             </div>
 
-            <aside className="hero-panel">
-              <p className="panel-label">Operating loop</p>
-              <h2 className="panel-title">A fund workflow with explicit checkpoints.</h2>
-              <p className="panel-copy">
-                Vektor separates research, decisioning, review, and execution so one fast answer
-                does not become one unchecked position.
-              </p>
-              <ol className="panel-stack">
-                {operatingLoop.map((step, index) => (
-                  <li key={step.title} className="dark-card">
-                    <p className="meta-label">0{index + 1}</p>
-                    <h3>{step.title}</h3>
-                    <p>{step.description}</p>
-                  </li>
-                ))}
-              </ol>
+            <aside className="hero-visual-column">
+              <div className="hero-visual-shell">
+                <Hero3DScene />
+                <div className="hero-visual-glow" aria-hidden="true" />
+              </div>
+              <div className="hero-panel">
+                <p className="panel-label">3D capital topology</p>
+                <h2 className="panel-title">A live model of signals, oversight, and execution pathways.</h2>
+                <p className="panel-copy">
+                  The scene reflects how Vektor links thesis confidence, risk feedback, and paper-mode
+                  routing before any live order can activate.
+                </p>
+              </div>
             </aside>
+          </div>
+
+          <div className="hero-loop">
+            {operatingLoop.map((step, index) => (
+              <article key={step.title} className="hero-loop-card">
+                <p className="meta-label">0{index + 1}</p>
+                <h3>{step.title}</h3>
+                <p>{step.description}</p>
+              </article>
+            ))}
           </div>
         </section>
 
