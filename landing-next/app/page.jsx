@@ -2,10 +2,16 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import LiquidBackground from "../components/liquid-background";
 import { Typewriter } from "../components/typewriter";
 import { SiteFooter, SiteHeader } from "../components/site-chrome";
-import Hero3DScene from "../components/hero-3d-scene";
+
+// Dynamically import 3D scene - Three.js Canvas requires browser DOM and can't be prerendered
+const Hero3DScene = dynamic(() => import("../components/hero-3d-scene"), {
+  ssr: false,
+  loading: () => <div className="hero-visual-loader" />
+});
 
 const productUrl = process.env.NEXT_PUBLIC_PRODUCT_APP_URL || "http://localhost:9000";
 
