@@ -39,6 +39,8 @@ from app.admin_research_routes import blog_router
 from app.monitoring_routes import router as monitoring_router
 from app.knowledge_routes import router as knowledge_router
 from app.devlog import get_dev_logger
+from app.data_pipeline.router import router as data_pipeline_router
+from app.data_pipeline.service import data_pipeline
 
 logging.basicConfig(
     level=logging.INFO,
@@ -109,6 +111,7 @@ app.include_router(research_router)
 app.include_router(blog_router)
 app.include_router(monitoring_router)
 app.include_router(knowledge_router)
+app.include_router(data_pipeline_router)
 
 _PUBLIC_PATHS = {"/health", "/ws", "/ws/agents", "/docs", "/openapi.json", "/redoc"}
 
@@ -293,6 +296,17 @@ async def startup_event():
         monitor.log_component_status("Market Data Stream", "OK", "WebSocket loop started")
     except Exception as e:
         monitor.log_component_status("Market Data Stream", "WARN", str(e))
+
+    # Start governed quant data pipeline
+    try:
+        await data_pipeline.start()
+        monitor.log_component_status(
+            "Quant Data Pipeline",
+            "OK" if settings.DATA_PIPELINE_ENABLED else "WARN",
+            "continuous ingest enabled" if settings.DATA_PIPELINE_ENABLED else "disabled by config",
+        )
+    except Exception as e:
+        monitor.log_component_status("Quant Data Pipeline", "ERROR", str(e))
     
     # Auto trading
     if settings.AUTO_TRADING_ENABLED:
@@ -385,6 +399,7 @@ async def shutdown_event():
     
     if fund_agent_runtime.is_started():
         await fund_agent_runtime.stop()
+    await data_pipeline.stop()
     await performance_tracker.stop()
 
 

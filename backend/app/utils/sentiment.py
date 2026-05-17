@@ -4,6 +4,8 @@ import logging
 import threading
 from typing import List
 
+from app.config import get_settings
+
 # ---------------------------------------------------------------------------
 # Dual-mode sentiment scorer
 #
@@ -50,6 +52,8 @@ def _load_finbert() -> None:
 def _ensure_finbert() -> None:
     """Trigger background load once."""
     global _finbert_loading
+    if not bool(getattr(get_settings(), "SENTIMENT_FINBERT_ENABLED", False)):
+        return
     with _finbert_lock:
         if not _finbert_available and not _finbert_loading:
             _finbert_loading = True
@@ -116,6 +120,7 @@ def sentiment_model_status() -> dict:
     """Structured status for startup checks and health endpoints."""
     return {
         "active_model": sentiment_model_name(),
+        "finbert_enabled": bool(getattr(get_settings(), "SENTIMENT_FINBERT_ENABLED", False)),
         "finbert_available": _finbert_available,
         "finbert_loading": _finbert_loading,
     }

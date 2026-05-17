@@ -14,8 +14,10 @@ from app.config import get_settings
 from app.data.market_data import FEED
 from app.data.fundamentals import get_fundamentals
 from app.data.news import latest_news
-from app.indicators.technical import technical_score
-from app.utils.sentiment import sentiment_score, sentiment_model_name
+from app.quant.fundamental import fundamental_score
+from app.quant.ml import ml_alpha_score, model_status
+from app.quant.sentiment import news_sentiment_score, sentiment_model_name
+from app.quant.technical import technical_score
 from app.utils.common import clamp
 
 _log = logging.getLogger("alfred.strategy.hybrid")
@@ -70,29 +72,19 @@ def hybrid_signal(symbol: str) -> dict:
     t_score = clamp(technical_score(hist))
 
     # Fundamental score
-    f = get_fundamentals(symbol)
-    f_score = 0.0
-    f_score += min(f.get("revenue_growth", 0.0), 0.3) * (1 / 0.3) * 0.35
-    f_score += min(f.get("gross_margin", 0.0), 0.7) * (1 / 0.7) * 0.35
-    f_score += min(f.get("oper_margin", 0.0), 0.5) * (1 / 0.5) * 0.30
-    f_score -= min(f.get("debt_to_equity", 1.0) / 3.0, 1.0) * 0.25
-    f_score -= min(f.get("pe", 20.0) / 60.0, 1.0) * 0.25
-    f_score = clamp(f_score)
+    f_score = fundamental_score(get_fundamentals(symbol))
 
     # Sentiment score
     news = latest_news(symbol)
-    texts = [n["headline"] for n in news if n.get("headline")]
-    s_score = clamp(sentiment_score(texts))
+    s_score = news_sentiment_score(news)
 
     # ML alpha score
     ml_score = 0.0
     ml_ready = False
     try:
-        from app.ml.alpha_model import model_status, predict
-
         st = model_status()
         if st.get("ready"):
-            ml_score = clamp(predict(hist))
+            ml_score = clamp(ml_alpha_score(hist))
             ml_ready = True
     except Exception as exc:
         _log.debug("ml_alpha_unavailable: %s", exc)

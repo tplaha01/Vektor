@@ -6257,6 +6257,98 @@ files:
 validation: passed (frontend npm run build)
 notes: Expanded Performance with asset-class contribution and allocation-usage views, and expanded Risk with live CEO risk alerts plus allocation-pressure rows using already-live backend payloads rather than binding to unavailable routes.
 
+[2026-05-15T02:17:00-07:00] [START]
+entry_id: devlog-20260515-codex-quant-module-split
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-codex-20260515-quant-module-split
+git_branch: main
+git_commit_start: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+git_commit_end:
+scope: Split quant implementation into isolated technical, fundamental, sentiment, ML, probability, statistics, risk, and regime modules
+files:
+- backend/app/quant
+validation: in_progress
+notes: Started after identifying rename blockers: VS Code and Codex processes referencing the TradingBot directory.
+
+[2026-05-15T02:27:00-07:00] [END]
+entry_id: devlog-20260515-codex-quant-module-split
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-codex-20260515-quant-module-split
+git_branch: main
+git_commit_start: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+git_commit_end:
+scope: Split quant implementation into isolated technical, fundamental, sentiment, ML, probability, statistics, risk, and regime modules
+files:
+- backend/app/quant/common.py
+- backend/app/quant/types.py
+- backend/app/quant/statistics.py
+- backend/app/quant/regime.py
+- backend/app/quant/technical.py
+- backend/app/quant/fundamental.py
+- backend/app/quant/sentiment.py
+- backend/app/quant/ml.py
+- backend/app/quant/probability.py
+- backend/app/quant/risk.py
+- backend/app/quant/__init__.py
+- backend/app/strategies/hybrid.py
+- backend/app/fund/policy_gate.py
+- backend/app/ml/alpha_model.py
+- backend/app/indicators/technical.py
+validation: passed (pytest backend/tests/test_quant_regime.py backend/tests/test_signals.py backend/tests/test_fund_policy_gate.py; compileall quant and touched modules)
+notes: Kept app.quant.regime compatibility exports while moving statistics, risk, technical scoring, fundamental scoring, sentiment scoring, ML facade, and probability transforms into isolated modules.
+
+[2026-05-15T02:02:48-07:00] [START]
+entry_id: devlog-20260515-codex-quant-state-audit
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-codex-20260515-quant-state-audit
+git_branch: main
+git_commit_start: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+git_commit_end:
+scope: Read-only quant-system audit covering regime, statistics, probability, ML alpha, risk, and backtest state
+files:
+- backend/app/quant/regime.py
+- backend/app/ml/alpha_model.py
+- backend/app/ml/features.py
+- backend/app/strategies/hybrid.py
+- backend/app/risk/engine.py
+- backend/app/backtest/engine.py
+- backend/app/fund/policy_gate.py
+validation: in_progress
+notes: Started by using codebase-memory graph discovery and targeted snippets per AGENTS.md.
+
+[2026-05-15T02:05:30-07:00] [END]
+entry_id: devlog-20260515-codex-quant-state-audit
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-codex-20260515-quant-state-audit
+git_branch: main
+git_commit_start: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+git_commit_end:
+scope: Read-only quant-system audit covering regime, statistics, probability, ML alpha, risk, and backtest state
+files:
+- backend/app/quant/regime.py
+- backend/app/ml/alpha_model.py
+- backend/app/ml/features.py
+- backend/app/strategies/hybrid.py
+- backend/app/risk/engine.py
+- backend/app/backtest/engine.py
+- backend/app/fund/policy_gate.py
+- backend/app/fund/ceo_service.py
+- backend/app/config.py
+validation: passed (codebase-memory graph discovery and targeted source inspection; no tests run because this was a read-only audit)
+notes: Quant stack summarized across market regime inference, portfolio risk regime, hybrid ensemble scoring, LightGBM alpha, policy gates, risk engine, and backtest metrics.
+
 [2026-04-23T21:47:41Z] [END]
 entry_id: devlog-20260423-codex-admin-text-cleanup
 actor_name: codex
@@ -6289,3 +6381,433 @@ files:
 - blog-next/lib/blog-loader.ts
 validation: passed (blog-next npm run build, live 3001 homepage clean, live blog detail clean)
 notes: Added loader-side normalization for mojibake coming from backend blog payloads so the archive and article pages render clean backend text instead of broken UTF-8 artifacts.
+
+[2026-05-15T02:50:56-07:00] [START]
+entry_id: devlog-20260515-codex-data-pipeline-audit
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-codex-20260515-data-pipeline-audit
+git_branch: main
+git_commit_start: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+scope: Current data acquisition and market-data pipeline audit
+files:
+- Dev_Logs.md
+validation: in_progress
+notes: Starting read-only trace of current data sources, fallback behavior, and data-integrity controls.
+
+[2026-05-15T02:59:00-07:00] [END]
+entry_id: devlog-20260515-codex-data-pipeline-audit
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-codex-20260515-data-pipeline-audit
+git_branch: main
+git_commit_start: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+git_commit_end:
+scope: Current data acquisition and market-data pipeline audit
+files:
+- backend/app/data/market_data.py
+- backend/app/data/news.py
+- backend/app/data/fundamentals.py
+- backend/app/fund/ingestion_adapters.py
+- backend/app/fund/runtime_guard.py
+- backend/app/websocket/stream.py
+- backend/app/main.py
+- backend/app/config.py
+- backend/.env.example
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: passed (codebase-memory graph discovery and targeted source/config inspection; no runtime provider calls made)
+notes: Current data posture summarized as Alpaca REST polling for market prices/bars, yfinance fallback for history, Finnhub/NewsAPI for news, FMP for fundamentals, sentiment store for ingested artifacts, and strict real-data halt semantics around fallback/failed provider events.
+
+[2026-05-15T03:07:17-07:00] [START]
+entry_id: devlog-20260515-codex-quant-data-pipeline
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-codex-20260515-quant-data-pipeline
+git_branch: main
+git_commit_start: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+git_commit_end:
+scope: Implement governed quant-grade data pipeline ingest-store-process-filter-score-categorize-feature flow
+files:
+- Dev_Logs.md
+validation: in_progress
+notes: Starting implementation of local-first data warehouse, quality scoring, feature materialization, and continuous ingestion controls.
+
+[2026-05-15T03:12:43-07:00] [END]
+entry_id: devlog-20260515-codex-quant-data-pipeline
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-codex-20260515-quant-data-pipeline
+git_branch: main
+git_commit_start: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+git_commit_end:
+scope: Implement governed quant-grade data pipeline ingest-store-process-filter-score-categorize-feature flow
+files:
+- backend/app/data_pipeline/__init__.py
+- backend/app/data_pipeline/models.py
+- backend/app/data_pipeline/quality.py
+- backend/app/data_pipeline/router.py
+- backend/app/data_pipeline/service.py
+- backend/app/data_pipeline/warehouse.py
+- backend/app/storage/schema_sql.py
+- backend/app/config.py
+- backend/app/main.py
+- backend/.env.example
+- backend/tests/test_data_pipeline.py
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: passed (pytest backend/tests/test_data_pipeline.py backend/tests/test_fund_ingestion_adapters.py; compileall touched backend modules with redirected pycache)
+notes: Added local-first quant data warehouse, continuous pipeline service, quality scoring, canonical storage, alpha feature materialization, operational endpoints, and storage sizing guidance.
+
+[2026-05-15T05:09:37-07:00] [START]
+entry_id: devlog-20260515-codex-realtime-data-pipeline
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-codex-20260515-realtime-data-pipeline
+git_branch: main
+git_commit_start: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+git_commit_end:
+scope: Upgrade data pipeline to stream-first real-time Alpaca websocket ingest with strict freshness gates
+files:
+- Dev_Logs.md
+validation: in_progress
+notes: Starting implementation to persist Alpaca websocket ticks immediately, enable stream-first runtime defaults, and tighten stale market/news quality checks.
+
+[2026-05-15T05:16:00-07:00] [END]
+entry_id: devlog-20260515-codex-realtime-data-pipeline
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-codex-20260515-realtime-data-pipeline
+git_branch: main
+git_commit_start: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+git_commit_end:
+scope: Upgrade data pipeline to stream-first real-time Alpaca websocket ingest with strict freshness gates
+files:
+- backend/app/data/market_data.py
+- backend/app/data_pipeline/quality.py
+- backend/app/data_pipeline/service.py
+- backend/app/data_pipeline/warehouse.py
+- backend/app/config.py
+- backend/.env
+- backend/.env.example
+- backend/tests/test_data_pipeline.py
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: passed (pytest backend/tests/test_data_pipeline.py backend/tests/test_fund_ingestion_adapters.py; compileall touched backend modules; backend restarted and connected to Alpaca IEX trade websocket plus Alpaca news websocket; manual API run completed)
+notes: Persisted Alpaca websocket ticks immediately as raw events, market prices, and execution feature vectors; enabled local Alpaca trade/news streams; added stale OHLC/news quality gates and stale-blocked alpha features; isolated per-symbol enrichment failures so one provider issue does not stop the run.
+
+[2026-05-15T05:33:25-07:00] [START]
+entry_id: devlog-20260515-codex-institutional-data-readiness
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-codex-20260515-institutional-data-readiness
+git_branch: main
+git_commit_start: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+git_commit_end:
+scope: Add institutional data-pipeline primitives for quotes, NBBO features, provider health, snapshots, replay, and warehouse monitoring
+files:
+- Dev_Logs.md
+validation: in_progress
+notes: Starting hardening pass to move beyond trade-only streaming toward institutional readiness with quote stream capture, point-in-time snapshots, provider health telemetry, and stricter monitorable warehouse state.
+
+[2026-05-15T05:38:00-07:00] [END]
+entry_id: devlog-20260515-codex-institutional-data-readiness
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-codex-20260515-institutional-data-readiness
+git_branch: main
+git_commit_start: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+git_commit_end:
+scope: Add institutional data-pipeline primitives for quotes, NBBO features, provider health, snapshots, replay, and warehouse monitoring
+files:
+- backend/app/storage/schema_sql.py
+- backend/app/data_pipeline/quality.py
+- backend/app/data_pipeline/warehouse.py
+- backend/app/data_pipeline/service.py
+- backend/app/data_pipeline/router.py
+- backend/app/data/market_data.py
+- backend/app/config.py
+- backend/.env
+- backend/.env.example
+- backend/tests/test_data_pipeline.py
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: passed (pytest backend/tests/test_data_pipeline.py backend/tests/test_fund_ingestion_adapters.py; compileall touched backend modules; backend restarted and subscribed to Alpaca IEX trades+quotes plus Alpaca news; warehouse quotes endpoint and NBBO snapshot replay verified)
+notes: Added streamed quote capture, NBBO quote table, quote quality scoring, execution NBBO feature vectors, point-in-time snapshot/replay records, provider health telemetry, and warehouse inspection endpoints.
+
+[2026-05-15T10:16:40.619185Z] [START]
+entry_id: devlog-20260515-4b9ec0ac
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-bff0451bcb2c
+git_branch: main
+git_commit_start: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-05-15T12:13:39.430560Z] [START]
+entry_id: devlog-20260515-370d558f
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-528adb7d982e
+git_branch: main
+git_commit_start: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-05-15T12:15:07.201786Z] [START]
+entry_id: devlog-20260515-d25ad280
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-92969a43d624
+git_branch: main
+git_commit_start: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-05-15T12:17:50.334071Z] [START]
+entry_id: devlog-20260515-48b27f46
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-16d3a4448839
+git_branch: main
+git_commit_start: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-05-15T12:36:51.232754Z] [START]
+entry_id: devlog-20260515-ad18b569
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-c35bd5fedde9
+git_branch: main
+git_commit_start: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+[2026-05-17T11:10:11.3497039Z] [START]
+entry_id: codex-20260517-vektor-local-pipeline
+actor_name: codex
+actor_platform: openai_codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260517-vektor-local-pipeline
+git_branch: main
+git_commit_start: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+git_commit_end:
+scope: Kill stale local services, start Vektor locally, test data pipeline
+files:
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: in_progress
+notes: User requested stale services killed, local Vektor app started, and data pipeline tested.
+
+[2026-05-17T11:11:35.018139Z] [START]
+entry_id: devlog-20260517-c24c140d
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-1b1dcef3ce24
+git_branch: main
+git_commit_start: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+[2026-05-17T11:14:23.5966298Z] [END]
+entry_id: codex-20260517-vektor-local-pipeline
+actor_name: codex
+actor_platform: openai_codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260517-vektor-local-pipeline
+git_branch: main
+git_commit_start: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+git_commit_end: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+scope: Kill stale local services, start Vektor locally, test data pipeline
+files:
+- backend/tests/test_data_pipeline.py
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: completed
+notes: Backend on 127.0.0.1:8000, frontend on 127.0.0.1:9000, Ollama on 11434. Pytest data pipeline suite passed after realtime fixtures were made timestamp-current. Manual /data-pipeline/run for AAPL completed; alpha features are stale_blocked because latest bars are 2025-12-30. OpenClaw gateway remains blocked by invalid ~/.openclaw/openclaw.json key mcpServers.
+[2026-05-17T11:22:19.7766629Z] [START]
+entry_id: codex-20260517-deterministic-vm-mode
+actor_name: codex
+actor_platform: openai_codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260517-deterministic-vm-mode
+git_branch: main
+git_commit_start: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+git_commit_end:
+scope: Disable AI runtime paths for deterministic quant/ML/stat mode; inspect data pipeline freshness and VM suitability
+files:
+- backend/app/config.py
+- backend/.env.example
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: in_progress
+notes: User requested AI features kept for later but disabled for now, with data pipeline freshness checked and VM backend hosting viability assessed.
+
+[2026-05-17T11:23:27.009987Z] [START]
+entry_id: devlog-20260517-866c7961
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-b32a16e795ae
+git_branch: main
+git_commit_start: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-05-17T11:24:26.246059Z] [START]
+entry_id: devlog-20260517-cef64d5c
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-593e2ba1e2a9
+git_branch: main
+git_commit_start: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-05-17T11:26:01.972038Z] [START]
+entry_id: devlog-20260517-3b397cda
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-ad50975efc6b
+git_branch: main
+git_commit_start: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-05-17T11:27:38.301586Z] [START]
+entry_id: devlog-20260517-d6c8dc8d
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-42bb3aabaadc
+git_branch: main
+git_commit_start: fc90b0388a4e70c840e4500014b5d0a19fcbeb6e
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot

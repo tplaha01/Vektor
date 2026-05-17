@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Tuple
 
 from app.config import get_settings
 from app.fund.execution_adapter import ExecutionIntent
-from app.quant.regime import infer_portfolio_risk_regime
+from app.quant.risk import infer_portfolio_risk_regime
 
 
 def _utc_now() -> datetime:

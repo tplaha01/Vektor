@@ -293,4 +293,208 @@ CREATE INDEX IF NOT EXISTS idx_knowledge_events_namespace_ts ON knowledge_events
 CREATE INDEX IF NOT EXISTS idx_knowledge_events_run_ts ON knowledge_events (run_id, occurred_at DESC);
 CREATE INDEX IF NOT EXISTS idx_knowledge_events_decision_ts ON knowledge_events (decision_id, occurred_at DESC);
 CREATE INDEX IF NOT EXISTS idx_knowledge_events_order_ts ON knowledge_events (order_id, occurred_at DESC);
+
+CREATE TABLE IF NOT EXISTS data_raw_events (
+    raw_id             TEXT PRIMARY KEY,
+    provider           TEXT NOT NULL,
+    endpoint           TEXT NOT NULL,
+    asset_class        TEXT NOT NULL,
+    symbol             TEXT,
+    request_json       TEXT NOT NULL,
+    payload_json       TEXT NOT NULL,
+    payload_checksum   TEXT NOT NULL,
+    provider_ts        TEXT,
+    ingested_at        TEXT NOT NULL,
+    metadata_json      TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_data_raw_events_provider_ingested
+ON data_raw_events (provider, ingested_at DESC);
+CREATE INDEX IF NOT EXISTS idx_data_raw_events_symbol_ingested
+ON data_raw_events (symbol, ingested_at DESC);
+
+CREATE TABLE IF NOT EXISTS data_market_bars (
+    symbol             TEXT NOT NULL,
+    asset_class        TEXT NOT NULL,
+    timeframe          TEXT NOT NULL,
+    ts                 TEXT NOT NULL,
+    open               REAL NOT NULL,
+    high               REAL NOT NULL,
+    low                REAL NOT NULL,
+    close              REAL NOT NULL,
+    volume             REAL NOT NULL,
+    provider           TEXT NOT NULL,
+    raw_id             TEXT,
+    adjusted           INTEGER NOT NULL DEFAULT 0,
+    quality_score      REAL NOT NULL DEFAULT 0,
+    quality_flags_json TEXT NOT NULL,
+    ingested_at        TEXT NOT NULL,
+    PRIMARY KEY (symbol, timeframe, ts, provider)
+);
+
+CREATE INDEX IF NOT EXISTS idx_data_market_bars_symbol_tf_ts
+ON data_market_bars (symbol, timeframe, ts DESC);
+
+CREATE TABLE IF NOT EXISTS data_market_prices (
+    symbol             TEXT NOT NULL,
+    asset_class        TEXT NOT NULL,
+    price              REAL NOT NULL,
+    provider           TEXT NOT NULL,
+    source_mode        TEXT NOT NULL,
+    observed_at        TEXT NOT NULL,
+    ingested_at        TEXT NOT NULL,
+    raw_id             TEXT,
+    quality_score      REAL NOT NULL DEFAULT 0,
+    quality_flags_json TEXT NOT NULL,
+    PRIMARY KEY (symbol, provider, observed_at)
+);
+
+CREATE INDEX IF NOT EXISTS idx_data_market_prices_symbol_observed
+ON data_market_prices (symbol, observed_at DESC);
+
+CREATE TABLE IF NOT EXISTS data_market_quotes (
+    symbol             TEXT NOT NULL,
+    asset_class        TEXT NOT NULL,
+    bid_price          REAL NOT NULL,
+    bid_size           REAL,
+    ask_price          REAL NOT NULL,
+    ask_size           REAL,
+    mid_price          REAL NOT NULL,
+    spread             REAL NOT NULL,
+    spread_bps         REAL NOT NULL,
+    provider           TEXT NOT NULL,
+    source_mode        TEXT NOT NULL,
+    observed_at        TEXT NOT NULL,
+    ingested_at        TEXT NOT NULL,
+    raw_id             TEXT,
+    quality_score      REAL NOT NULL DEFAULT 0,
+    quality_flags_json TEXT NOT NULL,
+    PRIMARY KEY (symbol, provider, observed_at)
+);
+
+CREATE INDEX IF NOT EXISTS idx_data_market_quotes_symbol_observed
+ON data_market_quotes (symbol, observed_at DESC);
+
+CREATE TABLE IF NOT EXISTS data_text_events (
+    event_id           TEXT PRIMARY KEY,
+    symbol             TEXT,
+    asset_class        TEXT NOT NULL,
+    source_type        TEXT NOT NULL,
+    provider           TEXT NOT NULL,
+    title              TEXT NOT NULL,
+    body               TEXT,
+    url                TEXT,
+    published_at       TEXT,
+    ingested_at        TEXT NOT NULL,
+    raw_id             TEXT,
+    sentiment_score    REAL,
+    quality_score      REAL NOT NULL DEFAULT 0,
+    quality_flags_json TEXT NOT NULL,
+    metadata_json      TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_data_text_events_symbol_published
+ON data_text_events (symbol, published_at DESC);
+CREATE INDEX IF NOT EXISTS idx_data_text_events_provider_ingested
+ON data_text_events (provider, ingested_at DESC);
+
+CREATE TABLE IF NOT EXISTS data_fundamentals (
+    symbol             TEXT NOT NULL,
+    asset_class        TEXT NOT NULL,
+    provider           TEXT NOT NULL,
+    metric_date        TEXT NOT NULL,
+    period             TEXT NOT NULL,
+    metrics_json       TEXT NOT NULL,
+    raw_id             TEXT,
+    quality_score      REAL NOT NULL DEFAULT 0,
+    quality_flags_json TEXT NOT NULL,
+    ingested_at        TEXT NOT NULL,
+    PRIMARY KEY (symbol, provider, metric_date, period)
+);
+
+CREATE INDEX IF NOT EXISTS idx_data_fundamentals_symbol_date
+ON data_fundamentals (symbol, metric_date DESC);
+
+CREATE TABLE IF NOT EXISTS data_quality_events (
+    quality_id         TEXT PRIMARY KEY,
+    dataset            TEXT NOT NULL,
+    symbol             TEXT,
+    provider           TEXT NOT NULL,
+    score              REAL NOT NULL,
+    flags_json         TEXT NOT NULL,
+    severity           TEXT NOT NULL,
+    checked_at         TEXT NOT NULL,
+    metadata_json      TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_data_quality_events_dataset_checked
+ON data_quality_events (dataset, checked_at DESC);
+CREATE INDEX IF NOT EXISTS idx_data_quality_events_symbol_checked
+ON data_quality_events (symbol, checked_at DESC);
+
+CREATE TABLE IF NOT EXISTS data_feature_vectors (
+    feature_id         TEXT PRIMARY KEY,
+    symbol             TEXT NOT NULL,
+    asset_class        TEXT NOT NULL,
+    use_case           TEXT NOT NULL,
+    as_of              TEXT NOT NULL,
+    features_json      TEXT NOT NULL,
+    score              REAL NOT NULL,
+    category           TEXT NOT NULL,
+    source_snapshot_id TEXT NOT NULL,
+    metadata_json      TEXT NOT NULL,
+    created_at         TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_data_feature_vectors_symbol_use_case_asof
+ON data_feature_vectors (symbol, use_case, as_of DESC);
+
+CREATE TABLE IF NOT EXISTS data_pipeline_runs (
+    run_id             TEXT PRIMARY KEY,
+    run_type           TEXT NOT NULL,
+    status             TEXT NOT NULL,
+    started_at         TEXT NOT NULL,
+    finished_at        TEXT,
+    symbols_json       TEXT NOT NULL,
+    counts_json        TEXT NOT NULL,
+    quality_json       TEXT NOT NULL,
+    metadata_json      TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_data_pipeline_runs_started
+ON data_pipeline_runs (started_at DESC);
+
+CREATE TABLE IF NOT EXISTS data_provider_health (
+    provider           TEXT PRIMARY KEY,
+    status             TEXT NOT NULL,
+    last_event_at      TEXT,
+    last_success_at    TEXT,
+    last_failure_at    TEXT,
+    success_count      INTEGER NOT NULL DEFAULT 0,
+    failure_count      INTEGER NOT NULL DEFAULT 0,
+    stale_count        INTEGER NOT NULL DEFAULT 0,
+    last_error         TEXT,
+    metadata_json      TEXT NOT NULL,
+    updated_at         TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_data_provider_health_status_updated
+ON data_provider_health (status, updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS data_snapshots (
+    snapshot_id        TEXT PRIMARY KEY,
+    snapshot_type      TEXT NOT NULL,
+    symbol             TEXT,
+    as_of              TEXT NOT NULL,
+    source_ids_json    TEXT NOT NULL,
+    payload_json       TEXT NOT NULL,
+    quality_json       TEXT NOT NULL,
+    metadata_json      TEXT NOT NULL,
+    created_at         TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_data_snapshots_symbol_asof
+ON data_snapshots (symbol, as_of DESC);
+CREATE INDEX IF NOT EXISTS idx_data_snapshots_type_created
+ON data_snapshots (snapshot_type, created_at DESC);
 """

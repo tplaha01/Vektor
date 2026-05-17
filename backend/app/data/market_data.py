@@ -5,8 +5,8 @@ import time
 import os
 from urllib.parse import urlencode
 from contextlib import contextmanager
-from datetime import datetime, timedelta
-from typing import Callable, Dict, List
+from datetime import datetime, timedelta, timezone
+from typing import Any, Callable, Dict, List
 
 import pandas as pd
 import requests
@@ -286,8 +286,26 @@ class AlpacaRealtimeFeed:
             )
 
             async def _on_trade(trade):
-                sym = trade.symbol
-                px = float(trade.price)
+                sym = str(getattr(trade, "symbol", "")).upper().strip()
+                px = float(getattr(trade, "price", 0.0) or 0.0)
+                trade_ts = getattr(trade, "timestamp", None)
+                observed_at = (
+                    trade_ts.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+                    if hasattr(trade_ts, "astimezone")
+                    else datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+                )
+                event: dict[str, Any] = {
+                    "event_type": "trade",
+                    "symbol": sym,
+                    "price": px,
+                    "observed_at": observed_at,
+                    "size": getattr(trade, "size", None),
+                    "exchange": getattr(trade, "exchange", None),
+                    "trade_id": getattr(trade, "id", None),
+                    "tape": getattr(trade, "tape", None),
+                    "conditions": list(getattr(trade, "conditions", []) or []),
+                    "feed": settings.ALPACA_FEED,
+                }
                 self._prices[sym] = px
                 _price_cache[sym] = (px, time.time(), "alpaca_stream")
                 data_integrity_guard.record_provider_event(
@@ -298,11 +316,63 @@ class AlpacaRealtimeFeed:
                 )
                 for cb in self._subscribers:
                     try:
-                        cb(sym, px)
+                        cb(sym, px, event)
+                    except TypeError:
+                        try:
+                            cb(sym, px)
+                        except Exception:
+                            pass
+                    except Exception:
+                        pass
+
+            async def _on_quote(quote):
+                sym = str(getattr(quote, "symbol", "")).upper().strip()
+                bid_price = float(getattr(quote, "bid_price", 0.0) or 0.0)
+                ask_price = float(getattr(quote, "ask_price", 0.0) or 0.0)
+                mid = ((bid_price + ask_price) / 2.0) if bid_price > 0 and ask_price > 0 else 0.0
+                quote_ts = getattr(quote, "timestamp", None)
+                observed_at = (
+                    quote_ts.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+                    if hasattr(quote_ts, "astimezone")
+                    else datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+                )
+                event: dict[str, Any] = {
+                    "event_type": "quote",
+                    "symbol": sym,
+                    "bid_price": bid_price,
+                    "bid_size": getattr(quote, "bid_size", None),
+                    "ask_price": ask_price,
+                    "ask_size": getattr(quote, "ask_size", None),
+                    "mid_price": mid,
+                    "observed_at": observed_at,
+                    "bid_exchange": getattr(quote, "bid_exchange", None),
+                    "ask_exchange": getattr(quote, "ask_exchange", None),
+                    "conditions": list(getattr(quote, "conditions", []) or []),
+                    "tape": getattr(quote, "tape", None),
+                    "feed": settings.ALPACA_FEED,
+                }
+                if mid > 0:
+                    self._prices[sym] = mid
+                    _price_cache[sym] = (mid, time.time(), "alpaca_quote_stream")
+                data_integrity_guard.record_provider_event(
+                    provider="alpaca_quote_stream",
+                    mode="provider",
+                    symbol=sym,
+                    detail="quote_tick",
+                )
+                for cb in self._subscribers:
+                    try:
+                        cb(sym, mid, event)
+                    except TypeError:
+                        try:
+                            cb(sym, mid)
+                        except Exception:
+                            pass
                     except Exception:
                         pass
 
             stream.subscribe_trades(_on_trade, *symbols)
+            stream.subscribe_quotes(_on_quote, *symbols)
             stream.run()
 
         except Exception as exc:
@@ -335,7 +405,7 @@ class AlpacaRealtimeFeed:
                 "start": start,
                 "limit": max(1, int(bars)),
                 "feed": settings.ALPACA_FEED,
-                "sort": "asc",
+                "sort": "desc",
             },
         )
         rows = ((payload or {}).get("bars") or {}).get(symbol) or []
@@ -355,6 +425,7 @@ class AlpacaRealtimeFeed:
         frame = frame[[col for col in ("ts", "open", "high", "low", "close", "volume") if col in frame.columns]]
         if "ts" in frame.columns:
             frame["ts"] = pd.to_datetime(frame["ts"], utc=True, errors="coerce")
+            frame = frame.sort_values("ts", ascending=True)
         return frame.tail(bars).reset_index(drop=True)
 
     def _alpaca_rest_json(self, path: str, params: dict[str, object] | None = None) -> dict:

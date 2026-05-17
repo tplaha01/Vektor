@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     APP_NAME: str = "Hybrid Trading Bot"
     ENV: str = "dev"
     BROKER: str = "paper"
+    DETERMINISTIC_RUNTIME_MODE: bool = True
     LIVE_TRADING_ENABLED: bool = False
     LIVE_TRADING_REQUIRE_ALLOWLIST: bool = True
     LIVE_TRADING_SYMBOL_ALLOWLIST: str = ""
@@ -13,6 +14,20 @@ class Settings(BaseSettings):
     LIVE_TRADING_OANDA_ENABLED: bool = False
     DATA_MODE: str = "live"
     REAL_DATA_STRICT_MODE: bool = False
+    DATA_PIPELINE_ENABLED: bool = True
+    DATA_PIPELINE_INTERVAL_SECONDS: float = 60.0
+    DATA_PIPELINE_SYMBOLS: str = ""
+    DATA_PIPELINE_HISTORY_BARS: int = 260
+    DATA_PIPELINE_HISTORY_REFRESH_SECONDS: float = 3600.0
+    DATA_PIPELINE_FUNDAMENTALS_REFRESH_SECONDS: float = 21600.0
+    DATA_PIPELINE_NEWS_LIMIT: int = 12
+    DATA_PIPELINE_NEWS_STREAM_ENABLED: bool = True
+    DATA_PIPELINE_MAX_BAR_AGE_DAYS: float = 5.0
+    DATA_PIPELINE_MAX_NEWS_AGE_HOURS: float = 72.0
+    DATA_PIPELINE_MIN_FEATURE_QUALITY_SCORE: float = 0.75
+    DATA_PIPELINE_MAX_SPREAD_BPS: float = 100.0
+    DATA_PIPELINE_TICK_ESTIMATE_PER_SYMBOL_DAY: int = 390
+    SENTIMENT_FINBERT_ENABLED: bool = False
 
     TECH_WEIGHT: float = 0.35
     FUND_WEIGHT: float = 0.20
@@ -21,9 +36,9 @@ class Settings(BaseSettings):
 
     WEBSOCKET_BROADCAST_INTERVAL: float = 2.0
     AUTO_TRADING_ENABLED: bool = False
-    AGENT_RUNTIME_ENABLED: bool = True
+    AGENT_RUNTIME_ENABLED: bool = False
     AGENT_RUNTIME_POLL_INTERVAL_SECONDS: float = 1.5
-    AGENT_RUNTIME_AUTOPILOT_ENABLED: bool = True
+    AGENT_RUNTIME_AUTOPILOT_ENABLED: bool = False
     AGENT_RUNTIME_AUTOPILOT_INTERVAL_SECONDS: float = 120.0
     AGENT_RUNTIME_AUTOPILOT_SYMBOLS: str = "AAPL,MSFT,NVDA,SPY"
     AGENT_RUNTIME_AUTOPILOT_DYNAMIC_UNIVERSE_ENABLED: bool = True
@@ -142,7 +157,7 @@ class Settings(BaseSettings):
     FUND_DEFAULT_CAPITAL_USD: float = 500000.0
     FUND_DEFAULT_RESERVE_CASH_USD: float = 50000.0
     FUND_DEFAULT_SLEEVE_WEIGHTS: str = "long_term=0.5,recurring=0.3,tactical=0.2"
-    CEO_DIGEST_ENABLED: bool = True
+    CEO_DIGEST_ENABLED: bool = False
     CEO_DIGEST_INTERVAL_SECONDS: int = 21600
     CEO_APPROVAL_REQUIRED_FOR_TRADES: bool = True
     CEO_APPROVAL_REQUIRED_FOR_ALLOCATION_CHANGES: bool = True
@@ -154,7 +169,7 @@ class Settings(BaseSettings):
 
     SQLITE_PATH: str = "trading_bot.db"
     OPENCLAW_INGEST_TOKEN: str | None = None
-    OPENCLAW_COMMANDS_ENABLED: bool = True
+    OPENCLAW_COMMANDS_ENABLED: bool = False
     OPENCLAW_COMMAND_TOKEN: str | None = None
     OPENCLAW_COMMAND_DEFAULT_AGENT_ID: str = "ceo"
     OPENCLAW_COMMAND_CHANNEL_ALLOWLIST: str | None = None
@@ -165,7 +180,7 @@ class Settings(BaseSettings):
     )
     OPENCLAW_COMMAND_CHANNEL_ROLE_POLICIES: str | None = None
     OPENCLAW_COMMAND_MAX_TEXT_LENGTH: int = 4000
-    OPENCLAW_FUND_MANAGER_MODE: bool = True
+    OPENCLAW_FUND_MANAGER_MODE: bool = False
     OPENCLAW_FUND_MANAGER_AGENT_ID: str = "fund_manager"
     OPENCLAW_FUND_MANAGER_ASSIGNED_ROLES: str = (
         "technical_analyst,fundamental_analyst,sentiment_analyst,ml_timeseries_analyst,"
@@ -211,7 +226,7 @@ class Settings(BaseSettings):
     AI_ROLE_ROUTE_COMPOSITE_SYNTHESIS: str = "gemini_flash,groq"
     AI_ROLE_ROUTE_RESEARCH_JUDGE: str = "gemini_flash,groq"
     AI_ROLE_ROUTE_BLOG: str = "gemini_flash,groq"
-    AI_ROLE_PROVIDER_GEMINI_FLASH_LITE_ENABLED: bool = True
+    AI_ROLE_PROVIDER_GEMINI_FLASH_LITE_ENABLED: bool = False
     AI_ROLE_PROVIDER_GEMINI_FLASH_LITE_TYPE: str = "openai_compatible"
     AI_ROLE_PROVIDER_GEMINI_FLASH_LITE_BASE_URL: str = "https://generativelanguage.googleapis.com/v1beta/openai"
     AI_ROLE_PROVIDER_GEMINI_FLASH_LITE_API_KEY: str | None = None
@@ -222,7 +237,7 @@ class Settings(BaseSettings):
     AI_ROLE_PROVIDER_GEMINI_FLASH_LITE_REQUESTS_PER_WINDOW: int = 5
     AI_ROLE_PROVIDER_GEMINI_FLASH_LITE_TOKENS_PER_WINDOW: int = 12000
     AI_ROLE_PROVIDER_GEMINI_FLASH_LITE_WINDOW_SECONDS: float = 60.0
-    AI_ROLE_PROVIDER_GEMINI_FLASH_ENABLED: bool = True
+    AI_ROLE_PROVIDER_GEMINI_FLASH_ENABLED: bool = False
     AI_ROLE_PROVIDER_GEMINI_FLASH_TYPE: str = "openai_compatible"
     AI_ROLE_PROVIDER_GEMINI_FLASH_BASE_URL: str = "https://generativelanguage.googleapis.com/v1beta/openai"
     AI_ROLE_PROVIDER_GEMINI_FLASH_API_KEY: str | None = None
@@ -233,7 +248,7 @@ class Settings(BaseSettings):
     AI_ROLE_PROVIDER_GEMINI_FLASH_REQUESTS_PER_WINDOW: int = 5
     AI_ROLE_PROVIDER_GEMINI_FLASH_TOKENS_PER_WINDOW: int = 18000
     AI_ROLE_PROVIDER_GEMINI_FLASH_WINDOW_SECONDS: float = 60.0
-    AI_ROLE_PROVIDER_GROQ_ENABLED: bool = True
+    AI_ROLE_PROVIDER_GROQ_ENABLED: bool = False
     AI_ROLE_PROVIDER_GROQ_TYPE: str = "openai_compatible"
     AI_ROLE_PROVIDER_GROQ_BASE_URL: str = "https://api.groq.com/openai/v1"
     AI_ROLE_PROVIDER_GROQ_API_KEY: str | None = None

@@ -24,6 +24,7 @@ except Exception:  # pragma: no cover - optional dependency
     joblib = None  # type: ignore[assignment]
 
 from app.ml.features import build_features
+from app.quant.probability import probability_to_alpha
 
 MODEL_PATH = Path(__file__).parent / "lgbm_alpha.pkl"
 FEATURE_NAMES_PATH = Path(__file__).parent / "feature_names.pkl"
@@ -210,8 +211,7 @@ def predict(df: pd.DataFrame) -> float:
             x_vals = pd.DataFrame([feat]).reindex(columns=_feature_names, fill_value=0.0)
             prob_up = float(_model.predict_proba(x_vals)[0][1])
 
-        score = (prob_up - 0.5) * 2.0
-        return float(np.clip(score, -1.0, 1.0))
+        return probability_to_alpha(prob_up)
     except Exception as exc:
         logger.warning("Alpha prediction failed; returning neutral: %s", exc)
         return 0.0

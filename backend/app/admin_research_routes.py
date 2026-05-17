@@ -816,6 +816,7 @@ async def get_system_status_badges():
     halted_at = data_integrity.get("halted_at")
 
     runtime_started = bool(runtime.get("started"))
+    deterministic_mode = bool(getattr(settings, "DETERMINISTIC_RUNTIME_MODE", False))
     worker_errors = [
         str(worker.get("last_error") or "").strip()
         for worker in workers
@@ -823,7 +824,10 @@ async def get_system_status_badges():
     ]
     orchestration_status = "Healthy"
     orchestration_reason = "all_runtime_workers_operational"
-    if not runtime_started:
+    if not runtime_started and deterministic_mode:
+        orchestration_status = "Healthy"
+        orchestration_reason = "deterministic_runtime_mode"
+    elif not runtime_started:
         orchestration_status = "Degraded"
         orchestration_reason = "agent_runtime_not_started"
     elif halted:
@@ -879,18 +883,20 @@ async def get_system_status_badges():
         failover_count = _safe_int(runtime_state.get("failover_count"), 0)
 
         degraded_reasons: list[str] = []
-        if halted:
+        if deterministic_mode and not ai_enabled:
+            degraded_reasons.append("ai_disabled_by_deterministic_policy")
+        elif halted:
             degraded_reasons.append(halt_reason or "system_halted")
-        if not ai_enabled:
+        if not deterministic_mode and not ai_enabled:
             degraded_reasons.append("ai_role_adapter_disabled")
-        if not model:
+        if not deterministic_mode and not model:
             degraded_reasons.append("model_unconfigured")
         if worker_last_error:
             degraded_reasons.append(f"worker_error:{worker_last_error}")
         if not worker_running and runtime_started and not worker_last_error:
             degraded_reasons.append("worker_not_running")
 
-        status = "Degraded" if degraded_reasons else "Healthy"
+        status = "Disabled" if deterministic_mode and not ai_enabled else "Degraded" if degraded_reasons else "Healthy"
         role_health.append(
             {
                 "role": role,
@@ -904,7 +910,7 @@ async def get_system_status_badges():
             }
         )
 
-    llm_overall = "Degraded" if any(item["status"] == "Degraded" for item in role_health) else "Healthy"
+    llm_overall = "Disabled" if deterministic_mode and not ai_enabled else "Degraded" if any(item["status"] == "Degraded" for item in role_health) else "Healthy"
     if llm_overall == "Healthy" and adapter_last_error:
         llm_overall = "Healthy"
 
@@ -946,6 +952,7 @@ async def get_system_status_badges():
         "llm_agent_health": {
             "label": "LLM Agent Health",
             "status": llm_overall,
+            "deterministic_mode": deterministic_mode,
             "by_role": role_health,
             "adapter_warning": adapter_last_error or None,
             "mode": ai_mode,
