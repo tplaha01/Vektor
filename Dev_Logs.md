@@ -6974,3 +6974,13 @@ notes: Added -UseSslipHost to deploy_aws_backend.ps1 so an EC2 Elastic IP can se
 - Goal: move the hosted backend target toward AWS us-west-2 for lower Phoenix latency and add a hosted Postgres implementation while preserving existing SQLite data.
 - Context: user wants the backend VM closer to Phoenix and wants local storage hosted/connected to the AWS backend without losing current data.
 - Verification plan: inspect current SQLite storage surface, add Postgres migration/provision/deploy tooling, validate scripts and Python modules locally, then attempt live AWS checks if credentials/network allow.
+
+2026-05-21T21:47:26-07:00 START run-20260521-main-landing-redesign-push
+- Goal: apply the Vektor landing redesign to current `origin/main` and push it without mixing stale `subagent` branch commits.
+- Context: `origin/main` was ahead of local `subagent` and contained a newer Three.js landing page with duplicate app route files and missing landing dependencies.
+- Verification plan: use a clean `origin/main` worktree, integrate the redesign into the current TypeScript landing page, fix build blockers, run production build, inspect desktop/mobile screenshots, perform 3D canvas pixel checks, then push to `main`.
+
+2026-05-21T21:47:26-07:00 END run-20260521-main-landing-redesign-push
+- Redesigned the current `landing-next/app/page.tsx` around the Vektor brand, institutional copy, a compact Three.js topology, operating-console preview, explicit operating loop, principles, agent bench, and paper-mode CTA.
+- Removed duplicate App Router files for `/`, `/robots.txt`, and `/sitemap.xml`; fixed landing dependency and TypeScript build blockers; removed invalid `next.config.mjs` option.
+- Validation: `npm run build` passed in the clean main worktree; Playwright screenshots were captured for 1440x1000 and 390x900; canvas pixel checks confirmed the Three.js scene is nonblank and moving on desktop and mobile.

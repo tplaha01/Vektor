@@ -155,8 +155,12 @@ export function Hero3DScene() {
       if (containerRef.current && renderer.domElement.parentNode === containerRef.current) {
         containerRef.current.removeChild(renderer.domElement);
       }
-      geometry.dispose();
+      orbGeometry.dispose();
+      ring1Geometry.dispose();
+      ring2Geometry.dispose();
+      particlesGeometry.dispose();
       ringMaterial.dispose();
+      ring2Material.dispose();
       orbMaterial.dispose();
       particlesMaterial.dispose();
       renderer.dispose();
