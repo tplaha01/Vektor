@@ -1,319 +1,237 @@
-import { Metadata } from "next";
-import { Hero3DScene } from "@/components/hero-3d-scene";
-import styles from "@/styles/home.module.css";
+import Link from "next/link";
+import { SiteFooter, SiteHeader } from "../components/site-chrome";
+import {
+  baseUrl,
+  dataAssets,
+  operatingFacts,
+  operatingStages,
+  platformPillars,
+  productUrl,
+  riskControls,
+} from "../lib/site";
 
-const baseUrl = "https://vektor-landing.vercel.app";
-const productUrl = process.env.NEXT_PUBLIC_PRODUCT_APP_URL || "https://vektor-trading.vercel.app";
-
-export const metadata: Metadata = {
-  metadataBase: new URL(baseUrl),
-  title: "Vektor | AI-Native Hedge Fund Operating System",
+export const metadata = {
+  title: "Deterministic ML Trading Operations Platform",
   description:
-    "Paper-first capital management with transparent risk controls, decision lineage, and AI-native fund operations.",
-  keywords: [
-    "hedge fund",
-    "AI trading",
-    "capital management",
-    "risk management",
-    "trading platform",
-    "fund operations",
-  ],
-  authors: [{ name: "Vektor" }],
-  creator: "Vektor",
-  publisher: "Vektor",
-  formatDetection: { telephone: false },
-  openGraph: {
-    type: "website",
-    locale: "en_US",
-    url: baseUrl,
-    title: "Vektor | AI-Native Hedge Fund Operating System",
-    description: "Paper-first fund operations with transparent risk controls and AI-native workflows.",
-    siteName: "Vektor",
-    images: [
-      {
-        url: `${baseUrl}/og-image.png`,
-        width: 1200,
-        height: 630,
-        alt: "Vektor - AI Hedge Fund OS",
-        type: "image/png",
-      },
-    ],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Vektor | AI-Native Hedge Fund Operating System",
-    description: "Paper-first capital management with transparent risk controls.",
-    creator: "@VektorAI",
-    images: [`${baseUrl}/og-image.png`],
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: { index: true, follow: true },
-    nocache: false,
-  },
+    "Vektor is a paper-first trading operations platform for deterministic ML signals, data lineage, risk gates, paper execution, and decision auditability.",
   alternates: {
-    canonical: baseUrl,
+    canonical: "/",
+  },
+  openGraph: {
+    title: "Vektor | Deterministic ML Trading Operations Platform",
+    description:
+      "Paper-first trading operations with deterministic ML signals, market data lineage, risk gates, and auditable execution.",
+    url: "/",
   },
 };
 
-const operatingLoop = [
-  {
-    step: "01",
-    title: "Research intake",
-    description: "Signals, transcripts, macro prints, and price action arrive as structured evidence.",
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "Vektor",
+  applicationCategory: "FinanceApplication",
+  operatingSystem: "Web",
+  url: baseUrl,
+  description:
+    "A deterministic ML trading operations platform for paper-first portfolio automation, market data ingest, risk controls, and decision auditability.",
+  offers: {
+    "@type": "Offer",
+    availability: "https://schema.org/InStock",
+    price: "0",
+    priceCurrency: "USD",
   },
-  {
-    step: "02",
-    title: "Manager synthesis",
-    description: "The fund manager converts raw context into a thesis with sizing and risk assumptions.",
-  },
-  {
-    step: "03",
-    title: "Risk gate",
-    description: "Independent auditors challenge concentration, liquidity, volatility, and policy fit.",
-  },
-  {
-    step: "04",
-    title: "Paper-first execution",
-    description: "Every decision remains observable in simulation before live capital is allowed.",
-  },
-];
-
-const heroSignals = [
-  { label: "Mode", value: "Paper first", detail: "Live capital stays gated" },
-  { label: "Control", value: "Risk veto", detail: "Independent review before execution" },
-  { label: "Memory", value: "Full lineage", detail: "Every thesis, override, and result retained" },
-];
-
-const consoleRows = [
-  { label: "Research", value: "NVDA momentum thesis queued", status: "evidence mapped" },
-  { label: "Risk", value: "Concentration check active", status: "limits enforced" },
-  { label: "Execution", value: "Paper book only", status: "capital locked" },
-];
-
-const principles = [
-  {
-    title: "Explainable by default",
-    description:
-      "Every trade carries its rationale, supporting evidence, and approval trail so investor communication is built into the workflow.",
-  },
-  {
-    title: "Risk owns the tempo",
-    description:
-      "Vektor optimizes for disciplined pace rather than maximum trade count. The system slows down before uncertainty compounds.",
-  },
-  {
-    title: "Built for operators",
-    description:
-      "Research, allocation, overrides, and post-trade review live in one operating surface so the system stays governable.",
-  },
-];
-
-const agents = [
-  {
-    label: "Research",
-    title: "Research agent",
-    description: "Turns noisy market context into ranked opportunities with supporting receipts.",
-  },
-  {
-    label: "Manager",
-    title: "Fund manager",
-    description: "Frames the trade thesis, capital plan, and expected path before execution is considered.",
-  },
-  {
-    label: "Risk",
-    title: "Risk auditor",
-    description: "Runs independent checks on sizing, liquidity, concentration, and stress scenarios.",
-  },
-  {
-    label: "Control",
-    title: "Compliance memory",
-    description: "Records the full decision chain for monitoring, review, and investor reporting.",
-  },
-];
+  featureList: [
+    "Paper-first trading operations",
+    "Market data ingest and lineage",
+    "Deterministic ML signal workflow",
+    "Pre-trade risk gates",
+    "Decision and execution audit trail",
+  ],
+};
 
 export default function Home() {
+  const systemState = [
+    ["Posture", "Paper execution, live trading disabled by default"],
+    ["Signal mode", "Deterministic ML features and rule-based fallback"],
+    ["AI layer", "Deferred; adapters remain policy-gated"],
+    ["Evidence", "Prices, quotes, bars, news, fundamentals, feature vectors"],
+    ["Audit", "Decision ledger, risk gate, operator controls"],
+  ];
+
   return (
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "Organization",
-            name: "Vektor",
-            url: baseUrl,
-            logo: `${baseUrl}/logo.png`,
-            description: "AI-native hedge fund operating system with transparent risk controls.",
-            sameAs: ["https://twitter.com/VektorAI"],
-          }),
-        }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      <SiteHeader active="home" />
+      <main className="firm-main">
+        <section className="firm-hero">
+          <div className="container firm-hero-grid">
+            <div className="firm-hero-copy">
+              <p className="firm-kicker">Trading operations, not trading theater</p>
+              <h1>Deterministic ML infrastructure for paper-traded portfolios.</h1>
+              <p className="firm-lede">
+                Vektor connects market data ingest, feature generation, signal policy,
+                portfolio risk checks, paper execution, and operator audit into one
+                governed operating surface.
+              </p>
+              <div className="firm-actions">
+                <a className="btn primary" href={`${productUrl}/admin`}>
+                  Open console
+                </a>
+                <Link className="btn ghost" href="/operating-model">
+                  Review operating model
+                </Link>
+              </div>
+            </div>
 
-      <main className={styles.main}>
-        <header className={styles.header}>
-          <div className={styles.container}>
-            <a className={styles.logo} href="/" aria-label="Vektor home">
-              <span className={styles.logoMark}>V</span>
-              <span>
-                <strong>Vektor</strong>
-                <em>AI-native fund OS</em>
-              </span>
-            </a>
-            <nav className={styles.nav} aria-label="Primary">
-              <a href="#features">Principles</a>
-              <a href="#agents">Agent Bench</a>
-              <a href={productUrl}>Live PnL</a>
-            </nav>
+            <aside className="firm-panel" aria-label="Current operating posture">
+              <div className="firm-panel-head">
+                <p>Current posture</p>
+                <span>Paper mode</span>
+              </div>
+              <div className="firm-state-table">
+                {systemState.map(([label, value]) => (
+                  <div className="firm-state-row" key={label}>
+                    <span>{label}</span>
+                    <strong>{value}</strong>
+                  </div>
+                ))}
+              </div>
+            </aside>
           </div>
-        </header>
+        </section>
 
-        <section className={styles.hero}>
-          <div className={styles.container}>
-            <div className={styles.heroGrid}>
-              <div className={styles.heroContent}>
-                <p className={styles.eyebrow}>AI-native hedge fund operating system</p>
-                <h1 className={styles.heroTitle}>Vektor</h1>
-                <p className={styles.heroSubtitle}>Capital management that stays legible under pressure.</p>
-                <p className={styles.heroDescription}>
-                  A paper-first operating stack for research, thesis generation, risk review,
-                  and execution oversight. Built to read like an institutional control room,
-                  not a black-box trading bot.
+        <section className="firm-section">
+          <div className="container firm-two-col">
+            <div>
+              <p className="firm-kicker">Definition</p>
+              <h2>Vektor is an operating layer for systematic trading workflows.</h2>
+            </div>
+            <div className="firm-definition-grid">
+              <div className="firm-callout">
+                <h3>What it is</h3>
+                <p>
+                  A deterministic, paper-first platform for proving data coverage,
+                  signal behavior, risk policy, execution routing, and portfolio
+                  observability before live capital is considered.
                 </p>
-                <div className={styles.heroCta}>
-                  <a className={styles.btnPrimary} href={productUrl}>
-                    View live fund performance
-                  </a>
-                  <a className={styles.btnSecondary} href="#features">
-                    Explore the operating model
-                  </a>
-                </div>
-                <div className={styles.heroSignals} aria-label="Vektor operating guarantees">
-                  {heroSignals.map((signal) => (
-                    <div key={signal.label} className={styles.signalCard}>
-                      <span>{signal.label}</span>
-                      <strong>{signal.value}</strong>
-                      <p>{signal.detail}</p>
-                    </div>
-                  ))}
-                </div>
               </div>
-
-              <aside className={styles.visualColumn} aria-label="Vektor capital topology preview">
-                <div className={styles.heroVisual}>
-                  <Hero3DScene />
-                </div>
-                <div className={styles.consolePanel}>
-                  <div className={styles.panelTopline}>
-                    <span>Operating console</span>
-                    <strong>Controlled</strong>
-                  </div>
-                  <h2>A fund workflow with explicit checkpoints.</h2>
-                  <p>
-                    The topology maps signal flow, risk feedback, and paper-mode routing before
-                    any live order can activate.
-                  </p>
-                  <div className={styles.consoleRows}>
-                    {consoleRows.map((row) => (
-                      <div key={row.label} className={styles.consoleRow}>
-                        <span>{row.label}</span>
-                        <strong>{row.value}</strong>
-                        <em>{row.status}</em>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </aside>
-            </div>
-
-            <div className={styles.loopGrid}>
-              {operatingLoop.map((item) => (
-                <article key={item.title} className={styles.loopCard}>
-                  <span>{item.step}</span>
-                  <h3>{item.title}</h3>
-                  <p>{item.description}</p>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="features" className={styles.section}>
-          <div className={styles.container}>
-            <div className={styles.sectionHead}>
-              <p className={styles.eyebrow}>Why it feels different</p>
-              <h2>The product is built around trust, not just signal throughput.</h2>
-              <p>
-                The experience should help an allocator understand what the system is doing,
-                why it is doing it, and when it should slow down.
-              </p>
-            </div>
-            <div className={styles.cardGrid}>
-              {principles.map((item) => (
-                <article key={item.title} className={styles.card}>
-                  <h3>{item.title}</h3>
-                  <p>{item.description}</p>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="agents" className={styles.section}>
-          <div className={styles.container}>
-            <div className={styles.sectionHead}>
-              <p className={styles.eyebrow}>Agent bench</p>
-              <h2>Each role has one job and one point of view.</h2>
-              <p>
-                Research finds. The manager frames. Risk challenges. Control records.
-                Narrow responsibilities keep the system readable.
-              </p>
-            </div>
-            <div className={styles.agentGrid}>
-              {agents.map((agent) => (
-                <article key={agent.title} className={styles.card}>
-                  <span>{agent.label}</span>
-                  <h3>{agent.title}</h3>
-                  <p>{agent.description}</p>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className={styles.cta}>
-          <div className={styles.container}>
-            <div className={styles.ctaShell}>
-              <p className={styles.eyebrow}>Start here</p>
-              <h2>Use paper mode to understand the system before you trust it.</h2>
-              <p>
-                Monitor the simulated book, review the decision logs, and only then allow
-                live capital into the loop.
-              </p>
-              <div className={styles.heroCta}>
-                <a className={styles.btnPrimary} href={`${productUrl}/admin`}>
-                  Open the admin console
-                </a>
-                <a className={styles.btnSecondary} href={productUrl}>
-                  View live PnL
-                </a>
+              <div className="firm-callout muted">
+                <h3>What it is not</h3>
+                <p>
+                  It is not an audited fund track record, not an investment adviser,
+                  and not a promise that AI will discover alpha. The current system is
+                  built to validate operations first.
+                </p>
               </div>
             </div>
           </div>
         </section>
 
-        <footer className={styles.footer}>
-          <div className={styles.container}>
-            <p>Vektor. Paper-first execution with traceable decisions and explicit risk gates.</p>
-            <div className={styles.footerLinks}>
-              <a href="#features">Principles</a>
-              <a href="#agents">Agent Bench</a>
-              <a href={productUrl}>Live PnL</a>
+        <section className="firm-section firm-section-alt">
+          <div className="container">
+            <div className="firm-section-head">
+              <p className="firm-kicker">Platform</p>
+              <h2>Built around the controls a trading system actually needs.</h2>
+              <p>
+                Each layer has a job: collect evidence, construct deterministic
+                features, approve or block risk, route paper orders, and preserve the
+                record.
+              </p>
+            </div>
+            <div className="firm-card-grid">
+              {platformPillars.map((pillar) => (
+                <Link className="firm-card" href="/platform" key={pillar.title}>
+                  <span>{pillar.label}</span>
+                  <h3>{pillar.title}</h3>
+                  <p>{pillar.description}</p>
+                </Link>
+              ))}
             </div>
           </div>
-        </footer>
+        </section>
+
+        <section className="firm-section">
+          <div className="container">
+            <div className="firm-section-head">
+              <p className="firm-kicker">Operating model</p>
+              <h2>The workflow is intentionally sequential and reviewable.</h2>
+            </div>
+            <div className="firm-timeline">
+              {operatingStages.map((stage) => (
+                <div className="firm-step" key={stage.step}>
+                  <span>{stage.step}</span>
+                  <h3>{stage.title}</h3>
+                  <p>{stage.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="firm-section firm-section-alt">
+          <div className="container firm-two-col">
+            <div>
+              <p className="firm-kicker">Data and ML readiness</p>
+              <h2>The ingest layer exists so ML work can be measured, replayed, and audited.</h2>
+              <p className="firm-section-copy">
+                Current model behavior is deterministic. The data section is the
+                foundation for future training, backtests, feature replay, and
+                production-grade model monitoring.
+              </p>
+              <Link className="firm-text-link" href="/data">
+                Inspect data model
+              </Link>
+            </div>
+            <div className="firm-asset-list">
+              {dataAssets.slice(0, 6).map(([name, description]) => (
+                <div className="firm-asset-row" key={name}>
+                  <strong>{name}</strong>
+                  <span>{description}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="firm-section">
+          <div className="container firm-feature-row">
+            <Link className="firm-link-block" href="/risk">
+              <span>Risk</span>
+              <h2>Paper-first by default, gated before execution.</h2>
+              <p>{riskControls.slice(0, 3).join(". ")}.</p>
+            </Link>
+            <Link className="firm-link-block" href="/performance">
+              <span>Performance</span>
+              <h2>Paper record, disclosed as paper record.</h2>
+              <p>
+                The product surface tracks paper PnL, open positions, decision
+                history, and runtime state. It is not marketed as audited live returns.
+              </p>
+            </Link>
+          </div>
+        </section>
+
+        <section className="firm-section firm-cta-section">
+          <div className="container firm-cta">
+            <div>
+              <p className="firm-kicker">Operating facts</p>
+              <h2>Transparent enough to inspect before you trust it.</h2>
+            </div>
+            <div className="firm-facts">
+              {operatingFacts.map(([label, value]) => (
+                <div key={label}>
+                  <span>{label}</span>
+                  <strong>{value}</strong>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
       </main>
+      <SiteFooter />
     </>
   );
 }

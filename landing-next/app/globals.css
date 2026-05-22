@@ -1,37 +1,37 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-  --bg: #060608;
-  --surface: rgba(12, 13, 16, 0.82);
-  --surface-strong: #10131a;
-  --surface-hover: rgba(19, 22, 30, 0.96);
+  --bg: #090a08;
+  --surface: rgba(16, 18, 15, 0.86);
+  --surface-strong: #141711;
+  --surface-hover: rgba(23, 27, 21, 0.96);
   --line: rgba(255, 255, 255, 0.08);
   --line-strong: rgba(255, 255, 255, 0.16);
-  --text: #eef2fb;
-  --muted: #9aa3b6;
-  --accent: #8ab4ff;
-  --accent-strong: #3b82f6;
-  --accent-2: #ffb45f;
-  --positive: #70e0a2;
+  --text: #f4f1e8;
+  --muted: #aba99f;
+  --accent: #8fd8aa;
+  --accent-strong: #2f8f5f;
+  --accent-2: #d7ad5d;
+  --positive: #8fd8aa;
   --max: 1180px;
-  --topbar-bg: rgba(6, 6, 8, 0.76);
-  --footer-bg: rgba(8, 10, 14, 0.82);
+  --topbar-bg: rgba(9, 10, 8, 0.82);
+  --footer-bg: rgba(10, 12, 9, 0.88);
 }
 
 .light {
-  --bg: #f7f9fc;
+  --bg: #f5f4ef;
   --surface: rgba(255, 255, 255, 0.84);
   --surface-strong: #ffffff;
-  --surface-hover: rgba(247, 250, 255, 0.98);
+  --surface-hover: rgba(248, 247, 242, 0.98);
   --line: rgba(15, 23, 42, 0.08);
   --line-strong: rgba(15, 23, 42, 0.16);
-  --text: #0f172a;
-  --muted: #526077;
-  --accent: #2563eb;
-  --accent-strong: #1d4ed8;
-  --accent-2: #d97706;
-  --positive: #047857;
-  --topbar-bg: rgba(247, 249, 252, 0.8);
+  --text: #151610;
+  --muted: #626257;
+  --accent: #1f7a4d;
+  --accent-strong: #145c3a;
+  --accent-2: #9a6a1f;
+  --positive: #1f7a4d;
+  --topbar-bg: rgba(245, 244, 239, 0.84);
   --footer-bg: rgba(255, 255, 255, 0.86);
 }
 
@@ -46,7 +46,7 @@ body {
   min-height: 100%;
   background: var(--bg);
   color: var(--text);
-  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   scroll-behavior: smooth;
 }
 
@@ -1004,6 +1004,441 @@ main {
   .page-shell,
   .section {
     padding: 64px 0;
+  }
+}
+
+.firm-main {
+  background:
+    linear-gradient(180deg, rgba(143, 216, 170, 0.06), transparent 26rem),
+    var(--bg);
+}
+
+.firm-hero,
+.firm-page-hero {
+  padding: 86px 0 72px;
+  border-bottom: 1px solid var(--line);
+}
+
+.firm-hero-grid,
+.firm-two-col,
+.firm-feature-row,
+.firm-cta {
+  display: grid;
+  gap: 40px;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.82fr);
+  align-items: start;
+}
+
+.firm-page-hero .firm-two-col {
+  align-items: end;
+}
+
+.firm-hero-copy h1,
+.firm-page-hero h1,
+.firm-section h2,
+.firm-cta h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 4rem;
+  line-height: 0.98;
+  letter-spacing: 0;
+  text-wrap: balance;
+}
+
+.firm-section h2,
+.firm-cta h2 {
+  font-size: 2.35rem;
+  line-height: 1.06;
+}
+
+.firm-kicker {
+  margin: 0 0 16px;
+  color: var(--accent);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.firm-lede,
+.firm-section-copy,
+.firm-section-head p,
+.firm-callout p,
+.firm-card p,
+.firm-link-block p,
+.firm-step p,
+.firm-disclosure-list p {
+  color: var(--muted);
+  font-size: 1.06rem;
+  line-height: 1.72;
+}
+
+.firm-lede {
+  margin: 22px 0 0;
+  max-width: 42rem;
+}
+
+.firm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 30px;
+}
+
+.firm-panel,
+.firm-callout,
+.firm-card,
+.firm-link-block,
+.firm-step {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.firm-panel {
+  padding: 24px;
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.22);
+}
+
+.firm-panel-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.firm-panel-head p,
+.firm-panel-head span,
+.firm-state-row span,
+.firm-card span,
+.firm-link-block span,
+.firm-step span,
+.firm-asset-row span,
+.firm-matrix span,
+.firm-facts span {
+  margin: 0;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.firm-panel-head span {
+  color: var(--positive);
+}
+
+.firm-state-table,
+.firm-asset-list,
+.firm-matrix,
+.firm-facts,
+.firm-disclosure-list {
+  display: grid;
+  gap: 0;
+}
+
+.firm-state-row,
+.firm-asset-row,
+.firm-matrix div,
+.firm-facts div {
+  display: grid;
+  gap: 8px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.firm-state-row:last-child,
+.firm-asset-row:last-child,
+.firm-matrix div:last-child,
+.firm-facts div:last-child {
+  border-bottom: 0;
+}
+
+.firm-state-row strong,
+.firm-asset-row strong,
+.firm-matrix strong,
+.firm-facts strong {
+  color: var(--text);
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.firm-section {
+  padding: 88px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.firm-section-alt {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.light .firm-section-alt {
+  background: rgba(18, 20, 14, 0.035);
+}
+
+.firm-section-head {
+  max-width: 760px;
+  margin-bottom: 34px;
+}
+
+.firm-section-head p {
+  margin: 14px 0 0;
+}
+
+.firm-definition-grid,
+.firm-card-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.firm-card-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.firm-card-grid.compact {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.firm-callout,
+.firm-card,
+.firm-link-block,
+.firm-step {
+  padding: 24px;
+}
+
+.firm-callout h3,
+.firm-card h2,
+.firm-card h3,
+.firm-link-block h2,
+.firm-step h2,
+.firm-step h3 {
+  margin: 12px 0 10px;
+  color: var(--text);
+  font-size: 1.32rem;
+  line-height: 1.14;
+  letter-spacing: 0;
+}
+
+.firm-callout p,
+.firm-card p,
+.firm-link-block p,
+.firm-step p,
+.firm-disclosure-list p,
+.firm-section-copy {
+  margin: 0;
+}
+
+.firm-callout.muted {
+  background: rgba(215, 173, 93, 0.06);
+}
+
+.firm-card,
+.firm-link-block {
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+a.firm-card:hover,
+.firm-link-block:hover {
+  border-color: rgba(143, 216, 170, 0.32);
+  background: var(--surface-hover);
+  transform: translateY(-2px);
+}
+
+.firm-timeline {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.firm-step span {
+  color: var(--accent-2);
+}
+
+.firm-asset-list,
+.firm-matrix,
+.firm-disclosure-list {
+  border-top: 1px solid var(--line);
+}
+
+.firm-text-link {
+  display: inline-flex;
+  margin-top: 24px;
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.24em;
+}
+
+.firm-link-block {
+  display: block;
+  min-height: 250px;
+}
+
+.firm-matrix {
+  grid-template-columns: 1fr;
+}
+
+.firm-matrix.wide {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  border-top: 0;
+  gap: 14px;
+}
+
+.firm-matrix.wide div {
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.firm-cta-section {
+  background: linear-gradient(180deg, rgba(143, 216, 170, 0.08), rgba(215, 173, 93, 0.04));
+}
+
+.firm-cta {
+  align-items: start;
+}
+
+.firm-facts {
+  border-top: 1px solid var(--line);
+}
+
+.topbar-inner {
+  min-height: 76px;
+}
+
+.topbar .container {
+  width: min(100%, 1320px);
+}
+
+.topbar-links {
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+
+.topbar-actions {
+  flex-wrap: nowrap;
+}
+
+.topbar-link {
+  border-radius: 8px;
+  font-size: 0.82rem;
+  padding: 7px 8px;
+}
+
+.topbar-link:hover,
+.topbar-link.is-active {
+  background: rgba(143, 216, 170, 0.12);
+}
+
+.btn.primary {
+  background: linear-gradient(135deg, var(--accent-strong), #1d5d3e);
+  box-shadow: 0 12px 30px rgba(31, 122, 77, 0.22);
+}
+
+.btn.primary:hover {
+  box-shadow: 0 16px 36px rgba(31, 122, 77, 0.26);
+}
+
+.btn.ghost:hover,
+.theme-switcher-btn:hover {
+  border-color: rgba(143, 216, 170, 0.34) !important;
+}
+
+@media (min-width: 1141px) {
+  .topbar-actions .btn.ghost {
+    display: none;
+  }
+}
+
+@media (max-width: 1140px) {
+  .topbar-inner {
+    align-items: flex-start;
+    flex-direction: column;
+    padding-top: 16px;
+    padding-bottom: 16px;
+  }
+
+  .topbar-nav,
+  .topbar-links {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .topbar-actions {
+    justify-content: flex-start;
+  }
+
+  .firm-card-grid,
+  .firm-timeline,
+  .firm-matrix.wide {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 860px) {
+  .firm-hero-grid,
+  .firm-two-col,
+  .firm-feature-row,
+  .firm-cta {
+    grid-template-columns: 1fr;
+  }
+
+  .firm-hero-copy h1,
+  .firm-page-hero h1 {
+    font-size: 3rem;
+  }
+
+  .firm-section h2,
+  .firm-cta h2 {
+    font-size: 2rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .firm-hero,
+  .firm-page-hero {
+    padding: 54px 0 48px;
+  }
+
+  .firm-section {
+    padding: 56px 0;
+  }
+
+  .firm-hero-copy h1,
+  .firm-page-hero h1 {
+    font-size: 2.42rem;
+  }
+
+  .firm-section h2,
+  .firm-cta h2 {
+    font-size: 1.74rem;
+  }
+
+  .firm-lede,
+  .firm-section-copy,
+  .firm-section-head p,
+  .firm-callout p,
+  .firm-card p,
+  .firm-link-block p,
+  .firm-step p,
+  .firm-disclosure-list p {
+    font-size: 1rem;
+  }
+
+  .firm-definition-grid,
+  .firm-card-grid,
+  .firm-card-grid.compact,
+  .firm-timeline,
+  .firm-matrix.wide {
+    grid-template-columns: 1fr;
+  }
+
+  .firm-actions .btn {
+    width: 100%;
   }
 }
 

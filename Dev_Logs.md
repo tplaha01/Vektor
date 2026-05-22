@@ -6994,3 +6994,12 @@ notes: Added -UseSslipHost to deploy_aws_backend.ps1 so an EC2 Elastic IP can se
 - Kept live execution in paper-only mode and AI disabled; deployed backend fixes to the west VM, persisted `REAL_DATA_STRICT_MODE=false`, restarted `vektor-backend`, and verified live admin status is Healthy/Provider/Paper Only/AI Disabled/not halted.
 - Fixed date-drift in the data-pipeline test fixture so the fresh-data path remains fresh relative to the current test date.
 - Validation: frontend `npm run build` passed; `test_admin_runtime_controls.py` and `test_data_pipeline.py` passed together with 16 tests; live ML status returned ready with 39 features; live status-badges returned `strict_real_data_only=false` and `halted=false`.
+2026-05-22T00:00:00-07:00 START run-20260522-firm-grade-landing-site
+- Goal: replace the vibe-coded landing page with a real firm-grade multi-page landing site covering platform, operating model, data pipeline, risk controls, and performance.
+- Context: user rejected the current landing page as not credible and asked for real SEO and operating aspects instead of AI-marketing fluff.
+- Verification plan: inspect current landing routes with codebase-memory MCP, rebuild page structure/content/CSS, add SEO metadata/sitemap coverage, run landing build, inspect desktop/mobile screenshots, push to main, and refresh codebase-memory index.
+2026-05-22T00:13:00-07:00 END run-20260522-firm-grade-landing-site
+- Replaced the prior single-page AI-heavy landing surface with a firm-grade, deterministic ML trading operations homepage focused on paper-first execution, data lineage, risk gates, operating state, and auditability.
+- Added a multi-page route model for `/platform`, `/operating-model`, `/data`, `/risk`, and `/performance`; redirected `/how-it-works` to the operating model; updated research posts away from broad AI/autonomous-fund claims.
+- Added shared landing content data, stronger global metadata, JSON-LD software schema, route-level canonical metadata, expanded sitemap coverage, and robots sitemap wiring.
+- Validation: `npm run build` passed in `landing-next`; Playwright screenshots were captured for 1440x1200 and 390x1200; local route checks returned 200 for `/platform`, `/operating-model`, `/data`, `/risk`, and `/performance`; sitemap, robots, and homepage SEO assertions passed.

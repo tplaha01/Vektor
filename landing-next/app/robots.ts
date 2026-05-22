@@ -1,12 +1,13 @@
-import { MetadataRoute } from 'next';
+import { MetadataRoute } from "next";
+import { baseUrl } from "../lib/site";
 
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
-      userAgent: '*',
-      allow: '/',
-      disallow: ['/api', '/.next'],
+      userAgent: "*",
+      allow: "/",
+      disallow: ["/api", "/.next"],
     },
-    sitemap: 'https://vektor-landing.vercel.app/sitemap.xml',
+    sitemap: `${baseUrl}/sitemap.xml`,
   };
 }
