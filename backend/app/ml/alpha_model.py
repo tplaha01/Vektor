@@ -238,15 +238,17 @@ def _load_or_train() -> None:
 
     if joblib is not None and MODEL_PATH.exists() and FEATURE_NAMES_PATH.exists():
         try:
-            with _model_lock:
-                _model = joblib.load(MODEL_PATH)
-                _feature_names = joblib.load(FEATURE_NAMES_PATH)
-                if METADATA_PATH.exists():
+            if not METADATA_PATH.exists():
+                logger.info("Saved alpha model has no training metadata; retraining from warehouse")
+            else:
+                with _model_lock:
+                    _model = joblib.load(MODEL_PATH)
+                    _feature_names = joblib.load(FEATURE_NAMES_PATH)
                     _model_metrics = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
-                _model_ready = True
-                _training = False
-            logger.info("Alpha model loaded from disk")
-            return
+                    _model_ready = True
+                    _training = False
+                logger.info("Alpha model loaded from disk")
+                return
         except Exception as exc:
             logger.warning("Failed to load saved alpha model: %s; retraining", exc)
 
