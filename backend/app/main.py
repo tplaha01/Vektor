@@ -193,9 +193,15 @@ async def startup_event():
     except Exception as e:
         monitor.log_component_status("Knowledge Graph", "WARN", str(e))
 
-    # Enforce strict real-data mode outside dev.
+    # Enforce strict real-data mode outside dev unless deterministic ML mode is
+    # intentionally running with AI disabled and guarded paper execution.
     try:
-        if settings.ENV.strip().lower() not in {"dev", "development"} and not data_integrity_guard.strict_mode_enabled():
+        deterministic_mode = bool(getattr(settings, "DETERMINISTIC_RUNTIME_MODE", False))
+        if (
+            settings.ENV.strip().lower() not in {"dev", "development"}
+            and not deterministic_mode
+            and not data_integrity_guard.strict_mode_enabled()
+        ):
             data_integrity_guard.set_strict_mode(True, reason="enforced_non_dev_environment")
             monitor.log_component_status(
                 "Data Integrity Guard",
@@ -206,7 +212,10 @@ async def startup_event():
             monitor.log_component_status(
                 "Data Integrity Guard",
                 "OK",
-                f"strict_real_data_only={data_integrity_guard.strict_mode_enabled()}",
+                (
+                    f"strict_real_data_only={data_integrity_guard.strict_mode_enabled()} "
+                    f"deterministic_runtime_mode={deterministic_mode}"
+                ),
             )
     except Exception as e:
         monitor.log_component_status("Data Integrity Guard", "WARN", str(e))

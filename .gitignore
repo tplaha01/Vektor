@@ -14,6 +14,8 @@ env/
 # Environment — NEVER commit real keys
 backend/.env
 .env
+.env*.local
+.vercel/
 
 # Node
 frontend/node_modules/
@@ -35,6 +37,7 @@ backend/knowledge_graph/
 landing-next/node_modules/
 landing-next/.next/
 landing-next/.env
+landing-next/output/
 *.log
 *.db
 *.db-wal

@@ -2366,6 +2366,13 @@
   gap: 3px;
 }
 
+.system-halt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
 .setting-runtime-checklist {
   margin-top: 10px;
 }

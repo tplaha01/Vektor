@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 import pandas as pd
 
 from app.config import get_settings
@@ -41,11 +43,33 @@ class _FakeFeed:
         return 100.0 if symbol == "AAPL" else 50.0
 
     def history(self, symbol: str, bars: int = 260):
+        today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
         return pd.DataFrame(
             [
-                {"ts": "2026-05-13T00:00:00Z", "open": 98, "high": 101, "low": 97, "close": 100, "volume": 1_000_000},
-                {"ts": "2026-05-14T00:00:00Z", "open": 100, "high": 103, "low": 99, "close": 102, "volume": 1_200_000},
-                {"ts": "2026-05-15T00:00:00Z", "open": 102, "high": 104, "low": 101, "close": 103, "volume": 1_400_000},
+                {
+                    "ts": (today - timedelta(days=2)).isoformat().replace("+00:00", "Z"),
+                    "open": 98,
+                    "high": 101,
+                    "low": 97,
+                    "close": 100,
+                    "volume": 1_000_000,
+                },
+                {
+                    "ts": (today - timedelta(days=1)).isoformat().replace("+00:00", "Z"),
+                    "open": 100,
+                    "high": 103,
+                    "low": 99,
+                    "close": 102,
+                    "volume": 1_200_000,
+                },
+                {
+                    "ts": today.isoformat().replace("+00:00", "Z"),
+                    "open": 102,
+                    "high": 104,
+                    "low": 101,
+                    "close": 103,
+                    "volume": 1_400_000,
+                },
             ]
         )
 
@@ -71,7 +95,7 @@ def test_quant_data_pipeline_persists_canonical_rows_and_features(tmp_path, monk
                 "headline": f"{symbol} earnings beat expectations",
                 "source": "UnitTestNews",
                 "url": "https://example.com/aapl",
-                "published_at": "2026-05-15T09:00:00Z",
+                "published_at": utc_iso(),
             }
         ],
     )

@@ -315,6 +315,34 @@ def test_set_strict_mode_endpoint_updates_guard(monkeypatch):
     assert graph.events[0]["event_type"] == "runtime.control.set_strict_mode"
 
 
+def test_deterministic_ml_recover_disables_strict_mode_and_clears_halt(monkeypatch):
+    runtime = _StubRuntime(started=False)
+    guard = _StubGuard(halted=True, reason="real_data_required:provider:fallback")
+    graph = _StubKnowledgeGraph()
+    audit = _StubAudit()
+    monkeypatch.setattr(admin_routes, "fund_agent_runtime", runtime)
+    monkeypatch.setattr(admin_routes, "data_integrity_guard", guard)
+    monkeypatch.setattr(admin_routes, "knowledge_graph", graph)
+    monkeypatch.setattr(admin_routes, "audit_log", audit)
+
+    client = _client()
+    response = client.post(
+        "/api/admin/system/deterministic-ml/recover",
+        json={"reason": "deterministic_ml_test"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["ok"] is True
+    assert body["action"] == "deterministic_ml_recovered"
+    assert body["halted"] is False
+    assert body["strict_real_data_only"] is False
+    assert body["halt_auto_cleared"] is True
+    assert guard.set_strict_calls == 1
+    assert graph.events[0]["event_type"] == "runtime.control.deterministic_ml_recover"
+    assert graph.events[0]["payload"]["status"] == "recovered"
+
+
 def test_data_integrity_drill_endpoint_trips_halt_on_fallback(monkeypatch):
     runtime = _StubRuntime(started=True)
     guard = _StubGuard(halted=False, reason=None)

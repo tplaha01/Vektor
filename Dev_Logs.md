@@ -6984,3 +6984,13 @@ notes: Added -UseSslipHost to deploy_aws_backend.ps1 so an EC2 Elastic IP can se
 - Redesigned the current `landing-next/app/page.tsx` around the Vektor brand, institutional copy, a compact Three.js topology, operating-console preview, explicit operating loop, principles, agent bench, and paper-mode CTA.
 - Removed duplicate App Router files for `/`, `/robots.txt`, and `/sitemap.xml`; fixed landing dependency and TypeScript build blockers; removed invalid `next.config.mjs` option.
 - Validation: `npm run build` passed in the clean main worktree; Playwright screenshots were captured for 1440x1000 and 390x900; canvas pixel checks confirmed the Three.js scene is nonblank and moving on desktop and mobile.
+2026-05-21T23:29:29-07:00 START run-20260521-admin-deterministic-trading-readiness
+- Goal: make the admin system functional when it reports `System halted`, shift near-term product behavior toward deterministic ML-based automatic paper trading, and document how data ingestion currently supports ML/trading.
+- Context: user wants AI orchestration deferred and wants the current admin/data/ML trading stack made operational and explained in detail.
+- Verification plan: use codebase-memory MCP to trace admin halt/status paths and data/ML routes, inspect live/local runtime state where possible, patch focused code paths, run relevant backend/frontend tests or builds, update run logs and knowledge graph, then refresh the index.
+2026-05-21T23:49:10-07:00 END run-20260521-admin-deterministic-trading-readiness
+- Added deterministic ML recovery control for admin system halts: backend endpoint, frontend API call, banner/action buttons, and audit event coverage.
+- Updated backend startup so non-dev deterministic runtime mode can preserve `REAL_DATA_STRICT_MODE=false` instead of re-enabling strict halt behavior.
+- Kept live execution in paper-only mode and AI disabled; deployed backend fixes to the west VM, persisted `REAL_DATA_STRICT_MODE=false`, restarted `vektor-backend`, and verified live admin status is Healthy/Provider/Paper Only/AI Disabled/not halted.
+- Fixed date-drift in the data-pipeline test fixture so the fresh-data path remains fresh relative to the current test date.
+- Validation: frontend `npm run build` passed; `test_admin_runtime_controls.py` and `test_data_pipeline.py` passed together with 16 tests; live ML status returned ready with 39 features; live status-badges returned `strict_real_data_only=false` and `halted=false`.

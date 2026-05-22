@@ -1870,8 +1870,9 @@ const Admin = () => {
       if (action === 'pause') await adminAPI.pauseRuntime('ceo_admin_pause');
       if (action === 'resume') await adminAPI.resumeRuntime('ceo_admin_resume');
       if (action === 'clear_halt') await adminAPI.clearSystemHalt('ceo_admin_clear_halt');
+      if (action === 'recover_deterministic_ml') await adminAPI.recoverDeterministicMlRuntime('ceo_admin_deterministic_ml_recover');
       if (action === 'kick_autopilot') await adminAPI.kickAutopilot('');
-      success(`Action complete: ${action}`);
+      success(action === 'recover_deterministic_ml' ? 'Deterministic ML mode recovered' : `Action complete: ${action}`);
       await fetchAdminState();
     } catch (err) {
       showError(`Control action failed: ${err.message}`);
@@ -2822,6 +2823,14 @@ const Admin = () => {
                         ))}
                       </ul>
                     )}
+                    <div className="system-halt-actions">
+                      <button className="btn-primary" onClick={() => runControlAction('recover_deterministic_ml')} disabled={controlBusy !== ''}>
+                        {controlBusy === 'recover_deterministic_ml' ? 'Recovering...' : 'Recover deterministic ML mode'}
+                      </button>
+                      <button className="btn-secondary" onClick={() => runControlAction('clear_halt')} disabled={controlBusy !== ''}>
+                        {controlBusy === 'clear_halt' ? 'Clearing...' : 'Clear halt only'}
+                      </button>
+                    </div>
                   </section>
                 )}
 
@@ -2955,6 +2964,9 @@ const Admin = () => {
                               </button>
                               <button className="btn-secondary" onClick={() => runControlAction('kick_autopilot')} disabled={controlBusy !== '' || Boolean(systemStatus?.halt?.halted)}>
                                 {controlBusy === 'kick_autopilot' ? 'Dispatching...' : 'Run scout cycle'}
+                              </button>
+                              <button className="btn-primary" onClick={() => runControlAction('recover_deterministic_ml')} disabled={controlBusy !== '' || !Boolean(systemStatus?.halt?.halted)}>
+                                {controlBusy === 'recover_deterministic_ml' ? 'Recovering...' : 'Recover deterministic ML'}
                               </button>
                               <button className="btn-secondary" onClick={() => runControlAction('clear_halt')} disabled={controlBusy !== '' || !Boolean(systemStatus?.halt?.halted)}>
                                 {controlBusy === 'clear_halt' ? 'Clearing...' : 'Clear halt'}

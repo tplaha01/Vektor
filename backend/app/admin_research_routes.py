@@ -1184,6 +1184,49 @@ async def clear_system_halt(body: RuntimeControlIn):
     return response
 
 
+@router.post("/system/deterministic-ml/recover", response_model=dict)
+async def recover_deterministic_ml_runtime(body: RuntimeControlIn):
+    reason = body.reason or "deterministic_ml_recover"
+    previous_status = data_integrity_guard.status()
+    strict_result = data_integrity_guard.set_strict_mode(False, reason=reason)
+    clear_result: dict[str, Any] = {
+        "cleared": False,
+        "reason": reason,
+        "previous_halt_reason": previous_status.get("halt_reason"),
+        "previous_halted_at": previous_status.get("halted_at"),
+    }
+    if data_integrity_guard.halted():
+        clear_result = data_integrity_guard.clear_halt(reason=reason)
+    current_status = data_integrity_guard.status()
+    runtime = fund_agent_runtime.status()
+    response = {
+        "ok": True,
+        "action": "deterministic_ml_recovered",
+        "reason": reason,
+        "runtime_started": bool(runtime.get("started")),
+        "strict_real_data_only": bool(current_status.get("strict_real_data_only")),
+        "strict_real_data_only_previous": bool(previous_status.get("strict_real_data_only")),
+        "halted": bool(current_status.get("halted")),
+        "halt_auto_cleared": bool(strict_result.get("halt_auto_cleared")),
+        "clear_result": clear_result,
+        "data_integrity": current_status,
+    }
+    _record_runtime_control_event(
+        action="deterministic_ml_recover",
+        status="recovered",
+        reason=reason,
+        payload={
+            "runtime_started": response["runtime_started"],
+            "strict_real_data_only": response["strict_real_data_only"],
+            "strict_real_data_only_previous": response["strict_real_data_only_previous"],
+            "previous_halt_reason": previous_status.get("halt_reason"),
+            "halt_auto_cleared": response["halt_auto_cleared"],
+            "halted": response["halted"],
+        },
+    )
+    return response
+
+
 @router.post("/system/paper-broker/capital", response_model=dict)
 async def update_paper_broker_capital(body: PaperBrokerCapitalIn):
     settings = get_settings()

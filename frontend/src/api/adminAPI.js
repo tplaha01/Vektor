@@ -87,6 +87,13 @@ export const adminAPI = {
       body: JSON.stringify({ reason }),
     });
   },
+  recoverDeterministicMlRuntime: async (reason = "deterministic_ml_recover") => {
+    return fetchJson(`${API_BASE}/admin/system/deterministic-ml/recover`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason }),
+    });
+  },
   kickAutopilot: async (runId = "") => {
     return fetchJson(`${API_BASE}/admin/system/autopilot/kick`, {
       method: "POST",
