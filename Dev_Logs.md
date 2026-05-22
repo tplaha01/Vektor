@@ -7011,3 +7011,12 @@ notes: Added -UseSslipHost to deploy_aws_backend.ps1 so an EC2 Elastic IP can se
 - Rethemed the landing CSS from black/green to a black/purple Vektor palette, including global tokens, CTA gradients, header active states, hover borders, article accents, code blocks, hero glow, and operating-facts band.
 - Removed stale blue/green hard-coded color literals from `landing-next/app/globals.css` so the multi-page landing site presents a consistent purple brand system.
 - Validation: `npm run build` passed in `landing-next`; Playwright screenshots were captured for 1440x1200 and 390x1200; `/platform`, `/data`, and `/risk` returned 200 locally; CSS color scan found no old green/blue literal matches.
+2026-05-22T00:43:00-07:00 START run-20260522-quant-ml-db-inspection
+- Goal: move the actual trading backend toward quant-grade ML by training from the app's own warehouse data and add a safe way to inspect the backend database.
+- Context: user wants to stop working on the landing page, focus on the real trading system, make the ML path quant-level, and know how to view the backend database.
+- Verification plan: map current ML/data/database paths with codebase-memory MCP, add read-only DB inspection tooling, add warehouse-backed ML dataset/training behavior with tests, run focused backend tests, update knowledge graph, refresh index, and push to main if code changes pass.
+2026-05-22T01:02:00-07:00 END run-20260522-quant-ml-db-inspection
+- Added `backend/scripts/inspect_db.py`, a read-only backend database inspector for SQLite or Postgres that prints table names, selected counts, and latest rows while masking Postgres credentials and refusing to create a fake SQLite file when the path is wrong.
+- Added `backend/app/ml/training_data.py` to build supervised LightGBM training rows from persisted warehouse bars with forward-return labels, benchmark adjustment, transaction-cost haircut, and quality-score filtering.
+- Updated `backend/app/ml/alpha_model.py` so training prefers app-owned warehouse data, records model metrics/source/validation stats, uses temporal validation with embargo, and falls back to Yahoo only when the warehouse is too thin.
+- Validation: `pytest backend/tests/test_ml_training_data.py backend/tests/test_data_pipeline.py -q` passed with 7 tests; `python -m py_compile backend/app/ml/alpha_model.py backend/app/ml/training_data.py backend/scripts/inspect_db.py` passed; the inspector read the existing local `backend/trading_bot.db` and reported positions=6, orders=12, data_market_bars=7120, data_feature_vectors=8241.
