@@ -7003,3 +7003,11 @@ notes: Added -UseSslipHost to deploy_aws_backend.ps1 so an EC2 Elastic IP can se
 - Added a multi-page route model for `/platform`, `/operating-model`, `/data`, `/risk`, and `/performance`; redirected `/how-it-works` to the operating model; updated research posts away from broad AI/autonomous-fund claims.
 - Added shared landing content data, stronger global metadata, JSON-LD software schema, route-level canonical metadata, expanded sitemap coverage, and robots sitemap wiring.
 - Validation: `npm run build` passed in `landing-next`; Playwright screenshots were captured for 1440x1200 and 390x1200; local route checks returned 200 for `/platform`, `/operating-model`, `/data`, `/risk`, and `/performance`; sitemap, robots, and homepage SEO assertions passed.
+2026-05-22T00:24:00-07:00 START run-20260522-landing-purple-theme
+- Goal: retheme the firm-grade landing site from the interim black/green palette to a black/purple Vektor brand palette while preserving the multi-page operating model and SEO work.
+- Context: user rejected the green palette and asked for black/purple to better match the brand.
+- Verification plan: use codebase-memory MCP to locate landing theme surfaces, update CSS tokens and accent states, run landing build, inspect desktop/mobile screenshots, push to main, and refresh codebase-memory index.
+2026-05-22T00:31:00-07:00 END run-20260522-landing-purple-theme
+- Rethemed the landing CSS from black/green to a black/purple Vektor palette, including global tokens, CTA gradients, header active states, hover borders, article accents, code blocks, hero glow, and operating-facts band.
+- Removed stale blue/green hard-coded color literals from `landing-next/app/globals.css` so the multi-page landing site presents a consistent purple brand system.
+- Validation: `npm run build` passed in `landing-next`; Playwright screenshots were captured for 1440x1200 and 390x1200; `/platform`, `/data`, and `/risk` returned 200 locally; CSS color scan found no old green/blue literal matches.
