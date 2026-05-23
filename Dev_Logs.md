@@ -7601,3 +7601,55 @@ files:
 - knowledge_graph/events.jsonl
 validation: session-bootstrap + select-next-feature passed; init script run; pytest tests/test_core_engine.py tests/test_signals.py (6 passed); pytest tests/test_fund_pipeline.py (1 skipped); pytest tests/test_admin_lineage_detail.py tests/test_admin_runtime_controls.py (13 passed); compileall app/core_engine app/strategies/deterministic_ml_engine.py app/strategies/hybrid.py app/fund/orchestrator.py
 notes: Core engine now runs deterministic point-in-time signal generation with profile-aware freshness/quality/uncertainty gates while execution remains outside the core signal pipeline.
+[2026-05-23T18:43:34Z] [START]
+entry_id: devlog-20260523-core-engine-ui-quant-adapt
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-core-engine-ui-quant-adapt
+git_branch: tmp-deploy-main
+git_commit_start: 5533183855db8f5056a5abb63a18c5bdf5d29989
+git_commit_end:
+scope: Adapt app routes and UI to core-engine deterministic signal pipeline, remove legacy analytics endpoint usage, and expose profile-driven signal controls.
+active_phase: phase_alpha_backend_core
+files:
+- backend/app/main.py
+- backend/app/models.py
+- backend/app/strategies/hybrid.py
+- backend/app/admin_research_routes.py
+- frontend/src/api.js
+- frontend/src/pages/AlfredDashboard.jsx
+- frontend/src/components/SignalCard.jsx
+- frontend/src/components/StrategyDashboard.jsx
+- frontend/src/pages/PublicPnlPage.jsx
+- frontend/src/components/Dashboard.jsx
+validation: in_progress
+notes: Started final migration pass to core-engine-only signal generation surfaces with profile-aware UI and legacy analytics removal.
+[2026-05-23T18:45:11Z] [END]
+entry_id: devlog-20260523-core-engine-ui-quant-adapt
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-core-engine-ui-quant-adapt
+git_branch: tmp-deploy-main
+git_commit_start: 5533183855db8f5056a5abb63a18c5bdf5d29989
+git_commit_end: cbae7df4cff502b2c39882990f7166061c5559b0
+scope: Adapt app routes and UI to core-engine deterministic signal pipeline, remove legacy analytics endpoint usage, and expose profile-driven signal controls.
+active_phase: phase_alpha_backend_core
+files:
+- backend/app/main.py
+- backend/app/models.py
+- backend/app/strategies/hybrid.py
+- backend/app/admin_research_routes.py
+- frontend/src/api.js
+- frontend/src/pages/AlfredDashboard.jsx
+- frontend/src/components/SignalCard.jsx
+- frontend/src/components/StrategyDashboard.jsx
+- frontend/src/pages/PublicPnlPage.jsx
+- frontend/src/components/Dashboard.jsx
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: pytest tests/test_signals.py tests/test_admin_metrics_summary.py -q --capture=no (3 passed); npm run build in frontend (passed); ..\scripts\index-repo.ps1 status=indexed nodes=8973 edges=14983
+notes: Legacy analytics endpoint/client usage removed from operator surfaces, signal generation is profile-driven through core engine, and UI now renders deterministic core diagnostics and ML-context performance views.
