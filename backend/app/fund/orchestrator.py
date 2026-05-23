@@ -10,6 +10,7 @@ from typing import Any, Callable
 
 from app.broker.paper import PaperBroker
 from app.config import get_settings
+from app.core_engine import run_core_engine
 from app.core.context import broker as shared_broker
 from app.data.market_data import FEED
 from app.fund.allocator import (
@@ -63,7 +64,6 @@ from app.fund.sentiment_ingest import (
     SentimentSnapshot,
     sentiment_ingest,
 )
-from app.strategies.deterministic_ml_engine import deterministic_signal
 from app.fund.task_bus import TaskBus, task_bus
 from app.storage import db as storage_db
 
@@ -739,7 +739,7 @@ class FirmOrchestrator:
         routing_mode = infer_routing_mode(normalized_symbol, asset_class)
         underlier_symbol = infer_underlier_symbol(normalized_symbol, asset_class)
         discovery_snapshot = self.latest_discovery_opportunity(run_id=run_id, symbol=normalized_symbol)
-        engine_signal = deterministic_signal(normalized_symbol).to_dict()
+        engine_signal = run_core_engine(normalized_symbol).to_dict()
         score = float(engine_signal.get("score") or 0.0)
         confidence = float(engine_signal.get("confidence") or 0.0)
         direction = "long_bias" if score >= 0 else "short_bias"
@@ -1175,6 +1175,22 @@ class FirmOrchestrator:
             if estimated_notional_usd is not None
             else float(intent.quantity) * float(intent.price or 0.0)
         )
+        intent_metadata = dict(intent.metadata or {})
+        execution_payload = {
+            **execution_result,
+            "intent": {
+                "symbol": intent.symbol,
+                "side": intent.side,
+                "quantity": float(intent.quantity),
+                "asset_class": intent.asset_class,
+                "instrument_type": intent.instrument_type,
+                "routing_mode": intent.routing_mode,
+                "underlier_symbol": intent.underlier_symbol,
+                "sleeve": intent.sleeve,
+                "metadata": intent_metadata,
+            },
+            "intent_metadata": intent_metadata,
+        }
         sleeve = Sleeve(str(intent.sleeve or "tactical"))
         if execution_status == "executed":
             self._update_run_sleeve_used_notional(
@@ -1209,7 +1225,7 @@ class FirmOrchestrator:
             event_type="execution.processed",
             decision_id=intent.decision_id,
             order_id=order_id,
-            payload=execution_result,
+            payload=execution_payload,
         )
         self._audit_log.record(
             "execution.intent.processed",
@@ -1234,6 +1250,16 @@ class FirmOrchestrator:
                 "asset_class": intent.asset_class,
                 "sleeve_budget": self._ensure_run_sleeve_budget(run_id=intent.run_id, sleeve=sleeve),
             },
+        )
+        self._publish_realtime(
+            "trade_execution",
+            self._build_trade_execution_event(
+                intent=intent,
+                execution_result=execution_result,
+                estimated_notional_usd=estimated_notional,
+                order_id=order_id,
+                execution_status=execution_status,
+            ),
         )
         return {
             "status": execution_status,
@@ -1661,6 +1687,59 @@ class FirmOrchestrator:
     def _capture_knowledge_event(self, source: str, event: dict[str, Any]) -> None:
         captured = self._knowledge_graph.capture(source, event)
         self._publish_realtime(source, captured)
+
+    def _build_trade_execution_event(
+        self,
+        *,
+        intent: AdapterExecutionIntent,
+        execution_result: dict[str, Any],
+        estimated_notional_usd: float,
+        order_id: str | None,
+        execution_status: str | None,
+    ) -> dict[str, Any]:
+        metadata = dict(intent.metadata or {})
+        decision_scoring = metadata.get("decision_scoring") if isinstance(metadata.get("decision_scoring"), dict) else None
+        deterministic_ml_signal = (
+            metadata.get("deterministic_ml_signal")
+            if isinstance(metadata.get("deterministic_ml_signal"), dict)
+            else None
+        )
+        risk_gate = metadata.get("risk_gate") if isinstance(metadata.get("risk_gate"), dict) else None
+        ml_threshold_profile = (
+            metadata.get("ml_threshold_profile")
+            if isinstance(metadata.get("ml_threshold_profile"), dict)
+            else None
+        )
+        order = execution_result.get("order") if isinstance(execution_result.get("order"), dict) else None
+        return {
+            "event_type": "trade.executed" if execution_status == "executed" else "trade.rejected",
+            "run_id": intent.run_id,
+            "agent_id": intent.agent_id,
+            "decision_id": intent.decision_id,
+            "risk_id": intent.risk_id,
+            "intent_id": intent.intent_id,
+            "order_id": order_id,
+            "execution_status": execution_status,
+            "execution_reason": execution_result.get("reason"),
+            "symbol": intent.symbol,
+            "side": intent.side,
+            "quantity": float(intent.quantity),
+            "price": float(intent.price or 0.0),
+            "sleeve": intent.sleeve,
+            "asset_class": intent.asset_class,
+            "instrument_type": intent.instrument_type,
+            "routing_mode": intent.routing_mode,
+            "underlier_symbol": intent.underlier_symbol,
+            "estimated_notional_usd": float(estimated_notional_usd),
+            "decision_scoring": dict(decision_scoring) if isinstance(decision_scoring, dict) else None,
+            "math_summary": (decision_scoring or {}).get("math_summary") if isinstance(decision_scoring, dict) else None,
+            "deterministic_ml_signal": dict(deterministic_ml_signal)
+            if isinstance(deterministic_ml_signal, dict)
+            else None,
+            "risk_gate": dict(risk_gate) if isinstance(risk_gate, dict) else None,
+            "ml_threshold_profile": dict(ml_threshold_profile) if isinstance(ml_threshold_profile, dict) else None,
+            "order": dict(order) if isinstance(order, dict) else None,
+        }
 
     def _publish_realtime(self, source: str, event: dict[str, Any] | None) -> None:
         if not isinstance(event, dict):

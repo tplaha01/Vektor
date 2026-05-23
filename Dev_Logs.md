@@ -7353,3 +7353,251 @@ files:
 - knowledge_graph/events.jsonl
 validation: py -3 -m pytest backend\tests\test_data_pipeline.py backend\tests\test_quant_regime.py backend\tests\test_signals.py -q -o cache_dir=C:\tmp\tradingbot-pytest-cache (10 passed); py -3 -m pytest backend\tests\test_fund_policy_gate.py backend\tests\test_fund_agent_runtime.py backend\tests\test_fund_pipeline.py -q -o cache_dir=C:\tmp\tradingbot-pytest-cache (20 passed, 1 skipped); py -3 -c "from app.ml.alpha_model import ensure_model, model_status; ensure_model(); print(model_status())" (ready=True, features=39); py -3 -c "from app.storage import db as storage_db; storage_db.init_db(); from app.data_pipeline.service import data_pipeline; print(data_pipeline.status())" (warehouse counts and provider health reported)
 notes: Verified deterministic ML signal path, policy-gate thresholds, and quant data-pipeline persistence paths; observed MCP graph index drift (data_pipeline package not indexed) despite local index refresh.
+
+[2026-05-23T09:10:03Z] [START]
+entry_id: devlog-20260523-core-engine-signal-plan
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-core-engine-signal-plan
+git_branch: tmp-deploy-main
+git_commit_start: d6d07a0969e4b11abcc17c306e0ba3012102920f
+git_commit_end:
+scope: Create CORE_ENGINE.md implementation plan for deterministic multi-model ML/RL/DL signal and stacked intent engine.
+active_phase: phase_alpha_backend_core
+files:
+- docs/CORE_ENGINE.md
+validation: documentation_planning_only
+notes: Added core-engine architecture, model stack, training protocol, deterministic policy, rollout phases, and acceptance gates.
+
+[2026-05-23T09:11:03Z] [END]
+entry_id: devlog-20260523-core-engine-signal-plan
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-core-engine-signal-plan
+git_branch: tmp-deploy-main
+git_commit_start: d6d07a0969e4b11abcc17c306e0ba3012102920f
+git_commit_end: d6d07a0969e4b11abcc17c306e0ba3012102920f
+scope: Create CORE_ENGINE.md implementation plan for deterministic multi-model ML/RL/DL signal and stacked intent engine.
+active_phase: phase_alpha_backend_core
+files:
+- docs/CORE_ENGINE.md
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: docs-only change verified by file inspection
+notes: Session output is a technical implementation blueprint for technical/fundamental/sentiment domain models plus meta-intent stacking and deterministic policy gating.
+
+## START 2026-05-23T09:29:23.4449183Z - CORE_ENGINE alignment and backend build session
+- Workdir: backend
+- Objective: map CORE_ENGINE.md against current Vektor implementation, begin highest-priority missing engine work, validate, ingest, and refresh index.
+
+[2026-05-23T17:17:00Z] [START]
+entry_id: devlog-20260523-codex-sandbox-config-revert
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-codex-sandbox-config-revert
+git_branch: tmp-deploy-main
+git_commit_start: d6d07a0969e4b11abcc17c306e0ba3012102920f
+git_commit_end:
+scope: Revert Codex sandbox configuration from danger-full-access/never back to workspace-write/on-request.
+active_phase: config_revert
+files:
+- .codex/config.toml
+validation: py -3 -c "import tomllib; tomllib.load(open('.codex/config.toml','rb')); print('config ok')" passed; .codex/config.toml reports approval_policy=on-request and sandbox_mode=workspace-write; scripts/index-repo.ps1 returned status=indexed nodes=8851 edges=14928 with a non-fatal path warning
+notes: User clarified the stream disconnected before response symptom was from Codex, so sandbox_mode and approval_policy were restored to the committed repo defaults.
+
+[2026-05-23T17:18:49Z] [END]
+entry_id: devlog-20260523-codex-sandbox-config-revert
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-codex-sandbox-config-revert
+git_branch: tmp-deploy-main
+git_commit_start: d6d07a0969e4b11abcc17c306e0ba3012102920f
+git_commit_end: d6d07a0969e4b11abcc17c306e0ba3012102920f
+scope: Revert Codex sandbox configuration from danger-full-access/never back to workspace-write/on-request.
+active_phase: complete
+files:
+- .codex/config.toml
+- Dev_Logs.md
+validation: py -3 -c "import tomllib; tomllib.load(open('.codex/config.toml','rb')); print('config ok')" passed; .codex/config.toml reports approval_policy=on-request and sandbox_mode=workspace-write; scripts/index-repo.ps1 returned status=indexed nodes=8851 edges=14928 with a non-fatal path warning
+notes: Effective repo config now uses approval_policy=on-request and sandbox_mode=workspace-write.
+
+[2026-05-23T17:41:00Z] [START]
+entry_id: devlog-20260523-core-engine-implementation
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-core-engine-implementation
+git_branch: tmp-deploy-main
+git_commit_start: d6d07a0969e4b11abcc17c306e0ba3012102920f
+git_commit_end:
+scope: Implement docs/CORE_ENGINE.md in backend core with deterministic contracts, feature store, domain packs, stacker, policy, and strategy integration.
+active_phase: phase_alpha_backend_core
+files:
+- docs/CORE_ENGINE.md
+- backend/app/core_engine/
+- backend/app/strategies/hybrid.py
+- backend/app/config.py
+- backend/tests/test_core_engine.py
+- backend/tests/test_signals.py
+validation: in_progress
+notes: Began implementation of core engine modules and wiring into hybrid signal contract.
+
+[2026-05-23T17:46:00Z] [END]
+entry_id: devlog-20260523-core-engine-implementation
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-core-engine-implementation
+git_branch: tmp-deploy-main
+git_commit_start: d6d07a0969e4b11abcc17c306e0ba3012102920f
+git_commit_end: d6d07a0969e4b11abcc17c306e0ba3012102920f
+scope: Implement docs/CORE_ENGINE.md in backend core with deterministic contracts, feature store, domain packs, stacker, policy, and strategy integration.
+active_phase: phase_alpha_backend_core
+files:
+- backend/app/core_engine/contracts.py
+- backend/app/core_engine/feature_store.py
+- backend/app/core_engine/domain_models/technical_pack.py
+- backend/app/core_engine/domain_models/fundamental_pack.py
+- backend/app/core_engine/domain_models/sentiment_pack.py
+- backend/app/core_engine/stacking/meta_intent.py
+- backend/app/core_engine/policy/deterministic_policy.py
+- backend/app/core_engine/registry/model_registry.py
+- backend/app/core_engine/training/pipelines/dataset_builder.py
+- backend/app/core_engine/training/pipelines/replay.py
+- backend/app/core_engine/eval/metrics.py
+- backend/app/core_engine/__init__.py
+- backend/app/strategies/hybrid.py
+- backend/app/config.py
+- backend/tests/test_core_engine.py
+- backend/tests/test_signals.py
+- Dev_Logs.md
+validation: bash -lc 'source .venv/bin/activate && pytest tests/test_core_engine.py tests/test_signals.py -q' (3 passed)
+notes: Core engine baseline from CORE_ENGINE.md is now implemented and active in hybrid signal path with deterministic lineage, policy gating, and focused test coverage.
+
+[2026-05-23T18:10:00Z] [START]
+entry_id: devlog-20260523-core-signal-only-pipeline
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-core-signal-only-pipeline
+git_branch: tmp-deploy-main
+git_commit_start: d6d07a0969e4b11abcc17c306e0ba3012102920f
+git_commit_end:
+scope: Enforce core engine as signal-generation-only pipeline and route legacy signal generation paths through core-engine outputs.
+active_phase: phase_alpha_backend_core
+files:
+- backend/app/core_engine/contracts.py
+- backend/app/core_engine/policy/deterministic_policy.py
+- backend/app/core_engine/__init__.py
+- backend/app/strategies/deterministic_ml_engine.py
+- backend/app/fund/orchestrator.py
+- backend/app/config.py
+- backend/tests/test_core_engine.py
+validation: in_progress
+notes: Began signal-only enforcement and call-path unification so execution logic remains outside core engine.
+
+[2026-05-23T18:17:00Z] [END]
+entry_id: devlog-20260523-core-signal-only-pipeline
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-core-signal-only-pipeline
+git_branch: tmp-deploy-main
+git_commit_start: d6d07a0969e4b11abcc17c306e0ba3012102920f
+git_commit_end: d6d07a0969e4b11abcc17c306e0ba3012102920f
+scope: Enforce core engine as signal-generation-only pipeline and route legacy signal generation paths through core-engine outputs.
+active_phase: phase_alpha_backend_core
+files:
+- backend/app/core_engine/contracts.py
+- backend/app/core_engine/policy/deterministic_policy.py
+- backend/app/core_engine/__init__.py
+- backend/app/strategies/deterministic_ml_engine.py
+- backend/app/fund/orchestrator.py
+- backend/app/config.py
+- backend/tests/test_core_engine.py
+- backend/tests/test_signals.py
+- backend/tests/test_fund_policy_gate.py
+- Dev_Logs.md
+validation: bash -lc 'source .venv/bin/activate && pytest tests/test_core_engine.py tests/test_signals.py tests/test_fund_policy_gate.py -q' (13 passed); compileall app/core_engine app/strategies/deterministic_ml_engine.py app/fund/orchestrator.py
+notes: Core engine now remains signal-pipeline-only while both hybrid and legacy deterministic signal paths use it for deterministic ML/algo signal generation.
+
+[2026-05-23T18:14:34Z] [START]
+entry_id: devlog-20260523-core-signal-quant-prod
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-core-signal-quant-prod
+git_branch: tmp-deploy-main
+git_commit_start: d6d07a0969e4b11abcc17c306e0ba3012102920f
+git_commit_end:
+scope: Harden core-engine deterministic signal pipeline, remove deterministic legacy engine logic, and enforce quant-grade signal-only gating.
+active_phase: phase_alpha_backend_core
+files:
+- backend/app/core_engine/contracts.py
+- backend/app/core_engine/feature_store.py
+- backend/app/core_engine/domain_models/technical_pack.py
+- backend/app/core_engine/domain_models/fundamental_pack.py
+- backend/app/core_engine/domain_models/sentiment_pack.py
+- backend/app/core_engine/stacking/meta_intent.py
+- backend/app/core_engine/policy/deterministic_policy.py
+- backend/app/core_engine/registry/model_registry.py
+- backend/app/core_engine/__init__.py
+- backend/app/strategies/deterministic_ml_engine.py
+- backend/app/strategies/hybrid.py
+- backend/app/fund/orchestrator.py
+- backend/app/config.py
+- backend/tests/test_core_engine.py
+- backend/tests/test_signals.py
+- backend/tests/test_fund_pipeline.py
+- docs/CORE_ENGINE.md
+- Dev_Logs.md
+validation: in_progress
+notes: Started production-hardening pass for deterministic signal contracts, freshness guards, uncertainty/utility gates, and compatibility wrappers.
+
+[2026-05-23T18:14:34Z] [END]
+entry_id: devlog-20260523-core-signal-quant-prod
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-core-signal-quant-prod
+git_branch: tmp-deploy-main
+git_commit_start: d6d07a0969e4b11abcc17c306e0ba3012102920f
+git_commit_end: d6d07a0969e4b11abcc17c306e0ba3012102920f
+scope: Harden core-engine deterministic signal pipeline, remove deterministic legacy engine logic, and enforce quant-grade signal-only gating.
+active_phase: phase_alpha_backend_core
+files:
+- backend/app/core_engine/contracts.py
+- backend/app/core_engine/feature_store.py
+- backend/app/core_engine/domain_models/technical_pack.py
+- backend/app/core_engine/domain_models/fundamental_pack.py
+- backend/app/core_engine/domain_models/sentiment_pack.py
+- backend/app/core_engine/stacking/meta_intent.py
+- backend/app/core_engine/policy/deterministic_policy.py
+- backend/app/core_engine/registry/model_registry.py
+- backend/app/core_engine/__init__.py
+- backend/app/strategies/deterministic_ml_engine.py
+- backend/app/strategies/hybrid.py
+- backend/app/fund/orchestrator.py
+- backend/app/config.py
+- backend/tests/test_core_engine.py
+- backend/tests/test_signals.py
+- backend/tests/test_fund_pipeline.py
+- docs/CORE_ENGINE.md
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: session-bootstrap + select-next-feature passed; init script run; pytest tests/test_core_engine.py tests/test_signals.py (6 passed); pytest tests/test_fund_pipeline.py (1 skipped); pytest tests/test_admin_lineage_detail.py tests/test_admin_runtime_controls.py (13 passed); compileall app/core_engine app/strategies/deterministic_ml_engine.py app/strategies/hybrid.py app/fund/orchestrator.py
+notes: Core engine now runs deterministic point-in-time signal generation with profile-aware freshness/quality/uncertainty gates while execution remains outside the core signal pipeline.
