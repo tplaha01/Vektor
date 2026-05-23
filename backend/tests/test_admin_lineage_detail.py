@@ -130,3 +130,84 @@ def test_lineage_run_detail_endpoint_returns_drilldown(monkeypatch):
     detail_body = decision_detail.json()
     assert detail_body["decision_id"] == "decision-1"
     assert detail_body["lineage_detail_path"] == f"/api/admin/lineage/run/{run_id}"
+
+
+def test_decision_detail_prefers_execution_metadata_scoring(monkeypatch):
+    _, orchestrator, ledger = _build_orchestrator()
+    run_id = "run-decision-score-1"
+    decision_id = "decision-score-1"
+
+    ledger.add_decision(
+        DecisionRecord(
+            decision_id=decision_id,
+            run_id=run_id,
+            agent_id="trader-agent",
+            sleeve=Sleeve.TACTICAL,
+            thesis_id="thesis-score-1",
+            risk_id="risk-score-1",
+            intent_id="intent-score-1",
+            status="executed",
+        )
+    )
+    ledger.add_event(
+        event_type="execution.processed",
+        decision_id=decision_id,
+        order_id="ord-1",
+        payload={
+            "status": "executed",
+            "order": {
+                "id": "ord-1",
+                "symbol": "AAPL",
+                "side": "buy",
+                "quantity": 5,
+                "avg_price": 100.0,
+            },
+            "intent_metadata": {
+                "decision_scoring": {
+                    "score": 0.91,
+                    "confidence": 0.88,
+                    "direction": "long_bias",
+                    "asset_class": "equities",
+                    "strategy_family": "deterministic_ml_firm_engine",
+                    "horizon": "swing",
+                    "math_summary": "from_intent_metadata",
+                    "metrics": {"ml_confidence": 0.88},
+                },
+                "deterministic_ml_signal": {
+                    "score": 0.91,
+                    "confidence": 0.88,
+                    "model": {"selected": "deterministic_ml"},
+                },
+            },
+        },
+    )
+
+    monkeypatch.setattr(admin_routes, "firm_orchestrator", orchestrator)
+    monkeypatch.setattr(admin_routes, "decision_ledger", ledger)
+    monkeypatch.setattr(
+        orchestrator,
+        "latest_discovery_opportunity",
+        lambda **_: {
+            "score": -0.35,
+            "confidence": 0.1,
+            "direction": "short_bias",
+            "asset_class": "equities",
+            "strategy_family": "fallback_discovery",
+            "horizon": "intraday",
+            "ml": {"math_summary": "from_discovery"},
+        },
+    )
+
+    app = FastAPI()
+    app.include_router(admin_routes.router)
+    client = TestClient(app)
+
+    response = client.get(f"/api/admin/decisions/{decision_id}")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["decision_id"] == decision_id
+    assert body["order_id"] == "ord-1"
+    assert body["decision_scoring"]["score"] == 0.91
+    assert body["decision_scoring"]["math_summary"] == "from_intent_metadata"
+    assert body["trade_rationale"]["execution_status"] == "executed"
+    assert body["deterministic_ml_signal"]["score"] == 0.91

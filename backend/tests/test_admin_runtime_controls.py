@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 import app.admin_research_routes as admin_routes
+from app.fund.contracts import DecisionRecord, Sleeve
+from app.fund.decision_ledger import DecisionLedger
 
 
 class _StubRuntime:
@@ -421,3 +423,65 @@ def test_ops_panel_endpoint_returns_status_and_lineage(monkeypatch):
     assert "status_badges" in body
     assert "runtime_control" in body
     assert "recent_lineage" in body
+    assert "recent_trades" in body
+    assert isinstance(body["recent_trades"], list)
+
+
+def test_ops_panel_endpoint_includes_trade_rationale(monkeypatch):
+    runtime = _StubRuntime(started=True)
+    guard = _StubGuard(halted=False, reason=None)
+    graph = _StubKnowledgeGraph()
+    audit = _StubAudit()
+    ledger = DecisionLedger()
+    decision_id = "decision-ops-panel-1"
+    ledger.add_decision(
+        DecisionRecord(
+            decision_id=decision_id,
+            run_id="run-ops-panel-1",
+            agent_id="trader",
+            sleeve=Sleeve.TACTICAL,
+            thesis_id="thesis-ops-panel-1",
+            risk_id="risk-ops-panel-1",
+            intent_id="intent-ops-panel-1",
+            status="executed",
+        )
+    )
+    ledger.add_event(
+        event_type="execution.processed",
+        decision_id=decision_id,
+        order_id="ord-ops-panel-1",
+        payload={
+            "status": "executed",
+            "order": {"id": "ord-ops-panel-1", "symbol": "NVDA", "side": "buy", "quantity": 2, "avg_price": 100.0},
+            "intent_metadata": {
+                "decision_scoring": {
+                    "score": 0.77,
+                    "confidence": 0.74,
+                    "direction": "long_bias",
+                    "asset_class": "equities",
+                    "strategy_family": "deterministic_ml_firm_engine",
+                    "horizon": "swing",
+                    "math_summary": "ops_panel_metadata",
+                    "metrics": {"ml_confidence": 0.74},
+                }
+            },
+        },
+    )
+
+    monkeypatch.setattr(admin_routes, "fund_agent_runtime", runtime)
+    monkeypatch.setattr(admin_routes, "data_integrity_guard", guard)
+    monkeypatch.setattr(admin_routes, "knowledge_graph", graph)
+    monkeypatch.setattr(admin_routes, "audit_log", audit)
+    monkeypatch.setattr(admin_routes, "decision_ledger", ledger)
+    monkeypatch.setattr(admin_routes, "get_settings", lambda: _Settings())
+
+    client = _client()
+    response = client.get("/api/admin/system/ops/panel?limit=5")
+    assert response.status_code == 200
+    body = response.json()
+    rows = body.get("recent_trades") if isinstance(body.get("recent_trades"), list) else []
+    target = next((row for row in rows if row.get("decision_id") == decision_id), None)
+    assert target is not None
+    assert target["order_id"] == "ord-ops-panel-1"
+    assert target["decision_scoring"]["score"] == 0.77
+    assert target["math_summary"] == "ops_panel_metadata"

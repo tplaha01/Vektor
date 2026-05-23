@@ -9,6 +9,7 @@ from app.fund.decision_ledger import DecisionLedger
 from app.fund.knowledge_graph import KnowledgeGraph
 from app.fund.orchestrator import FirmOrchestrator
 from app.fund.policy_gate import PolicyGate
+from app.fund.realtime_stream import realtime_stream
 from app.fund.research_memory import ResearchMemoryStore
 from app.fund.router import get_agent_runtime, get_orchestrator, router
 from app.fund.sentiment_ingest import SentimentIngestService
@@ -241,3 +242,12 @@ def test_research_to_execution_pipeline_and_inspection_endpoints():
     stream_status = client.get("/fund/stream/status")
     assert stream_status.status_code == 200
     assert stream_status.json()["event_count"] >= 1
+    trade_events = [
+        row
+        for row in realtime_stream.recent(limit=500)
+        if row.get("stream_source") == "trade_execution"
+        and row.get("decision_id") == execution_payload["decision_id"]
+    ]
+    assert len(trade_events) >= 1
+    assert trade_events[-1].get("execution_status") == "executed"
+    assert isinstance(trade_events[-1].get("decision_scoring"), dict)
