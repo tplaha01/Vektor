@@ -47,7 +47,7 @@ export default function Dashboard({ symbol, signal, tick }) {
               )}
             </div>
           ) : (
-            <div className="mt-1 text-xl font-mono text-gray-400">—</div>
+            <div className="mt-1 text-xl font-mono text-gray-400">--</div>
           )}
         </div>
       </div>

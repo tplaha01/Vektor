@@ -4,9 +4,9 @@ from app.config import get_settings
 from app.core_engine import run_core_engine
 
 
-def hybrid_signal(symbol: str) -> dict:
+def hybrid_signal(symbol: str, profile: str | None = None) -> dict:
     settings = get_settings()
-    result = run_core_engine(symbol)
+    result = run_core_engine(symbol, profile=profile)
     payload = result.to_dict()
 
     existing_weights = dict(payload.get('weights') or {})

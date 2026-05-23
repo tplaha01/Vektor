@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { adminAPI } from "../api/adminAPI";
-import { getAnalytics } from "../api";
 import WorkspaceNav from "../components/common/WorkspaceNav";
 
 function currency(value) {
@@ -16,7 +15,8 @@ function percent(value) {
 }
 
 export default function PublicPnlPage() {
-  const [analytics, setAnalytics] = useState(null);
+  const [performanceSummary, setPerformanceSummary] = useState(null);
+  const [mlEffectiveness, setMlEffectiveness] = useState(null);
   const [positions, setPositions] = useState([]);
   const [workersStatus, setWorkersStatus] = useState(null);
   const [error, setError] = useState("");
@@ -27,13 +27,15 @@ export default function PublicPnlPage() {
     const fetchAll = async () => {
       try {
         setError("");
-        const [metricsPayload, positionsPayload, workersPayload] = await Promise.all([
-          getAnalytics(),
+        const [performancePayload, mlPayload, positionsPayload, workersPayload] = await Promise.all([
+          adminAPI.getPerformanceSummary(),
+          adminAPI.getCeoMlEffectiveness(),
           adminAPI.getPaperPositions(),
           adminAPI.getFundWorkersStatus(),
         ]);
         if (canceled) return;
-        setAnalytics(metricsPayload || null);
+        setPerformanceSummary(performancePayload || null);
+        setMlEffectiveness(mlPayload || null);
         setPositions(Array.isArray(positionsPayload) ? positionsPayload : []);
         setWorkersStatus(workersPayload || null);
         setLastUpdate(new Date());
@@ -66,7 +68,9 @@ export default function PublicPnlPage() {
     };
   }, [positions]);
 
-  const metrics = analytics?.metrics || analytics || {};
+  const latestSnapshot = performanceSummary?.latest_snapshot || {};
+  const trackRecord = performanceSummary?.track_record || {};
+  const mlRows = Array.isArray(mlEffectiveness?.positions_with_ml_context) ? mlEffectiveness.positions_with_ml_context : [];
   const lastScout = workersStatus?.autopilot?.last_scout || null;
   const signalPacks = Array.isArray(workersStatus?.signal_packs) ? workersStatus.signal_packs : [];
 
@@ -93,12 +97,12 @@ export default function PublicPnlPage() {
         ) : null}
 
         <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
-          <div className="panel panel-pad"><div className="label">Total Equity</div><div className="big-num">{currency(metrics.total_equity || totals.equity)}</div></div>
+          <div className="panel panel-pad"><div className="label">Total Equity</div><div className="big-num">{currency(latestSnapshot.equity || totals.equity)}</div></div>
           <div className="panel panel-pad"><div className="label">Unrealized PnL</div><div className={`big-num ${Number(totals.unrealized) >= 0 ? "c-green" : "c-red"}`}>{currency(totals.unrealized)}</div></div>
           <div className="panel panel-pad"><div className="label">Gross Exposure</div><div className="big-num">{currency(totals.grossExposure)}</div></div>
-          <div className="panel panel-pad"><div className="label">Drawdown</div><div className="big-num">{percent(metrics.current_drawdown || 0)}</div></div>
+          <div className="panel panel-pad"><div className="label">Max Drawdown</div><div className="big-num">{percent(trackRecord.max_drawdown_pct || 0)}</div></div>
           <div className="panel panel-pad"><div className="label">Open Positions</div><div className="big-num">{totals.count}</div></div>
-          <div className="panel panel-pad"><div className="label">Signal Packs</div><div className="big-num">{signalPacks.length}</div></div>
+          <div className="panel panel-pad"><div className="label">ML Context Rows</div><div className="big-num">{mlRows.length}</div></div>
         </section>
 
         <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 16 }}>
@@ -137,10 +141,11 @@ export default function PublicPnlPage() {
             <div className="panel panel-pad">
               <h2 style={{ fontSize: 18, marginBottom: 12 }}>Portfolio posture</h2>
               <div style={{ display: "grid", gap: 10 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span className="label">Best contributor</span><strong>{totals.biggestWinner?.symbol || 'n/a'} · {currency(totals.biggestWinner?.unrealized_pnl)}</strong></div>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span className="label">Worst contributor</span><strong>{totals.biggestLoser?.symbol || 'n/a'} · {currency(totals.biggestLoser?.unrealized_pnl)}</strong></div>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span className="label">Realized PnL</span><strong>{currency(metrics.realized_pnl || 0)}</strong></div>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span className="label">External flows</span><strong>{currency(metrics.external_capital_flow_usd || 0)}</strong></div>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span className="label">Best contributor</span><strong>{totals.biggestWinner?.symbol || 'n/a'} | {currency(totals.biggestWinner?.unrealized_pnl)}</strong></div>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span className="label">Worst contributor</span><strong>{totals.biggestLoser?.symbol || 'n/a'} | {currency(totals.biggestLoser?.unrealized_pnl)}</strong></div>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span className="label">Realized PnL</span><strong>{currency(latestSnapshot.realized_pnl || 0)}</strong></div>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span className="label">Alpha vs benchmark</span><strong>{percent(trackRecord.alpha_vs_primary_benchmark_pct || 0)}</strong></div>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span className="label">Sharpe ratio</span><strong>{Number(trackRecord.sharpe_ratio || 0).toFixed(2)}</strong></div>
               </div>
             </div>
 
@@ -184,5 +189,6 @@ export default function PublicPnlPage() {
     </div>
   );
 }
+
 
 

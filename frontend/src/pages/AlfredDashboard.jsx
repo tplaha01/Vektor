@@ -19,10 +19,17 @@ const TABS = [
 ];
 
 const WATCHLIST = ["AAPL","MSFT","NVDA","SPY","TSLA","AMZN","GOOGL","META"];
+const CORE_PROFILES = [
+  { key: "balanced", label: "Balanced" },
+  { key: "accuracy_max", label: "Accuracy Max" },
+  { key: "latency_low", label: "Latency Low" },
+  { key: "risk_off", label: "Risk Off" },
+];
 
 export default function AlfredDashboard() {
   const [symbol,    setSymbol]    = useState("AAPL");
   const [input,     setInput]     = useState("AAPL");
+  const [profile,   setProfile]   = useState("balanced");
   const [signal,    setSignal]    = useState(null);
   const [positions, setPositions] = useState([]);
   const [ticks,     setTicks]     = useState({});
@@ -30,16 +37,14 @@ export default function AlfredDashboard() {
   const [ws,        setWs]        = useState("connecting");
   const [risk,      setRisk]      = useState(null);
   const [tab,       setTab]       = useState("chart");
-  const [menuOpen,  setMenuOpen]  = useState(false);
   const wsRef = useRef(null);
 
   const analyse = (sym) => {
     const s = (sym || input).trim().toUpperCase();
     if (!s) return;
     setSymbol(s); setInput(s);
-    getSignal(s).then(setSignal).catch(console.warn);
+    getSignal(s, profile).then(setSignal).catch(console.warn);
     getNews(s).then(setNews).catch(console.warn);
-    setMenuOpen(false);
   };
 
   useEffect(() => {
@@ -48,9 +53,9 @@ export default function AlfredDashboard() {
   }, []);
 
   useEffect(() => {
-    getSignal(symbol).then(setSignal).catch(console.warn);
+    getSignal(symbol, profile).then(setSignal).catch(console.warn);
     getNews(symbol).then(setNews).catch(console.warn);
-  }, [symbol]);
+  }, [symbol, profile]);
 
   useEffect(() => {
     let dead = false;
@@ -102,6 +107,16 @@ export default function AlfredDashboard() {
             onKeyDown={e=>e.key==="Enter"&&analyse()}
             placeholder="TICKER"
             style={{ width:84, padding:"5px 9px", fontSize:12 }} />
+          <select
+            className="inp"
+            value={profile}
+            onChange={(e) => setProfile(e.target.value)}
+            style={{ width: 124, padding: "5px 8px", fontSize: 11 }}
+          >
+            {CORE_PROFILES.map((item) => (
+              <option key={item.key} value={item.key}>{item.label}</option>
+            ))}
+          </select>
           <button className="btn btn-amber" onClick={()=>analyse()} style={{ padding:"5px 12px", fontSize:10 }}>
             Analyse
           </button>

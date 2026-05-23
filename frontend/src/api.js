@@ -13,11 +13,11 @@ export async function getHealth() {
   return res.json();
 }
 
-export async function getSignal(symbol) {
+export async function getSignal(symbol, profile = null) {
   const res = await fetch(`${BASE}/signals/generate`, {
     method: "POST",
     headers: authHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({ symbol }),
+    body: JSON.stringify(profile ? { symbol, profile } : { symbol }),
   });
   return res.json();
 }
@@ -71,14 +71,6 @@ export async function getNews(symbol) {
   const res = await fetch(`${BASE}/news/${symbol}`, {
     headers: authHeaders(),
   });
-  return res.json();
-}
-
-export async function getAnalytics() {
-  const res = await fetch(`${BASE}/analytics/summary`, {
-    headers: authHeaders(),
-  });
-  if (!res.ok) throw new Error("analytics fetch failed");
   return res.json();
 }
 

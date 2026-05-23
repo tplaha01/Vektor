@@ -10,10 +10,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.core.context import broker
+from app.core_engine.registry import get_profile, list_profiles
 from app.models import SignalRequest, OrderIn
 from app.strategies.hybrid import hybrid_signal
 from app.data.news import latest_news
-from app.analytics import build_metrics_from_broker
 from app.websocket.stream import manager, stream_loop, WATCHLIST
 from app.websocket.agent_events import agent_event_stream, publish_agent_event
 from app.data.market_data import FEED
@@ -465,7 +465,7 @@ async def generate_signal(req: SignalRequest) -> Dict[str, Any]:
                 ),
             },
         )
-    result = hybrid_signal(req.symbol)
+    result = hybrid_signal(req.symbol, profile=req.profile)
     if data_integrity_guard.halted():
         raise HTTPException(
             status_code=503,
@@ -642,15 +642,10 @@ async def get_news(symbol: str):
         "published_at": it.get("published_at") or datetime.utcnow().isoformat(),
     } for it in items]
 
-@app.get("/analytics/summary")
-async def analytics_summary() -> Dict[str, Any]:
-    return build_metrics_from_broker(broker)
-
 @app.get("/risk/status")
 async def risk_status():
     positions = broker.list_positions(lambda s: FEED.price(s))
-    analytics = build_metrics_from_broker(broker)
-    risk.update_equity(positions, analytics.get("realized_pnl", 0.0))
+    risk.update_equity(positions, 0.0)
     return risk.status()
 
 @app.get("/market/prices")
@@ -661,7 +656,14 @@ async def market_prices():
 async def ml_status():
     from app.ml.alpha_model import model_status
     from app.utils.sentiment import sentiment_model_name
-    return {"lgbm": model_status(), "sentiment": sentiment_model_name()}
+    return {
+        "lgbm": model_status(),
+        "sentiment": sentiment_model_name(),
+        "core_engine": {
+            "active_profile": get_profile(settings.CORE_ENGINE_PROFILE).name,
+            "available_profiles": list_profiles(),
+        },
+    }
 
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):

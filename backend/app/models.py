@@ -7,6 +7,10 @@ from datetime import datetime
 class SignalRequest(BaseModel):
     symbol: str = Field(..., description="Ticker, e.g., AAPL")
     lookback: int = Field(150, ge=20, le=2000, description="Candles to analyze")
+    profile: Optional[Literal["accuracy_max", "balanced", "latency_low", "risk_off"]] = Field(
+        None,
+        description="Core-engine model profile",
+    )
 
 
 class OrderIn(BaseModel):
@@ -16,7 +20,7 @@ class OrderIn(BaseModel):
 
 
 class Order(BaseModel):
-    id: str                              # BUG FIX: was int — PaperBroker generates UUID str
+    id: str                              # BUG FIX: was int - PaperBroker generates UUID str
     symbol: str
     side: Literal["buy", "sell"]
     quantity: float
@@ -40,3 +44,4 @@ class NewsItem(BaseModel):
     source: str
     url: str
     published_at: datetime
+

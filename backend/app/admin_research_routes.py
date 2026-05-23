@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import asyncio
 import math
-import statistics
 import uuid
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
@@ -16,7 +15,6 @@ from typing import Any, List, Literal, Optional
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from app.analytics import build_metrics_from_broker
 from app.config import get_settings
 from app.core.context import broker
 from app.data.market_data import FEED
@@ -310,30 +308,6 @@ def _infer_agent_role(agent_id: str, fallback: str = "researcher") -> str:
     return fallback
 
 
-def _estimate_sharpe_from_recent_trades(analytics: dict[str, Any]) -> float:
-    trades = analytics.get("recent_trades") or []
-    returns: list[float] = []
-    for item in trades:
-        pnl = _safe_float(item.get("pnl"), 0.0)
-        qty = abs(_safe_float(item.get("qty"), 0.0))
-        buy_px = abs(_safe_float(item.get("buy"), 0.0))
-        notional = qty * buy_px
-        if notional <= 0:
-            continue
-        returns.append(pnl / notional)
-
-    # Avoid unstable Sharpe estimates on tiny trade samples.
-    if len(returns) < 20:
-        return 0.0
-    mean = statistics.mean(returns)
-    stdev = statistics.pstdev(returns)
-    if stdev <= 1e-6:
-        return 0.0
-    sharpe = (mean / stdev) * (252.0 ** 0.5)
-    # Keep dashboard values readable and robust to noisy micro samples.
-    return round(float(max(min(sharpe, 10.0), -10.0)), 2)
-
-
 def _infer_baseline_equity(
     *,
     total_equity: float,
@@ -550,16 +524,340 @@ def _map_live_report(
 
 def _decision_context(decision_id: str) -> dict[str, Any]:
     context: dict[str, Any] = {}
+
+    def _pull(source: dict[str, Any]) -> None:
+        for key in ("symbol", "side", "quantity", "conviction", "statement", "sleeve"):
+            if key in source and key not in context:
+                context[key] = source[key]
+
     for event in reversed(decision_ledger.list_events(limit=-1)):
         if str(event.get("decision_id")) != decision_id:
             continue
         payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
-        for key in ("symbol", "side", "quantity", "conviction", "statement", "sleeve"):
-            if key in payload and key not in context:
-                context[key] = payload[key]
+        _pull(payload)
+        execution = payload.get("execution") if isinstance(payload.get("execution"), dict) else {}
+        intent = execution.get("intent") if isinstance(execution.get("intent"), dict) else {}
+        audit = payload.get("audit") if isinstance(payload.get("audit"), dict) else {}
+        audit_intent = audit.get("intent") if isinstance(audit.get("intent"), dict) else {}
+        order = payload.get("order") if isinstance(payload.get("order"), dict) else {}
+        _pull(intent)
+        _pull(audit_intent)
+        if "symbol" not in context and order.get("symbol") is not None:
+            context["symbol"] = order.get("symbol")
+        if "side" not in context and order.get("side") is not None:
+            context["side"] = order.get("side")
+        if "quantity" not in context and order.get("quantity") is not None:
+            context["quantity"] = order.get("quantity")
         if all(key in context for key in ("symbol", "side", "quantity")):
             break
     return context
+
+
+def _timeline_for_decision(decision_id: str) -> list[dict[str, Any]]:
+    rows = [
+        row
+        for row in decision_ledger.list_events(limit=-1)
+        if str(row.get("decision_id") or "").strip() == decision_id
+    ]
+    rows.sort(key=lambda row: str(row.get("ts") or ""))
+    return rows
+
+
+def _extract_order_id_from_payload(payload: dict[str, Any]) -> str | None:
+    order_id = payload.get("order_id")
+    if order_id is not None and str(order_id).strip():
+        return str(order_id)
+    order = payload.get("order") if isinstance(payload.get("order"), dict) else {}
+    if order.get("id") is not None and str(order.get("id")).strip():
+        return str(order.get("id"))
+    execution = payload.get("execution") if isinstance(payload.get("execution"), dict) else {}
+    nested_order = execution.get("order") if isinstance(execution.get("order"), dict) else {}
+    if nested_order.get("id") is not None and str(nested_order.get("id")).strip():
+        return str(nested_order.get("id"))
+    return None
+
+
+def _extract_blocked_reasons_from_payload(payload: dict[str, Any]) -> list[str]:
+    reasons = payload.get("reasons") if isinstance(payload.get("reasons"), list) else []
+    if not reasons and payload.get("reason"):
+        reasons = [payload.get("reason")]
+    if not reasons:
+        execution = payload.get("execution") if isinstance(payload.get("execution"), dict) else {}
+        if execution.get("reason"):
+            reasons = [execution.get("reason")]
+    return [str(item) for item in reasons if str(item).strip()]
+
+
+def _extract_decision_scoring_from_payload(payload: dict[str, Any]) -> dict[str, Any] | None:
+    intent = payload.get("intent") if isinstance(payload.get("intent"), dict) else {}
+    execution = payload.get("execution") if isinstance(payload.get("execution"), dict) else {}
+    execution_intent = execution.get("intent") if isinstance(execution.get("intent"), dict) else {}
+    audit = payload.get("audit") if isinstance(payload.get("audit"), dict) else {}
+    audit_intent = audit.get("intent") if isinstance(audit.get("intent"), dict) else {}
+    intent_metadata = payload.get("intent_metadata") if isinstance(payload.get("intent_metadata"), dict) else {}
+    metadata = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
+
+    candidates = [
+        payload.get("decision_scoring"),
+        intent_metadata.get("decision_scoring"),
+        metadata.get("decision_scoring"),
+        (intent.get("metadata") or {}).get("decision_scoring") if isinstance(intent.get("metadata"), dict) else None,
+        (execution_intent.get("metadata") or {}).get("decision_scoring")
+        if isinstance(execution_intent.get("metadata"), dict)
+        else None,
+        (audit_intent.get("metadata") or {}).get("decision_scoring")
+        if isinstance(audit_intent.get("metadata"), dict)
+        else None,
+    ]
+    for candidate in candidates:
+        if not isinstance(candidate, dict) or not candidate:
+            continue
+        body = dict(candidate)
+        metrics = body.get("metrics")
+        if isinstance(metrics, dict):
+            body["metrics"] = dict(metrics)
+        elif isinstance(body.get("ml"), dict):
+            body["metrics"] = dict(body.get("ml") or {})
+        else:
+            body["metrics"] = {}
+        if body.get("math_summary") is None and body["metrics"].get("math_summary") is not None:
+            body["math_summary"] = body["metrics"].get("math_summary")
+        return body
+    return None
+
+
+def _extract_deterministic_signal_from_payload(payload: dict[str, Any]) -> dict[str, Any] | None:
+    intent = payload.get("intent") if isinstance(payload.get("intent"), dict) else {}
+    execution = payload.get("execution") if isinstance(payload.get("execution"), dict) else {}
+    execution_intent = execution.get("intent") if isinstance(execution.get("intent"), dict) else {}
+    audit = payload.get("audit") if isinstance(payload.get("audit"), dict) else {}
+    audit_intent = audit.get("intent") if isinstance(audit.get("intent"), dict) else {}
+    intent_metadata = payload.get("intent_metadata") if isinstance(payload.get("intent_metadata"), dict) else {}
+    metadata = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
+    candidates = [
+        payload.get("deterministic_ml_signal"),
+        intent_metadata.get("deterministic_ml_signal"),
+        metadata.get("deterministic_ml_signal"),
+        (intent.get("metadata") or {}).get("deterministic_ml_signal")
+        if isinstance(intent.get("metadata"), dict)
+        else None,
+        (execution_intent.get("metadata") or {}).get("deterministic_ml_signal")
+        if isinstance(execution_intent.get("metadata"), dict)
+        else None,
+        (audit_intent.get("metadata") or {}).get("deterministic_ml_signal")
+        if isinstance(audit_intent.get("metadata"), dict)
+        else None,
+    ]
+    for candidate in candidates:
+        if isinstance(candidate, dict) and candidate:
+            return dict(candidate)
+    return None
+
+
+def _extract_risk_gate_from_payload(payload: dict[str, Any]) -> dict[str, Any] | None:
+    intent = payload.get("intent") if isinstance(payload.get("intent"), dict) else {}
+    execution = payload.get("execution") if isinstance(payload.get("execution"), dict) else {}
+    execution_intent = execution.get("intent") if isinstance(execution.get("intent"), dict) else {}
+    audit = payload.get("audit") if isinstance(payload.get("audit"), dict) else {}
+    audit_intent = audit.get("intent") if isinstance(audit.get("intent"), dict) else {}
+    intent_metadata = payload.get("intent_metadata") if isinstance(payload.get("intent_metadata"), dict) else {}
+    metadata = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
+    candidates = [
+        payload.get("risk_gate"),
+        intent_metadata.get("risk_gate"),
+        metadata.get("risk_gate"),
+        (intent.get("metadata") or {}).get("risk_gate") if isinstance(intent.get("metadata"), dict) else None,
+        (execution_intent.get("metadata") or {}).get("risk_gate")
+        if isinstance(execution_intent.get("metadata"), dict)
+        else None,
+        (audit_intent.get("metadata") or {}).get("risk_gate")
+        if isinstance(audit_intent.get("metadata"), dict)
+        else None,
+    ]
+    for candidate in candidates:
+        if isinstance(candidate, dict) and candidate:
+            return dict(candidate)
+    return None
+
+
+def _discovery_scoring_summary(snapshot: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not isinstance(snapshot, dict) or not snapshot:
+        return None
+    ml = snapshot.get("ml") if isinstance(snapshot.get("ml"), dict) else {}
+    return {
+        "score": snapshot.get("score"),
+        "confidence": snapshot.get("confidence"),
+        "direction": snapshot.get("direction"),
+        "asset_class": snapshot.get("asset_class"),
+        "strategy_family": snapshot.get("strategy_family"),
+        "horizon": snapshot.get("horizon"),
+        "math_summary": ml.get("math_summary"),
+        "metrics": dict(ml),
+    }
+
+
+def _resolve_trade_rationale(
+    *,
+    decision_id: str,
+    run_id: str,
+    symbol: str,
+    timeline: list[dict[str, Any]],
+    approval_payload: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    order_id: str | None = None
+    blocked_reasons: list[str] = []
+    execution_status: str | None = None
+    execution_reason: str | None = None
+    execution_order: dict[str, Any] | None = None
+    decision_scoring: dict[str, Any] | None = None
+    deterministic_ml_signal: dict[str, Any] | None = None
+    risk_gate: dict[str, Any] | None = None
+
+    for row in reversed(timeline):
+        payload = row.get("payload") if isinstance(row.get("payload"), dict) else {}
+
+        if order_id is None:
+            order_id = _extract_order_id_from_payload(payload)
+
+        if not blocked_reasons:
+            blocked_reasons = _extract_blocked_reasons_from_payload(payload)
+
+        if execution_status is None:
+            status = str(payload.get("status") or payload.get("execution_status") or "").strip()
+            if not status:
+                execution = payload.get("execution") if isinstance(payload.get("execution"), dict) else {}
+                status = str(execution.get("status") or "").strip()
+            if status:
+                execution_status = status
+
+        if execution_reason is None:
+            reason = str(payload.get("reason") or "").strip()
+            if not reason:
+                execution = payload.get("execution") if isinstance(payload.get("execution"), dict) else {}
+                reason = str(execution.get("reason") or "").strip()
+            if reason:
+                execution_reason = reason
+
+        if execution_order is None:
+            order = payload.get("order") if isinstance(payload.get("order"), dict) else None
+            if order is None:
+                execution = payload.get("execution") if isinstance(payload.get("execution"), dict) else {}
+                order = execution.get("order") if isinstance(execution.get("order"), dict) else None
+            if isinstance(order, dict) and order:
+                execution_order = dict(order)
+
+        if decision_scoring is None:
+            decision_scoring = _extract_decision_scoring_from_payload(payload)
+        if deterministic_ml_signal is None:
+            deterministic_ml_signal = _extract_deterministic_signal_from_payload(payload)
+        if risk_gate is None:
+            risk_gate = _extract_risk_gate_from_payload(payload)
+
+    approval = dict(approval_payload or {})
+    if decision_scoring is None:
+        decision_scoring = _extract_decision_scoring_from_payload(approval)
+    if deterministic_ml_signal is None:
+        deterministic_ml_signal = _extract_deterministic_signal_from_payload(approval)
+    if risk_gate is None:
+        risk_gate = _extract_risk_gate_from_payload(approval)
+
+    if decision_scoring is None:
+        try:
+            discovery_snapshot = firm_orchestrator.latest_discovery_opportunity(run_id=run_id, symbol=symbol or "")
+        except Exception:
+            discovery_snapshot = None
+        decision_scoring = _discovery_scoring_summary(discovery_snapshot)
+
+    return {
+        "decision_id": decision_id,
+        "order_id": order_id,
+        "blocked_reasons": blocked_reasons,
+        "execution_status": execution_status,
+        "execution_reason": execution_reason,
+        "execution_order": execution_order,
+        "decision_scoring": decision_scoring,
+        "deterministic_ml_signal": deterministic_ml_signal,
+        "risk_gate": risk_gate,
+        "math_summary": (decision_scoring or {}).get("math_summary") if isinstance(decision_scoring, dict) else None,
+        "updated_at": timeline[-1].get("ts") if timeline else None,
+    }
+
+
+def _decision_status_for_surface(status: str, timeline: list[dict[str, Any]]) -> str:
+    normalized = str(status or "unknown").strip().lower() or "unknown"
+    if normalized == "proposed":
+        if any(str(row.get("event_type") or "").strip() == "approval.requested" for row in timeline):
+            return "pending_approval"
+    return normalized
+
+
+def _recent_trades_snapshot(limit: int) -> list[dict[str, Any]]:
+    decision_events = decision_ledger.list_events(limit=-1)
+    events_by_decision: dict[str, list[dict[str, Any]]] = {}
+    for row in decision_events:
+        decision_id = str(row.get("decision_id") or "").strip()
+        if not decision_id:
+            continue
+        events_by_decision.setdefault(decision_id, []).append(row)
+    for rows in events_by_decision.values():
+        rows.sort(key=lambda item: str(item.get("ts") or ""))
+
+    decisions = list(decision_ledger.list_decisions())
+    decisions.sort(key=lambda item: str(getattr(item, "created_at", "") or ""), reverse=True)
+
+    rows: list[dict[str, Any]] = []
+    for decision in decisions:
+        decision_id = decision.decision_id
+        timeline = events_by_decision.get(decision_id, [])
+        context = _decision_context(decision_id)
+
+        try:
+            pending_approval = firm_orchestrator.find_pending_trade_approval(decision_id=decision_id)
+        except Exception:
+            pending_approval = None
+        approval_payload = (
+            dict(pending_approval.get("payload") or {})
+            if isinstance(pending_approval, dict)
+            else {}
+        )
+        rationale = _resolve_trade_rationale(
+            decision_id=decision_id,
+            run_id=decision.run_id,
+            symbol=str(context.get("symbol") or "").strip().upper(),
+            timeline=timeline,
+            approval_payload=approval_payload,
+        )
+        order_id = rationale.get("order_id")
+        status = _decision_status_for_surface(decision.status, timeline)
+
+        rows.append(
+            {
+                "decision_id": decision_id,
+                "run_id": decision.run_id,
+                "agent_id": decision.agent_id,
+                "status": status,
+                "sleeve": decision.sleeve.value,
+                "symbol": str(context.get("symbol") or "").strip().upper() or None,
+                "side": str(context.get("side") or "").strip().lower() or None,
+                "quantity": _safe_float(context.get("quantity"), 0.0),
+                "order_id": order_id,
+                "blocked_reasons": rationale.get("blocked_reasons") or [],
+                "execution_status": rationale.get("execution_status"),
+                "execution_reason": rationale.get("execution_reason"),
+                "decision_scoring": rationale.get("decision_scoring"),
+                "math_summary": rationale.get("math_summary"),
+                "deterministic_ml_signal": rationale.get("deterministic_ml_signal"),
+                "risk_gate": rationale.get("risk_gate"),
+                "approval_request_id": pending_approval.get("request_id") if isinstance(pending_approval, dict) else None,
+                "decision_detail_path": f"/api/admin/decisions/{decision_id}",
+                "audit_timeline_path": f"/api/admin/audit/orders/{order_id}/timeline" if order_id else None,
+                "lineage_detail_path": f"/api/admin/lineage/run/{decision.run_id}",
+                "updated_at": rationale.get("updated_at") or decision.created_at,
+            }
+        )
+
+    rows.sort(key=lambda item: str(item.get("updated_at") or ""), reverse=True)
+    return rows[:limit]
 
 
 ANALYST_ROLE_SET = {
@@ -761,25 +1059,43 @@ async def get_metrics_summary():
     if performance_metrics is not None:
         return performance_metrics
 
+    performance = performance_tracker.summary()
+    latest = performance.get("latest_snapshot") if isinstance(performance, dict) else {}
+    inception = performance.get("inception_snapshot") if isinstance(performance, dict) else {}
+    track_record = performance.get("track_record") if isinstance(performance, dict) else {}
     positions = broker.list_positions(lambda s: FEED.price(s))
-    analytics = build_metrics_from_broker(broker)
-    equity = risk.update_equity(positions, analytics.get("realized_pnl", 0.0))
+    equity = risk.update_equity(positions, 0.0)
     risk_state = risk.status()
     dd = risk_state.get("drawdown_breaker") or {}
 
     baseline_default = _safe_float(getattr(risk, "INITIAL_EQUITY", 100000.0), 100000.0)
-    account_equity = _safe_float(equity, baseline_default)
-    unrealized = sum(_safe_float(p.get("unrealized_pnl")) for p in positions)
-    realized = _safe_float(analytics.get("realized_pnl"), 0.0)
-    strategy_equity = baseline_default + realized + unrealized
-    external_capital_flow = account_equity - strategy_equity
-    flow_ratio = abs(external_capital_flow) / max(baseline_default, 1.0)
-    # If significant external capital movement happened, show strategy-adjusted equity.
-    total_equity = strategy_equity if flow_ratio >= 0.05 else account_equity
-    baseline_equity = baseline_default
+    baseline_equity = _safe_float(
+        inception.get("equity") if isinstance(inception, dict) else None,
+        baseline_default,
+    )
+    if baseline_equity <= 0:
+        baseline_equity = baseline_default
 
-    max_drawdown_abs = abs(_safe_float(analytics.get("max_drawdown"), 0.0))
-    max_drawdown_pct = (max_drawdown_abs / baseline_equity) * 100.0 if baseline_equity > 0 else 0.0
+    total_equity = _safe_float(equity, baseline_equity)
+    account_equity = _safe_float(broker.get_portfolio_value(lambda s: FEED.price(s)), total_equity)
+    external_capital_flow = account_equity - total_equity
+    unrealized = sum(_safe_float(p.get("unrealized_pnl")) for p in positions)
+    realized = _safe_float(
+        latest.get("realized_pnl") if isinstance(latest, dict) else None,
+        0.0,
+    )
+    max_drawdown_pct = _safe_float(
+        track_record.get("max_drawdown_pct") if isinstance(track_record, dict) else None,
+        0.0,
+    )
+    sharpe_ratio = _safe_float(
+        track_record.get("sharpe_ratio") if isinstance(track_record, dict) else None,
+        0.0,
+    )
+    win_rate = _safe_float(
+        latest.get("win_rate") if isinstance(latest, dict) else None,
+        0.0,
+    )
 
     return MetricsSummary(
         total_equity=round(total_equity, 2),
@@ -795,9 +1111,9 @@ async def get_metrics_summary():
         max_drawdown_ytd=round(max_drawdown_pct, 2),
         max_drawdown_threshold=round(_safe_float(dd.get("max_drawdown_threshold"), 0.10) * 100.0, 2),
         active_positions=len(positions),
-        win_rate=round(_safe_float(analytics.get("win_rate"), 0.0), 2),
+        win_rate=round(win_rate, 2),
         win_rate_change=0.0,
-        sharpe_ratio=_estimate_sharpe_from_recent_trades(analytics),
+        sharpe_ratio=round(sharpe_ratio, 2),
         sharpe_change=0.0,
     )
 
@@ -1008,10 +1324,12 @@ async def get_ops_panel(limit: int = Query(20, ge=1, le=200)):
     status_badges = await get_system_status_badges()
     runtime_control = await get_runtime_control_status()
     lineage = await get_recent_lineage(limit=limit)
+    recent_trades = _recent_trades_snapshot(limit=limit)
     return {
         "status_badges": status_badges,
         "runtime_control": runtime_control,
         "recent_lineage": lineage,
+        "recent_trades": recent_trades,
     }
 
 
@@ -1605,29 +1923,24 @@ async def get_decision_detail(decision_id: str):
         raise HTTPException(status_code=404, detail="decision_not_found")
 
     context = _decision_context(key)
-    timeline = [row for row in decision_ledger.list_events(limit=-1) if str(row.get("decision_id") or "") == key]
-    timeline.sort(key=lambda row: str(row.get("ts") or ""))
-
-    order_id = None
-    blocked_reasons: list[str] = []
-    for row in reversed(timeline):
-        payload = row.get("payload") if isinstance(row.get("payload"), dict) else {}
-        if order_id is None and payload.get("order_id") is not None:
-            order_id = str(payload.get("order_id"))
-        reasons = payload.get("reasons") if isinstance(payload.get("reasons"), list) else []
-        if not reasons and payload.get("reason"):
-            reasons = [payload.get("reason")]
-        if reasons:
-            blocked_reasons = [str(item) for item in reasons if str(item).strip()]
-            break
-
-    audit_timeline_path = f"/api/admin/audit/orders/{order_id}/timeline" if order_id else None
+    timeline = _timeline_for_decision(key)
     pending_approval = firm_orchestrator.find_pending_trade_approval(decision_id=key)
-    approval_payload = dict(pending_approval.get("payload") or {}) if isinstance(pending_approval, dict) else {}
-    discovery_snapshot = firm_orchestrator.latest_discovery_opportunity(
-        run_id=decision.run_id,
-        symbol=(context or {}).get("symbol") or "",
+    approval_payload = (
+        dict(pending_approval.get("payload") or {})
+        if isinstance(pending_approval, dict)
+        else {}
     )
+    rationale = _resolve_trade_rationale(
+        decision_id=key,
+        run_id=decision.run_id,
+        symbol=str((context or {}).get("symbol") or "").strip().upper(),
+        timeline=timeline,
+        approval_payload=approval_payload,
+    )
+    order_id = rationale.get("order_id")
+    blocked_reasons = rationale.get("blocked_reasons") or []
+    audit_timeline_path = f"/api/admin/audit/orders/{order_id}/timeline" if order_id else None
+    execution_order = rationale.get("execution_order") if isinstance(rationale.get("execution_order"), dict) else None
     return {
         "decision_id": decision.decision_id,
         "run_id": decision.run_id,
@@ -1641,17 +1954,15 @@ async def get_decision_detail(decision_id: str):
         "blocked_reasons": blocked_reasons,
         "order_id": order_id,
         "approval_request_id": pending_approval.get("request_id") if pending_approval else None,
-        "risk_gate": approval_payload.get("risk_gate"),
-        "decision_scoring": {
-            "score": discovery_snapshot.get("score"),
-            "confidence": discovery_snapshot.get("confidence"),
-            "direction": discovery_snapshot.get("direction"),
-            "asset_class": discovery_snapshot.get("asset_class"),
-            "strategy_family": discovery_snapshot.get("strategy_family"),
-            "horizon": discovery_snapshot.get("horizon"),
-            "math_summary": (discovery_snapshot.get("ml") or {}).get("math_summary"),
-            "metrics": dict((discovery_snapshot.get("ml") or {})),
-        } if discovery_snapshot else None,
+        "risk_gate": rationale.get("risk_gate"),
+        "decision_scoring": rationale.get("decision_scoring"),
+        "deterministic_ml_signal": rationale.get("deterministic_ml_signal"),
+        "trade_rationale": {
+            "math_summary": rationale.get("math_summary"),
+            "execution_status": rationale.get("execution_status"),
+            "execution_reason": rationale.get("execution_reason"),
+            "order": execution_order,
+        },
         "audit_timeline_path": audit_timeline_path,
         "lineage_detail_path": f"/api/admin/lineage/run/{decision.run_id}",
         "events": timeline,
@@ -2464,20 +2775,7 @@ async def get_approval_detail(request_id: str):
                     "sleeve": decision.sleeve.value,
                 },
                 "risk_gate": payload.get("risk_gate"),
-                "decision_scoring": payload.get("decision_scoring") or (
-                    {
-                        "score": discovery_snapshot.get("score"),
-                        "confidence": discovery_snapshot.get("confidence"),
-                        "direction": discovery_snapshot.get("direction"),
-                        "asset_class": discovery_snapshot.get("asset_class"),
-                        "strategy_family": discovery_snapshot.get("strategy_family"),
-                        "horizon": discovery_snapshot.get("horizon"),
-                        "math_summary": (discovery_snapshot.get("ml") or {}).get("math_summary"),
-                        "metrics": dict((discovery_snapshot.get("ml") or {})),
-                    }
-                    if discovery_snapshot
-                    else None
-                ),
+                "decision_scoring": payload.get("decision_scoring") or _discovery_scoring_summary(discovery_snapshot),
             }
     return approval
 
