@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Any, Literal
 from uuid import uuid4
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
 from app.fund.contracts import (
@@ -15,7 +15,6 @@ from app.fund.contracts import (
     Sleeve,
 )
 from app.fund.agent_runtime import FundAgentRuntime, fund_agent_runtime
-from app.fund.openclaw_command_adapter import OpenClawCommandAdapter, openclaw_command_adapter
 from app.fund.orchestrator import FirmOrchestrator, firm_orchestrator
 from app.fund.performance_tracker import performance_tracker
 from app.fund.realtime_stream import realtime_stream
@@ -32,8 +31,6 @@ def get_agent_runtime() -> FundAgentRuntime:
     return fund_agent_runtime
 
 
-def get_openclaw_command_adapter() -> OpenClawCommandAdapter:
-    return openclaw_command_adapter
 
 
 class SleeveAllocationIn(BaseModel):
@@ -100,9 +97,6 @@ class SentimentIn(BaseModel):
     provenance_url: str | None = Field(default=None, max_length=1024)
 
 
-class OpenClawIngestIn(BaseModel):
-    kind: str = Field(..., min_length=1, max_length=128)
-    payload: dict[str, Any] = Field(default_factory=dict)
 
 
 class CeoCommandIn(BaseModel):
@@ -127,31 +121,6 @@ class CeoCommandIn(BaseModel):
     priority: int = Field(default=8, ge=0, le=10)
 
 
-class OpenClawCommandIn(BaseModel):
-    platform: str = Field(default="discord", min_length=2, max_length=64)
-    channel_id: str | None = Field(default=None, max_length=256)
-    channel_name: str | None = Field(default=None, max_length=256)
-    sender_id: str | None = Field(default=None, max_length=256)
-    sender_name: str | None = Field(default=None, max_length=256)
-    message_id: str | None = Field(default=None, max_length=256)
-    text: str = Field(..., min_length=1, max_length=4000)
-    run_id: str | None = Field(default=None, min_length=3, max_length=128)
-    agent_id: str | None = Field(default=None, min_length=2, max_length=128)
-    target_role: Literal[
-        "technical_analyst",
-        "fundamental_analyst",
-        "sentiment_analyst",
-        "ml_timeseries_analyst",
-        "insight_researcher",
-        "hedge_fund_researcher",
-        "fund_manager",
-        "trader",
-        "risk_auditor",
-        "signal_swarm",
-        "blog_writer",
-    ] | None = None
-    priority: int = Field(default=8, ge=0, le=10)
-    payload: dict[str, Any] = Field(default_factory=dict)
 
 
 class AutopilotKickIn(BaseModel):
@@ -168,7 +137,7 @@ class DevelopmentLogIn(BaseModel):
     entry_id: str = Field(..., min_length=3, max_length=128)
     stage: Literal["start", "update", "end"]
     actor_name: str = Field(..., min_length=2, max_length=128)
-    actor_platform: Literal["codex", "claude_code", "github_copilot", "ollama", "other"]
+    actor_platform: Literal["codex", "github_copilot", "ollama", "other"]
     actor_model: str = Field(..., min_length=2, max_length=128)
     actor_provider: str | None = Field(default=None, max_length=128)
     run_id: str | None = Field(default=None, min_length=3, max_length=128)
@@ -432,68 +401,44 @@ async def audit_timeline(order_id: str, orchestrator: FirmOrchestrator = Depends
 
 
 @router.post("/openclaw/ingest")
-async def openclaw_ingest(
-    body: OpenClawIngestIn,
-    x_openclaw_token: str | None = Header(default=None, alias="X-OpenClaw-Token"),
-    orchestrator: FirmOrchestrator = Depends(get_orchestrator),
-):
-    if not x_openclaw_token:
-        raise HTTPException(status_code=401, detail="missing_openclaw_token")
-    result = orchestrator.ingest_openclaw(kind=body.kind, payload=body.payload, token=x_openclaw_token)
-    if not result.get("accepted") and result.get("reason") == "unauthorized":
-        raise HTTPException(status_code=401, detail="invalid_openclaw_token")
-    return result
+async def openclaw_ingest():
+    raise HTTPException(status_code=410, detail="openclaw_orchestration_removed")
 
 
 @router.get("/openclaw/health")
-async def openclaw_health(orchestrator: FirmOrchestrator = Depends(get_orchestrator)):
-    return orchestrator.openclaw_health()
+async def openclaw_health():
+    raise HTTPException(status_code=410, detail="openclaw_orchestration_removed")
 
 
 @router.post("/openclaw/commands")
-async def openclaw_commands(
-    body: OpenClawCommandIn,
-    x_openclaw_token: str | None = Header(default=None, alias="X-OpenClaw-Token"),
-    adapter: OpenClawCommandAdapter = Depends(get_openclaw_command_adapter),
-):
-    if not x_openclaw_token:
-        raise HTTPException(status_code=401, detail="missing_openclaw_token")
-    result = adapter.route_message(body.model_dump(mode="json"), token=x_openclaw_token)
-    if result.get("accepted"):
-        return result
-    reason = result.get("reason")
-    if reason == "unauthorized":
-        raise HTTPException(status_code=401, detail="invalid_openclaw_token")
-    raise HTTPException(status_code=400, detail=reason or "openclaw_command_rejected")
+async def openclaw_commands():
+    raise HTTPException(status_code=410, detail="openclaw_orchestration_removed")
 
 
 @router.get("/openclaw/commands/health")
-async def openclaw_commands_health(adapter: OpenClawCommandAdapter = Depends(get_openclaw_command_adapter)):
-    return adapter.health()
+async def openclaw_commands_health():
+    raise HTTPException(status_code=410, detail="openclaw_orchestration_removed")
 
 
 @router.get("/openclaw/commands/rejections")
 async def openclaw_commands_rejections(
     limit: int = Query(default=100, ge=1, le=1000),
-    adapter: OpenClawCommandAdapter = Depends(get_openclaw_command_adapter),
 ):
-    return adapter.list_rejected(limit=limit)
+    raise HTTPException(status_code=410, detail="openclaw_orchestration_removed")
 
 
 @router.get("/openclaw/commands/accepted")
 async def openclaw_commands_accepted(
     limit: int = Query(default=100, ge=1, le=1000),
-    adapter: OpenClawCommandAdapter = Depends(get_openclaw_command_adapter),
 ):
-    return adapter.list_accepted(limit=limit)
+    raise HTTPException(status_code=410, detail="openclaw_orchestration_removed")
 
 
 @router.get("/openclaw/rejections")
 async def openclaw_rejections(
     limit: int = Query(default=100, ge=1, le=1000),
-    orchestrator: FirmOrchestrator = Depends(get_orchestrator),
 ):
-    return orchestrator.openclaw_rejections(limit=limit)
+    raise HTTPException(status_code=410, detail="openclaw_orchestration_removed")
 
 
 @router.get("/knowledge/events")

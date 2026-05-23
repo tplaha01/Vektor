@@ -182,7 +182,8 @@ export default function BlogPostPage({ params }: PageProps) {
                   ul: ({ node, ...props }) => <ul {...props} />,
                   ol: ({ node, ...props }) => <ol {...props} />,
                   li: ({ node, ...props }) => <li {...props} />,
-                  code: ({ node, ...props }) => <code {...props} />,
+                  code: ({ node, inline, ...props }) =>
+                    inline ? <code {...props} /> : <code {...props} />,
                   pre: ({ node, ...props }) => <pre {...props} />,
                   blockquote: ({ node, ...props }) => <blockquote {...props} />,
                   a: ({ node, ...props }) => <a {...props} />,

@@ -23,7 +23,7 @@ class DevelopmentLogIn(BaseModel):
     entry_id: str = Field(..., min_length=3, max_length=128)
     stage: Literal["start", "update", "end"]
     actor_name: str = Field(..., min_length=2, max_length=128)
-    actor_platform: Literal["codex", "claude_code", "github_copilot", "ollama", "other"]
+    actor_platform: Literal["codex", "github_copilot", "ollama", "other"]
     actor_model: str = Field(..., min_length=2, max_length=128)
     actor_provider: str | None = Field(default=None, max_length=128)
     run_id: str | None = Field(default=None, min_length=3, max_length=128)

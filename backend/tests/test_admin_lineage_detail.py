@@ -7,7 +7,6 @@ from app.fund.audit_log import AuditLog
 from app.fund.contracts import DecisionRecord, Sleeve
 from app.fund.decision_ledger import DecisionLedger
 from app.fund.knowledge_graph import KnowledgeGraph
-from app.fund.openclaw_ingest import OpenClawIngestService
 from app.fund.orchestrator import FirmOrchestrator
 from app.fund.policy_gate import PolicyGate
 from app.fund.research_memory import ResearchMemoryStore
@@ -25,7 +24,6 @@ def _build_orchestrator():
         decision_ledger_service=ledger,
         audit_log_service=audit,
         policy_gate_service=PolicyGate(),
-        openclaw_service=OpenClawIngestService(token="test-openclaw-token", log=audit),
         research_memory_store=ResearchMemoryStore(),
         sentiment_store=SentimentIngestService(),
         broker=PaperBroker(),

@@ -20,3 +20,14 @@ Source of truth:
 - `DevViktor.md`
 - `docs/AI_NATIVE_HEDGE_FUND_AUDIT_AND_ROADMAP.md`
 - `.codex/config.toml`
+
+Long-running staged sessions:
+- Use `docs/LONG_RUNNING_AGENT_WORKFLOW.md` for initializer/coding-agent process.
+- Mandatory per-turn bearings script: `scripts/session-bootstrap.ps1`.
+- Feature selection helper: `scripts/select-next-feature.ps1`.
+- Prompt assets:
+  - `.codex/prompts/initializer_prompt.md`
+  - `.codex/prompts/coding_agent_prompt.md`
+- Sub-repo session policies:
+  - `backend/AGENTS.md`
+  - `frontend/AGENTS.md`

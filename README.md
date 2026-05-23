@@ -198,3 +198,27 @@ Oracle setup scripts:
 
 - Repository source-of-truth startup document: `Vektor.md`
 - All agent/model environments should read `Vektor.md` before planning or implementation.
+
+## Long-Running Agent Sessions
+
+- Session workflow: `docs/LONG_RUNNING_AGENT_WORKFLOW.md`
+- Per-turn bearings bootstrap:
+
+```powershell
+./scripts/session-bootstrap.ps1 -CountRemaining
+```
+
+- Next pending feature helper:
+
+```powershell
+./scripts/select-next-feature.ps1
+```
+
+- Prompt assets:
+  - `.codex/prompts/initializer_prompt.md`
+  - `.codex/prompts/coding_agent_prompt.md`
+
+- Repo init scripts for coding sessions:
+  - root: `./init.sh`
+  - backend: `./backend/init.sh`
+  - frontend: `./frontend/init.sh`

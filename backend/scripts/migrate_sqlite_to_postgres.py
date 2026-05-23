@@ -129,6 +129,12 @@ def main() -> int:
     parser.add_argument("--database-url", required=True, help="Destination Postgres DATABASE_URL.")
     parser.add_argument("--batch-size", type=int, default=1000)
     parser.add_argument("--truncate-target", action="store_true", help="Clear target tables before copying.")
+    parser.add_argument(
+        "--tables",
+        nargs="*",
+        default=None,
+        help="Optional table allowlist. When omitted, all SQLite tables are copied.",
+    )
     args = parser.parse_args()
 
     sqlite_path = Path(args.sqlite_path)
@@ -146,6 +152,12 @@ def main() -> int:
     try:
         _create_schema(pg_conn)
         tables = _sqlite_tables(sqlite_conn)
+        if args.tables:
+            requested = [str(table) for table in args.tables]
+            missing = sorted(set(requested) - set(tables))
+            if missing:
+                raise SystemExit(f"Requested table(s) not found in SQLite database: {', '.join(missing)}")
+            tables = [table for table in tables if table in set(requested)]
         if args.truncate_target:
             _truncate_tables(pg_conn, tables)
         total = 0

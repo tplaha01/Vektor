@@ -467,7 +467,7 @@ class PolicyGate:
                 if not bool(constraints.get("weekend_trading_enabled", False)) and _utc_now().weekday() >= 5:
                     blocked.append("weekend_trading_disabled")
 
-            if self._settings.DECISION_GATE_ML_ENABLED and intent.side == "buy":
+            if intent.side == "buy":
                 decision_scoring = intent.metadata.get("decision_scoring") if isinstance(intent.metadata.get("decision_scoring"), dict) else {}
                 scoring_metrics = decision_scoring.get("metrics") if isinstance(decision_scoring.get("metrics"), dict) else {}
                 strategy_family = str(
@@ -495,6 +495,9 @@ class PolicyGate:
                 regime_alignment = _safe_float(scoring_metrics.get("regime_alignment"))
                 liquidity_score = _safe_float(scoring_metrics.get("liquidity_score"))
                 news_intensity_count = _safe_float(scoring_metrics.get("news_intensity_count"))
+
+                if not decision_scoring:
+                    blocked.append("ml_scoring_missing")
 
                 if decision_scoring:
                     if score < threshold_profile.min_score:

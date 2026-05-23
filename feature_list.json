@@ -1,0 +1,2442 @@
+[
+  {
+    "category": "functional",
+    "description": "Session bootstrap, required file gate, and codex workflow compliance validation #1",
+    "steps": [
+      "Step 1: Run session bootstrap from repository root for compliance test #1.",
+      "Step 2: Verify app_spec.txt is present and readable.",
+      "Step 3: Verify feature_list.json is present and valid JSON.",
+      "Step 4: Verify codex-progress.txt is present and readable.",
+      "Step 5: Start root init script and confirm dependency checks pass.",
+      "Step 6: Start backend init script and confirm service launch output.",
+      "Step 7: Query backend health endpoint and validate status is healthy.",
+      "Step 8: Query data-pipeline status endpoint and inspect freshness timestamps.",
+      "Step 9: Trigger deterministic signal evaluation for a representative ticker.",
+      "Step 10: Confirm output includes technical, fundamental, sentiment, and ML diagnostics.",
+      "Step 11: Confirm policy gate state is explicit and no silent fallback path is used.",
+      "Step 12: Record evidence in logs/screenshots and compare result to expected contract."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Session bootstrap, required file gate, and codex workflow compliance validation #2",
+    "steps": [
+      "Step 1: Run session bootstrap from repository root for compliance test #2.",
+      "Step 2: Verify app_spec.txt is present and readable.",
+      "Step 3: Verify feature_list.json is present and valid JSON.",
+      "Step 4: Verify codex-progress.txt is present and readable.",
+      "Step 5: Start root init script and confirm dependency checks pass.",
+      "Step 6: Start backend init script and confirm service launch output.",
+      "Step 7: Query backend health endpoint and validate status is healthy.",
+      "Step 8: Query data-pipeline status endpoint and inspect freshness timestamps.",
+      "Step 9: Trigger deterministic signal evaluation for a representative ticker.",
+      "Step 10: Confirm output includes technical, fundamental, sentiment, and ML diagnostics.",
+      "Step 11: Confirm policy gate state is explicit and no silent fallback path is used.",
+      "Step 12: Record evidence in logs/screenshots and compare result to expected contract."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Session bootstrap, required file gate, and codex workflow compliance validation #3",
+    "steps": [
+      "Step 1: Run session bootstrap from repository root for compliance test #3.",
+      "Step 2: Verify app_spec.txt is present and readable.",
+      "Step 3: Verify feature_list.json is present and valid JSON.",
+      "Step 4: Verify codex-progress.txt is present and readable.",
+      "Step 5: Start root init script and confirm dependency checks pass.",
+      "Step 6: Start backend init script and confirm service launch output.",
+      "Step 7: Query backend health endpoint and validate status is healthy.",
+      "Step 8: Query data-pipeline status endpoint and inspect freshness timestamps.",
+      "Step 9: Trigger deterministic signal evaluation for a representative ticker.",
+      "Step 10: Confirm output includes technical, fundamental, sentiment, and ML diagnostics.",
+      "Step 11: Confirm policy gate state is explicit and no silent fallback path is used.",
+      "Step 12: Record evidence in logs/screenshots and compare result to expected contract."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Session bootstrap, required file gate, and codex workflow compliance validation #4",
+    "steps": [
+      "Step 1: Run session bootstrap from repository root for compliance test #4.",
+      "Step 2: Verify app_spec.txt is present and readable.",
+      "Step 3: Verify feature_list.json is present and valid JSON.",
+      "Step 4: Verify codex-progress.txt is present and readable.",
+      "Step 5: Start root init script and confirm dependency checks pass.",
+      "Step 6: Start backend init script and confirm service launch output.",
+      "Step 7: Query backend health endpoint and validate status is healthy.",
+      "Step 8: Query data-pipeline status endpoint and inspect freshness timestamps.",
+      "Step 9: Trigger deterministic signal evaluation for a representative ticker.",
+      "Step 10: Confirm output includes technical, fundamental, sentiment, and ML diagnostics.",
+      "Step 11: Confirm policy gate state is explicit and no silent fallback path is used.",
+      "Step 12: Record evidence in logs/screenshots and compare result to expected contract."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Session bootstrap, required file gate, and codex workflow compliance validation #5",
+    "steps": [
+      "Step 1: Run session bootstrap from repository root for compliance test #5.",
+      "Step 2: Verify app_spec.txt is present and readable.",
+      "Step 3: Verify feature_list.json is present and valid JSON.",
+      "Step 4: Verify codex-progress.txt is present and readable.",
+      "Step 5: Start root init script and confirm dependency checks pass.",
+      "Step 6: Start backend init script and confirm service launch output.",
+      "Step 7: Query backend health endpoint and validate status is healthy.",
+      "Step 8: Query data-pipeline status endpoint and inspect freshness timestamps.",
+      "Step 9: Trigger deterministic signal evaluation for a representative ticker.",
+      "Step 10: Confirm output includes technical, fundamental, sentiment, and ML diagnostics.",
+      "Step 11: Confirm policy gate state is explicit and no silent fallback path is used.",
+      "Step 12: Record evidence in logs/screenshots and compare result to expected contract."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Session bootstrap, required file gate, and codex workflow compliance validation #6",
+    "steps": [
+      "Step 1: Run session bootstrap from repository root for compliance test #6.",
+      "Step 2: Verify app_spec.txt is present and readable.",
+      "Step 3: Verify feature_list.json is present and valid JSON.",
+      "Step 4: Verify codex-progress.txt is present and readable.",
+      "Step 5: Start root init script and confirm dependency checks pass.",
+      "Step 6: Start backend init script and confirm service launch output.",
+      "Step 7: Query backend health endpoint and validate status is healthy.",
+      "Step 8: Query data-pipeline status endpoint and inspect freshness timestamps.",
+      "Step 9: Trigger deterministic signal evaluation for a representative ticker.",
+      "Step 10: Confirm output includes technical, fundamental, sentiment, and ML diagnostics.",
+      "Step 11: Confirm policy gate state is explicit and no silent fallback path is used.",
+      "Step 12: Record evidence in logs/screenshots and compare result to expected contract."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Session bootstrap, required file gate, and codex workflow compliance validation #7",
+    "steps": [
+      "Step 1: Run session bootstrap from repository root for compliance test #7.",
+      "Step 2: Verify app_spec.txt is present and readable.",
+      "Step 3: Verify feature_list.json is present and valid JSON.",
+      "Step 4: Verify codex-progress.txt is present and readable.",
+      "Step 5: Start root init script and confirm dependency checks pass.",
+      "Step 6: Start backend init script and confirm service launch output.",
+      "Step 7: Query backend health endpoint and validate status is healthy.",
+      "Step 8: Query data-pipeline status endpoint and inspect freshness timestamps.",
+      "Step 9: Trigger deterministic signal evaluation for a representative ticker.",
+      "Step 10: Confirm output includes technical, fundamental, sentiment, and ML diagnostics.",
+      "Step 11: Confirm policy gate state is explicit and no silent fallback path is used.",
+      "Step 12: Record evidence in logs/screenshots and compare result to expected contract."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Session bootstrap, required file gate, and codex workflow compliance validation #8",
+    "steps": [
+      "Step 1: Run session bootstrap from repository root for compliance test #8.",
+      "Step 2: Verify app_spec.txt is present and readable.",
+      "Step 3: Verify feature_list.json is present and valid JSON.",
+      "Step 4: Verify codex-progress.txt is present and readable.",
+      "Step 5: Start root init script and confirm dependency checks pass.",
+      "Step 6: Start backend init script and confirm service launch output.",
+      "Step 7: Query backend health endpoint and validate status is healthy.",
+      "Step 8: Query data-pipeline status endpoint and inspect freshness timestamps.",
+      "Step 9: Trigger deterministic signal evaluation for a representative ticker.",
+      "Step 10: Confirm output includes technical, fundamental, sentiment, and ML diagnostics.",
+      "Step 11: Confirm policy gate state is explicit and no silent fallback path is used.",
+      "Step 12: Record evidence in logs/screenshots and compare result to expected contract."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Session bootstrap, required file gate, and codex workflow compliance validation #9",
+    "steps": [
+      "Step 1: Run session bootstrap from repository root for compliance test #9.",
+      "Step 2: Verify app_spec.txt is present and readable.",
+      "Step 3: Verify feature_list.json is present and valid JSON.",
+      "Step 4: Verify codex-progress.txt is present and readable.",
+      "Step 5: Start root init script and confirm dependency checks pass.",
+      "Step 6: Start backend init script and confirm service launch output.",
+      "Step 7: Query backend health endpoint and validate status is healthy.",
+      "Step 8: Query data-pipeline status endpoint and inspect freshness timestamps.",
+      "Step 9: Trigger deterministic signal evaluation for a representative ticker.",
+      "Step 10: Confirm output includes technical, fundamental, sentiment, and ML diagnostics.",
+      "Step 11: Confirm policy gate state is explicit and no silent fallback path is used.",
+      "Step 12: Record evidence in logs/screenshots and compare result to expected contract."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Session bootstrap, required file gate, and codex workflow compliance validation #10",
+    "steps": [
+      "Step 1: Run session bootstrap from repository root for compliance test #10.",
+      "Step 2: Verify app_spec.txt is present and readable.",
+      "Step 3: Verify feature_list.json is present and valid JSON.",
+      "Step 4: Verify codex-progress.txt is present and readable.",
+      "Step 5: Start root init script and confirm dependency checks pass.",
+      "Step 6: Start backend init script and confirm service launch output.",
+      "Step 7: Query backend health endpoint and validate status is healthy.",
+      "Step 8: Query data-pipeline status endpoint and inspect freshness timestamps.",
+      "Step 9: Trigger deterministic signal evaluation for a representative ticker.",
+      "Step 10: Confirm output includes technical, fundamental, sentiment, and ML diagnostics.",
+      "Step 11: Confirm policy gate state is explicit and no silent fallback path is used.",
+      "Step 12: Record evidence in logs/screenshots and compare result to expected contract."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Session bootstrap, required file gate, and codex workflow compliance validation #11",
+    "steps": [
+      "Step 1: Run session bootstrap from repository root for compliance test #11.",
+      "Step 2: Verify app_spec.txt is present and readable.",
+      "Step 3: Verify feature_list.json is present and valid JSON.",
+      "Step 4: Verify codex-progress.txt is present and readable.",
+      "Step 5: Start root init script and confirm dependency checks pass.",
+      "Step 6: Start backend init script and confirm service launch output.",
+      "Step 7: Query backend health endpoint and validate status is healthy.",
+      "Step 8: Query data-pipeline status endpoint and inspect freshness timestamps.",
+      "Step 9: Trigger deterministic signal evaluation for a representative ticker.",
+      "Step 10: Confirm output includes technical, fundamental, sentiment, and ML diagnostics.",
+      "Step 11: Confirm policy gate state is explicit and no silent fallback path is used.",
+      "Step 12: Record evidence in logs/screenshots and compare result to expected contract."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Session bootstrap, required file gate, and codex workflow compliance validation #12",
+    "steps": [
+      "Step 1: Run session bootstrap from repository root for compliance test #12.",
+      "Step 2: Verify app_spec.txt is present and readable.",
+      "Step 3: Verify feature_list.json is present and valid JSON.",
+      "Step 4: Verify codex-progress.txt is present and readable.",
+      "Step 5: Start root init script and confirm dependency checks pass.",
+      "Step 6: Start backend init script and confirm service launch output.",
+      "Step 7: Query backend health endpoint and validate status is healthy.",
+      "Step 8: Query data-pipeline status endpoint and inspect freshness timestamps.",
+      "Step 9: Trigger deterministic signal evaluation for a representative ticker.",
+      "Step 10: Confirm output includes technical, fundamental, sentiment, and ML diagnostics.",
+      "Step 11: Confirm policy gate state is explicit and no silent fallback path is used.",
+      "Step 12: Record evidence in logs/screenshots and compare result to expected contract."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Session bootstrap, required file gate, and codex workflow compliance validation #13",
+    "steps": [
+      "Step 1: Run session bootstrap from repository root for compliance test #13.",
+      "Step 2: Verify app_spec.txt is present and readable.",
+      "Step 3: Verify feature_list.json is present and valid JSON.",
+      "Step 4: Verify codex-progress.txt is present and readable.",
+      "Step 5: Start root init script and confirm dependency checks pass.",
+      "Step 6: Start backend init script and confirm service launch output.",
+      "Step 7: Query backend health endpoint and validate status is healthy.",
+      "Step 8: Query data-pipeline status endpoint and inspect freshness timestamps.",
+      "Step 9: Trigger deterministic signal evaluation for a representative ticker.",
+      "Step 10: Confirm output includes technical, fundamental, sentiment, and ML diagnostics.",
+      "Step 11: Confirm policy gate state is explicit and no silent fallback path is used.",
+      "Step 12: Record evidence in logs/screenshots and compare result to expected contract."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Session bootstrap, required file gate, and codex workflow compliance validation #14",
+    "steps": [
+      "Step 1: Run session bootstrap from repository root for compliance test #14.",
+      "Step 2: Verify app_spec.txt is present and readable.",
+      "Step 3: Verify feature_list.json is present and valid JSON.",
+      "Step 4: Verify codex-progress.txt is present and readable.",
+      "Step 5: Start root init script and confirm dependency checks pass.",
+      "Step 6: Start backend init script and confirm service launch output.",
+      "Step 7: Query backend health endpoint and validate status is healthy.",
+      "Step 8: Query data-pipeline status endpoint and inspect freshness timestamps.",
+      "Step 9: Trigger deterministic signal evaluation for a representative ticker.",
+      "Step 10: Confirm output includes technical, fundamental, sentiment, and ML diagnostics.",
+      "Step 11: Confirm policy gate state is explicit and no silent fallback path is used.",
+      "Step 12: Record evidence in logs/screenshots and compare result to expected contract."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Session bootstrap, required file gate, and codex workflow compliance validation #15",
+    "steps": [
+      "Step 1: Run session bootstrap from repository root for compliance test #15.",
+      "Step 2: Verify app_spec.txt is present and readable.",
+      "Step 3: Verify feature_list.json is present and valid JSON.",
+      "Step 4: Verify codex-progress.txt is present and readable.",
+      "Step 5: Start root init script and confirm dependency checks pass.",
+      "Step 6: Start backend init script and confirm service launch output.",
+      "Step 7: Query backend health endpoint and validate status is healthy.",
+      "Step 8: Query data-pipeline status endpoint and inspect freshness timestamps.",
+      "Step 9: Trigger deterministic signal evaluation for a representative ticker.",
+      "Step 10: Confirm output includes technical, fundamental, sentiment, and ML diagnostics.",
+      "Step 11: Confirm policy gate state is explicit and no silent fallback path is used.",
+      "Step 12: Record evidence in logs/screenshots and compare result to expected contract."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Session bootstrap, required file gate, and codex workflow compliance validation #16",
+    "steps": [
+      "Step 1: Run session bootstrap from repository root for compliance test #16.",
+      "Step 2: Verify app_spec.txt is present and readable.",
+      "Step 3: Verify feature_list.json is present and valid JSON.",
+      "Step 4: Verify codex-progress.txt is present and readable.",
+      "Step 5: Start root init script and confirm dependency checks pass.",
+      "Step 6: Start backend init script and confirm service launch output.",
+      "Step 7: Query backend health endpoint and validate status is healthy.",
+      "Step 8: Query data-pipeline status endpoint and inspect freshness timestamps.",
+      "Step 9: Trigger deterministic signal evaluation for a representative ticker.",
+      "Step 10: Confirm output includes technical, fundamental, sentiment, and ML diagnostics.",
+      "Step 11: Confirm policy gate state is explicit and no silent fallback path is used.",
+      "Step 12: Record evidence in logs/screenshots and compare result to expected contract."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Session bootstrap, required file gate, and codex workflow compliance validation #17",
+    "steps": [
+      "Step 1: Run session bootstrap from repository root for compliance test #17.",
+      "Step 2: Verify app_spec.txt is present and readable.",
+      "Step 3: Verify feature_list.json is present and valid JSON.",
+      "Step 4: Verify codex-progress.txt is present and readable.",
+      "Step 5: Start root init script and confirm dependency checks pass.",
+      "Step 6: Start backend init script and confirm service launch output.",
+      "Step 7: Query backend health endpoint and validate status is healthy.",
+      "Step 8: Query data-pipeline status endpoint and inspect freshness timestamps.",
+      "Step 9: Trigger deterministic signal evaluation for a representative ticker.",
+      "Step 10: Confirm output includes technical, fundamental, sentiment, and ML diagnostics.",
+      "Step 11: Confirm policy gate state is explicit and no silent fallback path is used.",
+      "Step 12: Record evidence in logs/screenshots and compare result to expected contract."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Session bootstrap, required file gate, and codex workflow compliance validation #18",
+    "steps": [
+      "Step 1: Run session bootstrap from repository root for compliance test #18.",
+      "Step 2: Verify app_spec.txt is present and readable.",
+      "Step 3: Verify feature_list.json is present and valid JSON.",
+      "Step 4: Verify codex-progress.txt is present and readable.",
+      "Step 5: Start root init script and confirm dependency checks pass.",
+      "Step 6: Start backend init script and confirm service launch output.",
+      "Step 7: Query backend health endpoint and validate status is healthy.",
+      "Step 8: Query data-pipeline status endpoint and inspect freshness timestamps.",
+      "Step 9: Trigger deterministic signal evaluation for a representative ticker.",
+      "Step 10: Confirm output includes technical, fundamental, sentiment, and ML diagnostics.",
+      "Step 11: Confirm policy gate state is explicit and no silent fallback path is used.",
+      "Step 12: Record evidence in logs/screenshots and compare result to expected contract."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Session bootstrap, required file gate, and codex workflow compliance validation #19",
+    "steps": [
+      "Step 1: Run session bootstrap from repository root for compliance test #19.",
+      "Step 2: Verify app_spec.txt is present and readable.",
+      "Step 3: Verify feature_list.json is present and valid JSON.",
+      "Step 4: Verify codex-progress.txt is present and readable.",
+      "Step 5: Start root init script and confirm dependency checks pass.",
+      "Step 6: Start backend init script and confirm service launch output.",
+      "Step 7: Query backend health endpoint and validate status is healthy.",
+      "Step 8: Query data-pipeline status endpoint and inspect freshness timestamps.",
+      "Step 9: Trigger deterministic signal evaluation for a representative ticker.",
+      "Step 10: Confirm output includes technical, fundamental, sentiment, and ML diagnostics.",
+      "Step 11: Confirm policy gate state is explicit and no silent fallback path is used.",
+      "Step 12: Record evidence in logs/screenshots and compare result to expected contract."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Session bootstrap, required file gate, and codex workflow compliance validation #20",
+    "steps": [
+      "Step 1: Run session bootstrap from repository root for compliance test #20.",
+      "Step 2: Verify app_spec.txt is present and readable.",
+      "Step 3: Verify feature_list.json is present and valid JSON.",
+      "Step 4: Verify codex-progress.txt is present and readable.",
+      "Step 5: Start root init script and confirm dependency checks pass.",
+      "Step 6: Start backend init script and confirm service launch output.",
+      "Step 7: Query backend health endpoint and validate status is healthy.",
+      "Step 8: Query data-pipeline status endpoint and inspect freshness timestamps.",
+      "Step 9: Trigger deterministic signal evaluation for a representative ticker.",
+      "Step 10: Confirm output includes technical, fundamental, sentiment, and ML diagnostics.",
+      "Step 11: Confirm policy gate state is explicit and no silent fallback path is used.",
+      "Step 12: Record evidence in logs/screenshots and compare result to expected contract."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Data ingestion, database completeness, and freshness assurance validation #21",
+    "steps": [
+      "Step 1: Run session bootstrap from repository root for compliance test #21.",
+      "Step 2: Verify app_spec.txt is present and readable.",
+      "Step 3: Verify feature_list.json is present and valid JSON.",
+      "Step 4: Verify codex-progress.txt is present and readable.",
+      "Step 5: Start root init script and confirm dependency checks pass.",
+      "Step 6: Start backend init script and confirm service launch output.",
+      "Step 7: Query backend health endpoint and validate status is healthy.",
+      "Step 8: Query data-pipeline status endpoint and inspect freshness timestamps.",
+      "Step 9: Trigger deterministic signal evaluation for a representative ticker.",
+      "Step 10: Confirm output includes technical, fundamental, sentiment, and ML diagnostics.",
+      "Step 11: Confirm policy gate state is explicit and no silent fallback path is used.",
+      "Step 12: Record evidence in logs/screenshots and compare result to expected contract."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Data ingestion, database completeness, and freshness assurance validation #22",
+    "steps": [
+      "Step 1: Run session bootstrap from repository root for compliance test #22.",
+      "Step 2: Verify app_spec.txt is present and readable.",
+      "Step 3: Verify feature_list.json is present and valid JSON.",
+      "Step 4: Verify codex-progress.txt is present and readable.",
+      "Step 5: Start root init script and confirm dependency checks pass.",
+      "Step 6: Start backend init script and confirm service launch output.",
+      "Step 7: Query backend health endpoint and validate status is healthy.",
+      "Step 8: Query data-pipeline status endpoint and inspect freshness timestamps.",
+      "Step 9: Trigger deterministic signal evaluation for a representative ticker.",
+      "Step 10: Confirm output includes technical, fundamental, sentiment, and ML diagnostics.",
+      "Step 11: Confirm policy gate state is explicit and no silent fallback path is used.",
+      "Step 12: Record evidence in logs/screenshots and compare result to expected contract."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Data ingestion, database completeness, and freshness assurance validation #23",
+    "steps": [
+      "Step 1: Run session bootstrap from repository root for compliance test #23.",
+      "Step 2: Verify app_spec.txt is present and readable.",
+      "Step 3: Verify feature_list.json is present and valid JSON.",
+      "Step 4: Verify codex-progress.txt is present and readable.",
+      "Step 5: Start root init script and confirm dependency checks pass.",
+      "Step 6: Start backend init script and confirm service launch output.",
+      "Step 7: Query backend health endpoint and validate status is healthy.",
+      "Step 8: Query data-pipeline status endpoint and inspect freshness timestamps.",
+      "Step 9: Trigger deterministic signal evaluation for a representative ticker.",
+      "Step 10: Confirm output includes technical, fundamental, sentiment, and ML diagnostics.",
+      "Step 11: Confirm policy gate state is explicit and no silent fallback path is used.",
+      "Step 12: Record evidence in logs/screenshots and compare result to expected contract."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Data ingestion, database completeness, and freshness assurance validation #24",
+    "steps": [
+      "Step 1: Run session bootstrap from repository root for compliance test #24.",
+      "Step 2: Verify app_spec.txt is present and readable.",
+      "Step 3: Verify feature_list.json is present and valid JSON.",
+      "Step 4: Verify codex-progress.txt is present and readable.",
+      "Step 5: Start root init script and confirm dependency checks pass.",
+      "Step 6: Start backend init script and confirm service launch output.",
+      "Step 7: Query backend health endpoint and validate status is healthy.",
+      "Step 8: Query data-pipeline status endpoint and inspect freshness timestamps.",
+      "Step 9: Trigger deterministic signal evaluation for a representative ticker.",
+      "Step 10: Confirm output includes technical, fundamental, sentiment, and ML diagnostics.",
+      "Step 11: Confirm policy gate state is explicit and no silent fallback path is used.",
+      "Step 12: Record evidence in logs/screenshots and compare result to expected contract."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Data ingestion, database completeness, and freshness assurance validation #25",
+    "steps": [
+      "Step 1: Run session bootstrap from repository root for compliance test #25.",
+      "Step 2: Verify app_spec.txt is present and readable.",
+      "Step 3: Verify feature_list.json is present and valid JSON.",
+      "Step 4: Verify codex-progress.txt is present and readable.",
+      "Step 5: Start root init script and confirm dependency checks pass.",
+      "Step 6: Start backend init script and confirm service launch output.",
+      "Step 7: Query backend health endpoint and validate status is healthy.",
+      "Step 8: Query data-pipeline status endpoint and inspect freshness timestamps.",
+      "Step 9: Trigger deterministic signal evaluation for a representative ticker.",
+      "Step 10: Confirm output includes technical, fundamental, sentiment, and ML diagnostics.",
+      "Step 11: Confirm policy gate state is explicit and no silent fallback path is used.",
+      "Step 12: Record evidence in logs/screenshots and compare result to expected contract."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Data ingestion, database completeness, and freshness assurance validation #26",
+    "steps": [
+      "Step 1: Run session bootstrap from repository root for compliance test #26.",
+      "Step 2: Verify app_spec.txt is present and readable.",
+      "Step 3: Verify feature_list.json is present and valid JSON.",
+      "Step 4: Verify codex-progress.txt is present and readable.",
+      "Step 5: Start root init script and confirm dependency checks pass.",
+      "Step 6: Start backend init script and confirm service launch output.",
+      "Step 7: Query backend health endpoint and validate status is healthy.",
+      "Step 8: Query data-pipeline status endpoint and inspect freshness timestamps.",
+      "Step 9: Trigger deterministic signal evaluation for a representative ticker.",
+      "Step 10: Confirm output includes technical, fundamental, sentiment, and ML diagnostics.",
+      "Step 11: Confirm policy gate state is explicit and no silent fallback path is used.",
+      "Step 12: Record evidence in logs/screenshots and compare result to expected contract."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Data ingestion, database completeness, and freshness assurance validation #27",
+    "steps": [
+      "Step 1: Run session bootstrap from repository root for compliance test #27.",
+      "Step 2: Verify app_spec.txt is present and readable.",
+      "Step 3: Verify feature_list.json is present and valid JSON.",
+      "Step 4: Verify codex-progress.txt is present and readable.",
+      "Step 5: Start root init script and confirm dependency checks pass.",
+      "Step 6: Start backend init script and confirm service launch output.",
+      "Step 7: Query backend health endpoint and validate status is healthy.",
+      "Step 8: Query data-pipeline status endpoint and inspect freshness timestamps.",
+      "Step 9: Trigger deterministic signal evaluation for a representative ticker.",
+      "Step 10: Confirm output includes technical, fundamental, sentiment, and ML diagnostics.",
+      "Step 11: Confirm policy gate state is explicit and no silent fallback path is used.",
+      "Step 12: Record evidence in logs/screenshots and compare result to expected contract."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Data ingestion, database completeness, and freshness assurance validation #28",
+    "steps": [
+      "Step 1: Run session bootstrap from repository root for compliance test #28.",
+      "Step 2: Verify app_spec.txt is present and readable.",
+      "Step 3: Verify feature_list.json is present and valid JSON.",
+      "Step 4: Verify codex-progress.txt is present and readable.",
+      "Step 5: Start root init script and confirm dependency checks pass.",
+      "Step 6: Start backend init script and confirm service launch output.",
+      "Step 7: Query backend health endpoint and validate status is healthy.",
+      "Step 8: Query data-pipeline status endpoint and inspect freshness timestamps.",
+      "Step 9: Trigger deterministic signal evaluation for a representative ticker.",
+      "Step 10: Confirm output includes technical, fundamental, sentiment, and ML diagnostics.",
+      "Step 11: Confirm policy gate state is explicit and no silent fallback path is used.",
+      "Step 12: Record evidence in logs/screenshots and compare result to expected contract."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Data ingestion, database completeness, and freshness assurance validation #29",
+    "steps": [
+      "Step 1: Run session bootstrap from repository root for compliance test #29.",
+      "Step 2: Verify app_spec.txt is present and readable.",
+      "Step 3: Verify feature_list.json is present and valid JSON.",
+      "Step 4: Verify codex-progress.txt is present and readable.",
+      "Step 5: Start root init script and confirm dependency checks pass.",
+      "Step 6: Start backend init script and confirm service launch output.",
+      "Step 7: Query backend health endpoint and validate status is healthy.",
+      "Step 8: Query data-pipeline status endpoint and inspect freshness timestamps.",
+      "Step 9: Trigger deterministic signal evaluation for a representative ticker.",
+      "Step 10: Confirm output includes technical, fundamental, sentiment, and ML diagnostics.",
+      "Step 11: Confirm policy gate state is explicit and no silent fallback path is used.",
+      "Step 12: Record evidence in logs/screenshots and compare result to expected contract."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Data ingestion, database completeness, and freshness assurance validation #30",
+    "steps": [
+      "Step 1: Run session bootstrap from repository root for compliance test #30.",
+      "Step 2: Verify app_spec.txt is present and readable.",
+      "Step 3: Verify feature_list.json is present and valid JSON.",
+      "Step 4: Verify codex-progress.txt is present and readable.",
+      "Step 5: Start root init script and confirm dependency checks pass.",
+      "Step 6: Start backend init script and confirm service launch output.",
+      "Step 7: Query backend health endpoint and validate status is healthy.",
+      "Step 8: Query data-pipeline status endpoint and inspect freshness timestamps.",
+      "Step 9: Trigger deterministic signal evaluation for a representative ticker.",
+      "Step 10: Confirm output includes technical, fundamental, sentiment, and ML diagnostics.",
+      "Step 11: Confirm policy gate state is explicit and no silent fallback path is used.",
+      "Step 12: Record evidence in logs/screenshots and compare result to expected contract."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Data ingestion, database completeness, and freshness assurance validation #31",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #31.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Data ingestion, database completeness, and freshness assurance validation #32",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #32.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Data ingestion, database completeness, and freshness assurance validation #33",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #33.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Data ingestion, database completeness, and freshness assurance validation #34",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #34.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Data ingestion, database completeness, and freshness assurance validation #35",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #35.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Data ingestion, database completeness, and freshness assurance validation #36",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #36.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Data ingestion, database completeness, and freshness assurance validation #37",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #37.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Data ingestion, database completeness, and freshness assurance validation #38",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #38.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Data ingestion, database completeness, and freshness assurance validation #39",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #39.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Data ingestion, database completeness, and freshness assurance validation #40",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #40.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Technical analysis factor computation and market-structure pattern detection validation #41",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #41.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Technical analysis factor computation and market-structure pattern detection validation #42",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #42.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Technical analysis factor computation and market-structure pattern detection validation #43",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #43.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Technical analysis factor computation and market-structure pattern detection validation #44",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #44.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Technical analysis factor computation and market-structure pattern detection validation #45",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #45.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Technical analysis factor computation and market-structure pattern detection validation #46",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #46.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Technical analysis factor computation and market-structure pattern detection validation #47",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #47.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Technical analysis factor computation and market-structure pattern detection validation #48",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #48.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Technical analysis factor computation and market-structure pattern detection validation #49",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #49.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Technical analysis factor computation and market-structure pattern detection validation #50",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #50.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Technical analysis factor computation and market-structure pattern detection validation #51",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #51.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Technical analysis factor computation and market-structure pattern detection validation #52",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #52.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Technical analysis factor computation and market-structure pattern detection validation #53",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #53.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Technical analysis factor computation and market-structure pattern detection validation #54",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #54.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Technical analysis factor computation and market-structure pattern detection validation #55",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #55.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Technical analysis factor computation and market-structure pattern detection validation #56",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #56.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Technical analysis factor computation and market-structure pattern detection validation #57",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #57.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Technical analysis factor computation and market-structure pattern detection validation #58",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #58.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Technical analysis factor computation and market-structure pattern detection validation #59",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #59.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Technical analysis factor computation and market-structure pattern detection validation #60",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #60.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Fundamental statement parsing, scoring, and forecast signal validation #61",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #61.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Fundamental statement parsing, scoring, and forecast signal validation #62",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #62.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Fundamental statement parsing, scoring, and forecast signal validation #63",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #63.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Fundamental statement parsing, scoring, and forecast signal validation #64",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #64.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Fundamental statement parsing, scoring, and forecast signal validation #65",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #65.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Fundamental statement parsing, scoring, and forecast signal validation #66",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #66.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Fundamental statement parsing, scoring, and forecast signal validation #67",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #67.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Fundamental statement parsing, scoring, and forecast signal validation #68",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #68.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Fundamental statement parsing, scoring, and forecast signal validation #69",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #69.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Fundamental statement parsing, scoring, and forecast signal validation #70",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #70.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Fundamental statement parsing, scoring, and forecast signal validation #71",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #71.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Fundamental statement parsing, scoring, and forecast signal validation #72",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #72.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Fundamental statement parsing, scoring, and forecast signal validation #73",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #73.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Fundamental statement parsing, scoring, and forecast signal validation #74",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #74.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Fundamental statement parsing, scoring, and forecast signal validation #75",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #75.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Fundamental statement parsing, scoring, and forecast signal validation #76",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #76.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Fundamental statement parsing, scoring, and forecast signal validation #77",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #77.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Fundamental statement parsing, scoring, and forecast signal validation #78",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #78.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Fundamental statement parsing, scoring, and forecast signal validation #79",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #79.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Fundamental statement parsing, scoring, and forecast signal validation #80",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #80.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Sentiment source fusion, narrative impact scoring, and reaction-window validation #81",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #81.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Sentiment source fusion, narrative impact scoring, and reaction-window validation #82",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #82.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Sentiment source fusion, narrative impact scoring, and reaction-window validation #83",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #83.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Sentiment source fusion, narrative impact scoring, and reaction-window validation #84",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #84.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Sentiment source fusion, narrative impact scoring, and reaction-window validation #85",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #85.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Sentiment source fusion, narrative impact scoring, and reaction-window validation #86",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #86.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Sentiment source fusion, narrative impact scoring, and reaction-window validation #87",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #87.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Sentiment source fusion, narrative impact scoring, and reaction-window validation #88",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #88.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Sentiment source fusion, narrative impact scoring, and reaction-window validation #89",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #89.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Sentiment source fusion, narrative impact scoring, and reaction-window validation #90",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #90.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Sentiment source fusion, narrative impact scoring, and reaction-window validation #91",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #91.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Sentiment source fusion, narrative impact scoring, and reaction-window validation #92",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #92.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Sentiment source fusion, narrative impact scoring, and reaction-window validation #93",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #93.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Sentiment source fusion, narrative impact scoring, and reaction-window validation #94",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #94.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Sentiment source fusion, narrative impact scoring, and reaction-window validation #95",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #95.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Sentiment source fusion, narrative impact scoring, and reaction-window validation #96",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #96.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Sentiment source fusion, narrative impact scoring, and reaction-window validation #97",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #97.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Sentiment source fusion, narrative impact scoring, and reaction-window validation #98",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #98.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Sentiment source fusion, narrative impact scoring, and reaction-window validation #99",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #99.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Sentiment source fusion, narrative impact scoring, and reaction-window validation #100",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #100.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ML algorithm selection, training diagnostics, and deterministic prediction validation #101",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #101.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ML algorithm selection, training diagnostics, and deterministic prediction validation #102",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #102.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ML algorithm selection, training diagnostics, and deterministic prediction validation #103",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #103.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ML algorithm selection, training diagnostics, and deterministic prediction validation #104",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #104.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ML algorithm selection, training diagnostics, and deterministic prediction validation #105",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #105.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ML algorithm selection, training diagnostics, and deterministic prediction validation #106",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #106.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ML algorithm selection, training diagnostics, and deterministic prediction validation #107",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #107.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ML algorithm selection, training diagnostics, and deterministic prediction validation #108",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #108.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ML algorithm selection, training diagnostics, and deterministic prediction validation #109",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #109.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ML algorithm selection, training diagnostics, and deterministic prediction validation #110",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #110.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ML algorithm selection, training diagnostics, and deterministic prediction validation #111",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #111.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ML algorithm selection, training diagnostics, and deterministic prediction validation #112",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #112.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ML algorithm selection, training diagnostics, and deterministic prediction validation #113",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #113.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ML algorithm selection, training diagnostics, and deterministic prediction validation #114",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #114.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ML algorithm selection, training diagnostics, and deterministic prediction validation #115",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #115.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ML algorithm selection, training diagnostics, and deterministic prediction validation #116",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #116.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ML algorithm selection, training diagnostics, and deterministic prediction validation #117",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #117.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ML algorithm selection, training diagnostics, and deterministic prediction validation #118",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #118.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ML algorithm selection, training diagnostics, and deterministic prediction validation #119",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #119.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ML algorithm selection, training diagnostics, and deterministic prediction validation #120",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #120.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Unified signal fusion, policy gates, and trade-intent emission validation #121",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #121.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Unified signal fusion, policy gates, and trade-intent emission validation #122",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #122.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Unified signal fusion, policy gates, and trade-intent emission validation #123",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #123.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Unified signal fusion, policy gates, and trade-intent emission validation #124",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #124.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Unified signal fusion, policy gates, and trade-intent emission validation #125",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #125.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Unified signal fusion, policy gates, and trade-intent emission validation #126",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #126.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Unified signal fusion, policy gates, and trade-intent emission validation #127",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #127.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Unified signal fusion, policy gates, and trade-intent emission validation #128",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #128.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Unified signal fusion, policy gates, and trade-intent emission validation #129",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #129.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Unified signal fusion, policy gates, and trade-intent emission validation #130",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #130.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Unified signal fusion, policy gates, and trade-intent emission validation #131",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #131.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Unified signal fusion, policy gates, and trade-intent emission validation #132",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #132.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Unified signal fusion, policy gates, and trade-intent emission validation #133",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #133.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Unified signal fusion, policy gates, and trade-intent emission validation #134",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #134.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Unified signal fusion, policy gates, and trade-intent emission validation #135",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #135.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Unified signal fusion, policy gates, and trade-intent emission validation #136",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #136.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Unified signal fusion, policy gates, and trade-intent emission validation #137",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #137.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Unified signal fusion, policy gates, and trade-intent emission validation #138",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #138.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Unified signal fusion, policy gates, and trade-intent emission validation #139",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #139.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Unified signal fusion, policy gates, and trade-intent emission validation #140",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #140.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Paper execution lifecycle, attribution, and audit-lineage validation #141",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #141.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Paper execution lifecycle, attribution, and audit-lineage validation #142",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #142.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Paper execution lifecycle, attribution, and audit-lineage validation #143",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #143.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Paper execution lifecycle, attribution, and audit-lineage validation #144",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #144.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Paper execution lifecycle, attribution, and audit-lineage validation #145",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #145.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Paper execution lifecycle, attribution, and audit-lineage validation #146",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #146.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Paper execution lifecycle, attribution, and audit-lineage validation #147",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #147.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Paper execution lifecycle, attribution, and audit-lineage validation #148",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #148.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Paper execution lifecycle, attribution, and audit-lineage validation #149",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #149.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Paper execution lifecycle, attribution, and audit-lineage validation #150",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #150.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Paper execution lifecycle, attribution, and audit-lineage validation #151",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #151.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Paper execution lifecycle, attribution, and audit-lineage validation #152",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #152.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Paper execution lifecycle, attribution, and audit-lineage validation #153",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #153.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Paper execution lifecycle, attribution, and audit-lineage validation #154",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #154.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Paper execution lifecycle, attribution, and audit-lineage validation #155",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #155.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Paper execution lifecycle, attribution, and audit-lineage validation #156",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #156.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Paper execution lifecycle, attribution, and audit-lineage validation #157",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #157.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Paper execution lifecycle, attribution, and audit-lineage validation #158",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #158.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Paper execution lifecycle, attribution, and audit-lineage validation #159",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #159.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Paper execution lifecycle, attribution, and audit-lineage validation #160",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #160.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Admin UI operational visibility and workflow clarity style validation #161",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #161.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Admin UI operational visibility and workflow clarity style validation #162",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #162.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Admin UI operational visibility and workflow clarity style validation #163",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #163.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Admin UI operational visibility and workflow clarity style validation #164",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #164.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Admin UI operational visibility and workflow clarity style validation #165",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #165.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Admin UI operational visibility and workflow clarity style validation #166",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #166.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Admin UI operational visibility and workflow clarity style validation #167",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #167.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Admin UI operational visibility and workflow clarity style validation #168",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #168.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Admin UI operational visibility and workflow clarity style validation #169",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #169.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Admin UI operational visibility and workflow clarity style validation #170",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #170.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Admin UI operational visibility and workflow clarity style validation #171",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #171.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Admin UI operational visibility and workflow clarity style validation #172",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #172.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Admin UI operational visibility and workflow clarity style validation #173",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #173.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Admin UI operational visibility and workflow clarity style validation #174",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #174.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Admin UI operational visibility and workflow clarity style validation #175",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #175.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Admin UI operational visibility and workflow clarity style validation #176",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #176.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Admin UI operational visibility and workflow clarity style validation #177",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #177.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Admin UI operational visibility and workflow clarity style validation #178",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #178.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Admin UI operational visibility and workflow clarity style validation #179",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #179.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Admin UI operational visibility and workflow clarity style validation #180",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #180.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Responsive layout, accessibility, and visual quality style validation #181",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #181.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Responsive layout, accessibility, and visual quality style validation #182",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #182.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Responsive layout, accessibility, and visual quality style validation #183",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #183.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Responsive layout, accessibility, and visual quality style validation #184",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #184.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Responsive layout, accessibility, and visual quality style validation #185",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #185.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Responsive layout, accessibility, and visual quality style validation #186",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #186.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Responsive layout, accessibility, and visual quality style validation #187",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #187.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Responsive layout, accessibility, and visual quality style validation #188",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #188.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Responsive layout, accessibility, and visual quality style validation #189",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #189.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Responsive layout, accessibility, and visual quality style validation #190",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #190.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Responsive layout, accessibility, and visual quality style validation #191",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #191.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Responsive layout, accessibility, and visual quality style validation #192",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #192.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Responsive layout, accessibility, and visual quality style validation #193",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #193.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Responsive layout, accessibility, and visual quality style validation #194",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #194.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Responsive layout, accessibility, and visual quality style validation #195",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #195.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Responsive layout, accessibility, and visual quality style validation #196",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #196.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Responsive layout, accessibility, and visual quality style validation #197",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #197.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Responsive layout, accessibility, and visual quality style validation #198",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #198.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Responsive layout, accessibility, and visual quality style validation #199",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #199.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "Responsive layout, accessibility, and visual quality style validation #200",
+    "steps": [
+      "Step 1: Navigate to the relevant module or UI surface for feature #200.",
+      "Step 2: Execute the intended action with valid deterministic inputs.",
+      "Step 3: Validate API/UI output includes expected fields and stable behavior.",
+      "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
+    ],
+    "passes": false
+  }
+]

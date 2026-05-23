@@ -25,7 +25,6 @@ from app.fund.ai_role_adapter import ai_role_adapter
 from app.fund.audit_log import audit_log
 from app.fund.decision_ledger import decision_ledger
 from app.fund.knowledge_graph import knowledge_graph
-from app.fund.openclaw_command_adapter import openclaw_command_adapter
 from app.fund.router import router as fund_router
 from app.fund.orchestrator import firm_orchestrator
 from app.fund.performance_tracker import performance_tracker
@@ -290,16 +289,6 @@ async def startup_event():
     except Exception as e:
         monitor.log_component_status("Knowledge Graph", "WARN", str(e))
     
-    # Setup event capture
-    try:
-        def _capture_openclaw_command_event(event: dict[str, Any]) -> None:
-            captured = knowledge_graph.capture("openclaw_command", event)
-            realtime_stream.publish(source="openclaw_command", event=captured)
-
-        openclaw_command_adapter.set_event_sink(_capture_openclaw_command_event)
-        monitor.log_component_status("OpenClaw Adapter", "OK", "Event sink configured")
-    except Exception as e:
-        monitor.log_component_status("OpenClaw Adapter", "WARN", str(e))
     
     # Restore broker state
     try:

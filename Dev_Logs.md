@@ -11,7 +11,7 @@
 [UTC_TIMESTAMP] [START|UPDATE|END]
 entry_id: devlog-<unique-id>
 actor_name: <human_or_agent_name>
-actor_platform: <codex|claude_code|github_copilot|ollama|other>
+actor_platform: <codex|github_copilot|ollama|other>
 actor_model: <model_id>
 actor_provider: <provider_name_or_blank>
 run_id: <run_id_or_blank>
@@ -6975,15 +6975,65 @@ notes: Added -UseSslipHost to deploy_aws_backend.ps1 so an EC2 Elastic IP can se
 - Context: user wants the backend VM closer to Phoenix and wants local storage hosted/connected to the AWS backend without losing current data.
 - Verification plan: inspect current SQLite storage surface, add Postgres migration/provision/deploy tooling, validate scripts and Python modules locally, then attempt live AWS checks if credentials/network allow.
 
-2026-05-21T21:47:26-07:00 START run-20260521-main-landing-redesign-push
-- Goal: apply the Vektor landing redesign to current `origin/main` and push it without mixing stale `subagent` branch commits.
-- Context: `origin/main` was ahead of local `subagent` and contained a newer Three.js landing page with duplicate app route files and missing landing dependencies.
-- Verification plan: use a clean `origin/main` worktree, integrate the redesign into the current TypeScript landing page, fix build blockers, run production build, inspect desktop/mobile screenshots, perform 3D canvas pixel checks, then push to `main`.
+## 2026-05-17 16:35 MST - END run-20260517-us-west-postgres-cloud-storage
+- Added hosted Postgres support through `DB_BACKEND=postgres` and `DATABASE_URL` while preserving existing SQLite behavior as the default.
+- Added SQLite-to-Postgres migration tooling that creates the hosted schema, backs up source data operationally, and upserts rows by primary key.
+- Added us-west-2 AWS provisioning/deploy scripts for RDS Postgres, a backend EC2 VM, backend bootstrap, and switching the running backend to Postgres.
+- Added `docs/DEPLOY_AWS_US_WEST_POSTGRES.md` with the safe migration order: provision Postgres, migrate current SQLite data, provision us-west-2 VM, deploy, then update Vercel.
+- Validation: Python compile passed for backend storage/config/migration/provision scripts; `bash -n` passed for setup script; PowerShell scriptblocks parsed; migration/provision CLIs render help; `backend/tests/test_data_pipeline.py` passed 6 tests.
+- Live AWS provisioning was not executed because this shell has no AWS credentials; STS returned `NoCredentialsError` after network access was allowed.
+## 2026-05-17 16:36 MST - START run-20260517-live-us-west-postgres-deploy
+- Goal: use the user-provided AWS credentials to provision us-west-2 hosted Postgres and backend infrastructure, migrate current data, and make the app run from the west-coast backend.
+- Context: credentials source is `C:\Users\tplah\OneDrive\Desktop\ASU\2ndSem\CC\credentials\credentials.txt`; AWS identity verified without exposing key material.
+- Verification plan: provision us-west-2 RDS, provision us-west-2 EC2, migrate SQLite to Postgres, deploy backend, verify health/protected endpoints, then update run logs and index.
 
-2026-05-21T21:47:26-07:00 END run-20260521-main-landing-redesign-push
-- Redesigned the current `landing-next/app/page.tsx` around the Vektor brand, institutional copy, a compact Three.js topology, operating-console preview, explicit operating loop, principles, agent bench, and paper-mode CTA.
-- Removed duplicate App Router files for `/`, `/robots.txt`, and `/sitemap.xml`; fixed landing dependency and TypeScript build blockers; removed invalid `next.config.mjs` option.
-- Validation: `npm run build` passed in the clean main worktree; Playwright screenshots were captured for 1440x1000 and 390x900; canvas pixel checks confirmed the Three.js scene is nonblank and moving on desktop and mobile.
+## 2026-05-17 16:59 MST - END run-20260517-live-us-west-postgres-deploy
+- AWS identity verified for account `735115318411`; RDS creation was blocked by IAM denial on `rds:DescribeDBSubnetGroups`, so the live deployment uses self-hosted PostgreSQL on the new AWS us-west-2 backend VM.
+- Provisioned us-west-2 EC2 backend VM `i-0b1e12d7dc35041fc` at Elastic IP `35.84.237.249`; public HTTPS host is `https://35.84.237.249.sslip.io`.
+- Installed and enabled PostgreSQL on the west VM, switched backend runtime to `DB_BACKEND=postgres`, and preserved the existing east SQLite data by checkpointing/copying the DB with integrity checks before migration.
+- Migration completed with `29` tables and `207038` rows moved into Postgres; live Postgres row checks show the database is active and continuing to receive new events.
+- West services verified active: `vektor-backend`, `postgresql`, and `caddy`; public west health, CORS preflight, and authenticated protected API checks returned 200.
+- Stopped the old east backend service to avoid duplicate Alpaca websocket connections; kept east Caddy active as a compatibility proxy from `https://35.168.170.143.sslip.io` to the west backend.
+- Verified the old east URL now returns 200 for health, CORS preflight, and authenticated protected API calls, so the existing Vercel deployment can continue fetching without an immediate Vercel env redeploy.
+- Vercel CLI credentials are not available locally (`No existing credentials found`), so Vercel env updates were not applied from this shell.
+
+## 2026-05-17 17:02 MST - START run-20260517-recover-west-postgres-after-restart
+- Goal: recover after laptop restart, verify the live us-west backend did not regress, preserve uncommitted deployment artifacts, and refresh repo knowledge/index hygiene.
+- Context: previous run completed live us-west EC2 plus self-hosted Postgres deployment, but local checkout still had uncommitted docs/scripts/log changes and Vercel CLI remained unauthenticated.
+- Verification plan: confirm west and east compatibility health endpoints, check Vercel CLI state, update deployment docs to actual live topology, run local syntax checks, and refresh codebase-memory index.
+
+## 2026-05-17 17:08 MST - END run-20260517-recover-west-postgres-after-restart
+- Verified west public health at `https://35.84.237.249.sslip.io/health` returned 200.
+- Verified east compatibility public health at `https://35.168.170.143.sslip.io/health` returned 200.
+- Verified authenticated protected metrics requests returned 200 through both west and east compatibility hosts without printing the API key.
+- Confirmed Vercel CLI remains unauthenticated locally (`No existing credentials found`), so Vercel env updates are still pending.
+- Updated `docs/DEPLOY_AWS_US_WEST_POSTGRES.md` to document the actual live self-hosted Postgres topology, east-to-west proxy behavior, and west `VITE_BACKEND_URL`.
+- Validation passed: `bash -n` for AWS setup scripts, PowerShell parse for deploy/switch scripts, redirected-cache Python compile for backend/AWS scripts, and `backend/tests/test_data_pipeline.py` with 6 passed.
+- Refreshed codebase-memory index with `scripts/index-repo.ps1`; project status is ready with 8527 nodes and 13747 edges.
+
+## 2026-05-17 17:28 MST - START run-20260518-diagnose-missing-positions-after-vercel-west
+- Goal: diagnose why latest Vercel redeployment points to west backend but old positions are not shown.
+- Context: west VM/Postgres migration is complete; user updated Vercel backend URL but positions appear empty.
+- Verification plan: trace frontend/backend position routes, query live west/east APIs, inspect remote broker/Postgres state if needed, then patch or restore the correct state path.
+
+## 2026-05-17 17:45 MST - END run-20260518-diagnose-missing-positions-after-vercel-west
+- Root cause: Vercel was not the issue; the west `/paper/positions` route was returning `[]` because the west Postgres broker tables had `positions=0` and `orders=0`.
+- The migrated west VM SQLite file also had no broker state, while local `backend/trading_bot.db` had the old paper broker state: `6` positions, `12` orders, and `13` cash snapshots.
+- Added `--tables` allowlist support to `backend/scripts/migrate_sqlite_to_postgres.py` so broker state can be restored without touching the larger live market-data warehouse.
+- Uploaded local `backend/trading_bot.db` to the west VM and ran a targeted restore for `positions`, `orders`, and `cash_snapshots`.
+- Restarted `vektor-backend`; systemd returned `active`.
+- Verification: live west `/paper/positions` now returns `NVDA`, `AAPL`, `TSLA`, `SPY`, `QQQ`, and `AMD`; Postgres `positions` count is `6`; `/paper/orders` returns HTTP 200.
+2026-05-18T17:09:23-07:00 START frontend/backend hosting and Vercel package validation run
+2026-05-19T01:30:49.0859990-07:00 END fixed Vercel/frontend hosting: corrected landing package audit/build config, Vercel env wiring, production deploys, and verified backend/product/landing URLs
+2026-05-19T01:34:06.3259786-07:00 END_FINAL fixed product frontend audit via Vite 8/plugin upgrade, redeployed product, verified product bundle backend/API key, landing public URL, backend health, and protected metrics
+2026-05-21T17:15:42-07:00 START run-20260521-vektor-landing-redesign
+- Goal: redesign the Vektor landing page hero and page rhythm so the first viewport feels aligned, premium, and appropriate for an AI-native hedge fund operating system.
+- Context: user requested MCP-based discovery and said the current landing page looked bad, especially the hero alignment.
+- Verification plan: use codebase-memory MCP to locate the landing entrypoint, patch the Next landing page/CSS, build the landing app, run local browser checks, then refresh the codebase-memory index.
+2026-05-21T17:25:52-07:00 END run-20260521-vektor-landing-redesign
+- Redesigned `landing-next/app/page.jsx` hero around a clear Vektor brand headline, concise institutional value prop, primary product CTA, operating-model CTA, and a right-side control-console preview.
+- Reworked `landing-next/app/globals.css` spacing, grid behavior, card radius, typography sizing, hero reveal behavior, mobile hero density, and container padding so the hero aligns cleanly on desktop and mobile.
+- Validation: `npm run build` passed for `landing-next`; Playwright screenshots were captured at 1440x1000 and 390x900 in `landing-next/output/playwright/` and inspected for hero alignment, text containment, and first-viewport section hint.
 2026-05-21T23:29:29-07:00 START run-20260521-admin-deterministic-trading-readiness
 - Goal: make the admin system functional when it reports `System halted`, shift near-term product behavior toward deterministic ML-based automatic paper trading, and document how data ingestion currently supports ML/trading.
 - Context: user wants AI orchestration deferred and wants the current admin/data/ML trading stack made operational and explained in detail.
@@ -6994,31 +7044,312 @@ notes: Added -UseSslipHost to deploy_aws_backend.ps1 so an EC2 Elastic IP can se
 - Kept live execution in paper-only mode and AI disabled; deployed backend fixes to the west VM, persisted `REAL_DATA_STRICT_MODE=false`, restarted `vektor-backend`, and verified live admin status is Healthy/Provider/Paper Only/AI Disabled/not halted.
 - Fixed date-drift in the data-pipeline test fixture so the fresh-data path remains fresh relative to the current test date.
 - Validation: frontend `npm run build` passed; `test_admin_runtime_controls.py` and `test_data_pipeline.py` passed together with 16 tests; live ML status returned ready with 39 features; live status-badges returned `strict_real_data_only=false` and `halted=false`.
-2026-05-22T00:00:00-07:00 START run-20260522-firm-grade-landing-site
-- Goal: replace the vibe-coded landing page with a real firm-grade multi-page landing site covering platform, operating model, data pipeline, risk controls, and performance.
-- Context: user rejected the current landing page as not credible and asked for real SEO and operating aspects instead of AI-marketing fluff.
-- Verification plan: inspect current landing routes with codebase-memory MCP, rebuild page structure/content/CSS, add SEO metadata/sitemap coverage, run landing build, inspect desktop/mobile screenshots, push to main, and refresh codebase-memory index.
-2026-05-22T00:13:00-07:00 END run-20260522-firm-grade-landing-site
-- Replaced the prior single-page AI-heavy landing surface with a firm-grade, deterministic ML trading operations homepage focused on paper-first execution, data lineage, risk gates, operating state, and auditability.
-- Added a multi-page route model for `/platform`, `/operating-model`, `/data`, `/risk`, and `/performance`; redirected `/how-it-works` to the operating model; updated research posts away from broad AI/autonomous-fund claims.
-- Added shared landing content data, stronger global metadata, JSON-LD software schema, route-level canonical metadata, expanded sitemap coverage, and robots sitemap wiring.
-- Validation: `npm run build` passed in `landing-next`; Playwright screenshots were captured for 1440x1200 and 390x1200; local route checks returned 200 for `/platform`, `/operating-model`, `/data`, `/risk`, and `/performance`; sitemap, robots, and homepage SEO assertions passed.
-2026-05-22T00:24:00-07:00 START run-20260522-landing-purple-theme
-- Goal: retheme the firm-grade landing site from the interim black/green palette to a black/purple Vektor brand palette while preserving the multi-page operating model and SEO work.
-- Context: user rejected the green palette and asked for black/purple to better match the brand.
-- Verification plan: use codebase-memory MCP to locate landing theme surfaces, update CSS tokens and accent states, run landing build, inspect desktop/mobile screenshots, push to main, and refresh codebase-memory index.
-2026-05-22T00:31:00-07:00 END run-20260522-landing-purple-theme
-- Rethemed the landing CSS from black/green to a black/purple Vektor palette, including global tokens, CTA gradients, header active states, hover borders, article accents, code blocks, hero glow, and operating-facts band.
-- Removed stale blue/green hard-coded color literals from `landing-next/app/globals.css` so the multi-page landing site presents a consistent purple brand system.
-- Validation: `npm run build` passed in `landing-next`; Playwright screenshots were captured for 1440x1200 and 390x1200; `/platform`, `/data`, and `/risk` returned 200 locally; CSS color scan found no old green/blue literal matches.
-2026-05-22T00:43:00-07:00 START run-20260522-quant-ml-db-inspection
-- Goal: move the actual trading backend toward quant-grade ML by training from the app's own warehouse data and add a safe way to inspect the backend database.
-- Context: user wants to stop working on the landing page, focus on the real trading system, make the ML path quant-level, and know how to view the backend database.
-- Verification plan: map current ML/data/database paths with codebase-memory MCP, add read-only DB inspection tooling, add warehouse-backed ML dataset/training behavior with tests, run focused backend tests, update knowledge graph, refresh index, and push to main if code changes pass.
-2026-05-22T01:02:00-07:00 END run-20260522-quant-ml-db-inspection
-- Added `backend/scripts/inspect_db.py`, a read-only backend database inspector for SQLite or Postgres that prints table names, selected counts, and latest rows while masking Postgres credentials and refusing to create a fake SQLite file when the path is wrong.
-- Added `backend/app/ml/training_data.py` to build supervised LightGBM training rows from persisted warehouse bars with forward-return labels, benchmark adjustment, transaction-cost haircut, and quality-score filtering.
-- Updated `backend/app/ml/alpha_model.py` so training prefers app-owned warehouse data, records model metrics/source/validation stats, uses temporal validation with embargo, and falls back to Yahoo only when the warehouse is too thin.
-- Updated alpha startup so old persisted LightGBM artifacts without metadata are considered stale and retrain through the warehouse-backed path instead of silently preserving the prior Yahoo-trained model.
-- Validation: `pytest backend/tests/test_ml_training_data.py backend/tests/test_data_pipeline.py -q` passed with 7 tests; `python -m py_compile backend/app/ml/alpha_model.py backend/app/ml/training_data.py backend/scripts/inspect_db.py` passed; the inspector read the existing local `backend/trading_bot.db` and reported positions=6, orders=12, data_market_bars=7120, data_feature_vectors=8241.
-- Deployment: copied patched ML/database-inspection files to the west backend VM at `35.84.237.249`, compiled them remotely, restarted `vektor-backend`, verified public `/health` returned 200 with `ml_model.metrics`, and verified the remote inspector reads Postgres at a masked `postgresql://vektor:***@127.0.0.1:5432/vektor` with positions=6 and orders=12.
+
+[2026-05-22T08:18:16.151951Z] [START]
+entry_id: devlog-20260522-b9448054
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-bed98e66e21c
+git_branch: subagent
+git_commit_start: d8935b2d93e1340b10fc75cb20676a7f22b46582
+git_commit_end: 
+scope: Create a comprehensive Vektor technical handbook covering architecture, backend, frontend, quant, data, operations, and deployment
+files:
+- docs/VEKTOR_TECHNICAL_HANDBOOK.md
+- backend/app/main.py
+- backend/app/fund/router.py
+- backend/app/storage/db.py
+- backend/app/strategies/hybrid.py
+- backend/app/strategies/auto_trader.py
+- backend/app/quant/regime.py
+- backend/app/ml/alpha_model.py
+- frontend/src/api.js
+- frontend/src/pages/Admin.jsx
+- landing-next/app/page.jsx
+validation: in_progress
+notes: Repo-wide documentation pass grounded in current code and graph index
+
+[2026-05-22T08:23:52.167344Z] [END]
+entry_id: devlog-20260522-b9448054
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-bed98e66e21c
+git_branch: subagent
+git_commit_start: d8935b2d93e1340b10fc75cb20676a7f22b46582
+git_commit_end: d8935b2d93e1340b10fc75cb20676a7f22b46582
+scope: Create a comprehensive Vektor technical handbook covering architecture, backend, frontend, quant, data, operations, and deployment
+files:
+- docs/VEKTOR_TECHNICAL_HANDBOOK.md
+validation: passed
+notes: Added repo-wide handbook and validated knowledge graph tests (backend/tests/test_fund_knowledge_graph.py: 4 passed). Backend API was unavailable locally, so devlog ingestion used the repo-local knowledge_graph fallback.
+
+[2026-05-22T23:52:57.358331Z] [START]
+entry_id: devlog-20260522-871dcdc6
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-b438096019fc
+git_branch: subagent
+git_commit_start: d8935b2d93e1340b10fc75cb20676a7f22b46582
+git_commit_end: 
+scope: Add a one-command Vektor data and ML verification script and validate current warehouse/model outputs
+files:
+- scripts/test-vektor-system.ps1
+validation: in_progress
+notes: Validated current data-pipeline and quant pytest gates, confirmed backend/trading_bot.db is the active warehouse, and captured current model readiness and feature-score outputs.
+
+[2026-05-22T23:52:57.358331Z] [END]
+entry_id: devlog-20260522-871dcdc6
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: claude_haiku_4.5
+actor_provider: anthropic
+run_id: run-b438096019fc
+git_branch: subagent
+git_commit_start: d8935b2d93e1340b10fc75cb20676a7f22b46582
+git_commit_end: d8935b2d93e1340b10fc75cb20676a7f22b46582
+scope: Add a one-command Vektor data and ML verification script and validate current warehouse/model outputs
+files:
+- scripts/test-vektor-system.ps1
+validation: passed
+notes: Created scripts/test-vektor-system.ps1 and validated it locally. Script runs the current pytest gates, prints warehouse counts plus latest feature scores, reports model readiness and synthetic alpha, and attempts an AAPL backtest probe; the backtest remains subject to live data fetch availability.
+[2026-05-23T01:01:10Z] [START]
+entry_id: devlog-20260523-ml-deterministic-core
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-ml-deterministic-core
+git_branch: subagent
+git_commit_start: d8935b2d93e1340b10fc75cb20676a7f22b46582
+git_commit_end: 
+scope: Make ML mandatory for trade intent, remove OpenClaw orchestration path from fund runtime, and validate real data+ML checks and outputs
+files:
+- backend/app/strategies/deterministic_ml_engine.py
+- backend/app/strategies/hybrid.py
+- backend/app/fund/orchestrator.py
+- backend/app/fund/policy_gate.py
+- backend/app/fund/router.py
+- backend/tests/test_fund_policy_gate.py
+- backend/tests/test_fund_pipeline.py
+- backend/tests/test_fund_agent_runtime.py
+- backend/tests/test_admin_lineage_detail.py
+validation: in_progress
+notes: Implemented deterministic ML engine with mandatory ML contribution, enforced ML gating in policy gate, hard-disabled OpenClaw fund routes and orchestrator ingest surface, and started focused pytest/data-output validation.
+[2026-05-23T01:03:30Z] [END]
+entry_id: devlog-20260523-ml-deterministic-core
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-ml-deterministic-core
+git_branch: subagent
+git_commit_start: d8935b2d93e1340b10fc75cb20676a7f22b46582
+git_commit_end: d8935b2d93e1340b10fc75cb20676a7f22b46582
+scope: Make ML mandatory for trade intent, remove OpenClaw orchestration path from fund runtime, and validate real data+ML checks and outputs
+files:
+- backend/app/strategies/deterministic_ml_engine.py
+- backend/app/strategies/hybrid.py
+- backend/app/fund/orchestrator.py
+- backend/app/fund/policy_gate.py
+- backend/app/fund/router.py
+- backend/tests/test_fund_policy_gate.py
+- backend/tests/test_fund_pipeline.py
+- backend/tests/test_fund_agent_runtime.py
+- backend/tests/test_admin_lineage_detail.py
+validation: passed
+notes: Focused suite passed (25 passed, 1 skipped). Deterministic signal returns full diagnostics and non-zero scoring under test-mode data; live run currently yields hold/0 due to no market bars from providers in this environment. Database verification script confirmed warehouse counts and model readiness/features.
+[2026-05-22T18:18:52.1208316-07:00] [START]
+entry_id: devlog-20260522-codex-staged-workflow
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260522-codex-staged-workflow
+git_branch: codex/main
+git_commit_start: d8935b2d93e1340b10fc75cb20676a7f22b46582
+git_commit_end:
+scope: Add staged long-running initializer/coding prompts, mandatory bearings bootstrap pipeline, and root/backend/frontend coding init setup.
+active_phase: foundation
+afiles:
+- .codex/prompts/initializer_prompt.md
+- .codex/prompts/coding_agent_prompt.md
+- scripts/session-bootstrap.ps1
+- scripts/select-next-feature.ps1
+- init.sh
+- backend/init.sh
+- frontend/init.sh
+- backend/AGENTS.md
+- frontend/AGENTS.md
+- docs/LONG_RUNNING_AGENT_WORKFLOW.md
+- .codex/config.toml
+- AGENTS.md
+- DevViktor.md
+- README.md
+validation: in_progress
+notes: Enforce per-turn bearings and feature-first workflow across long-running sessions and subrepos.
+[2026-05-22T18:35:09.3395601-07:00] [END]
+entry_id: devlog-20260522-codex-staged-workflow
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260522-codex-staged-workflow
+git_branch: codex/main
+git_commit_start: d8935b2d93e1340b10fc75cb20676a7f22b46582
+git_commit_end: cf526971
+scope: Add staged long-running initializer/coding prompts, mandatory bearings bootstrap pipeline, and root/backend/frontend coding init setup.
+active_phase: foundation
+afiles:
+- .codex/prompts/initializer_prompt.md
+- .codex/prompts/coding_agent_prompt.md
+- scripts/session-bootstrap.ps1
+- scripts/select-next-feature.ps1
+- init.sh
+- backend/init.sh
+- frontend/init.sh
+- backend/AGENTS.md
+- frontend/AGENTS.md
+- docs/LONG_RUNNING_AGENT_WORKFLOW.md
+- .codex/config.toml
+- AGENTS.md
+- DevViktor.md
+- README.md
+validation: passed
+notes: Completed staged session framework and committed atomic unit on codex/main. Bootstrap script now reports missing required files and enforces bearings order for all future sessions.
+[2026-05-23T02:09:45.952789Z] [START]
+entry_id: devlog-20260523-codex-process-compliance
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-codex-process-compliance
+git_branch: codex/process-compliance
+git_commit_start: d15aa92fbe63c8f4a159d3770da79eea3d2dd09f
+git_commit_end:
+scope: Restore full Codex-only staged workflow compliance by replacing remaining Claude workflow references, creating app_spec baseline, and generating feature/progress required files.
+active_phase: foundation
+files:
+- app_spec.txt
+- feature_list.json
+- codex-progress.txt
+- .codex/prompts/initializer_prompt.md
+- .codex/prompts/coding_agent_prompt.md
+- scripts/session-bootstrap.ps1
+- .codex/config.toml
+- docs/LONG_RUNNING_AGENT_WORKFLOW.md
+- DevViktor.md
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/fund/router.py
+- docs/AI_NATIVE_HEDGE_FUND_AUDIT_AND_ROADMAP.md
+- DEV_LOG_TRACKING.md
+validation: in_progress
+notes: Completed mandatory bearings; generated 200-test feature backlog with required long-form tests and codex progress baseline.
+
+[2026-05-23T02:09:45Z] [END]
+entry_id: devlog-20260523-codex-process-compliance
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-codex-process-compliance
+git_branch: codex/process-compliance
+git_commit_start: d15aa92fbe63c8f4a159d3770da79eea3d2dd09f
+git_commit_end: d15aa92fbe63c8f4a159d3770da79eea3d2dd09f
+scope: Restore full Codex-only staged workflow compliance by replacing remaining Claude workflow references, creating app_spec baseline, and generating feature/progress required files.
+active_phase: foundation
+files:
+- app_spec.txt
+- feature_list.json
+- codex-progress.txt
+- .codex/prompts/initializer_prompt.md
+- .codex/prompts/coding_agent_prompt.md
+- scripts/session-bootstrap.ps1
+- .codex/config.toml
+- docs/LONG_RUNNING_AGENT_WORKFLOW.md
+- DevViktor.md
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/fund/router.py
+- docs/AI_NATIVE_HEDGE_FUND_AUDIT_AND_ROADMAP.md
+- DEV_LOG_TRACKING.md
+validation: powershell -ExecutionPolicy Bypass -File scripts/session-bootstrap.ps1 -CountRemaining; powershell -ExecutionPolicy Bypass -File scripts/select-next-feature.ps1; python JSON integrity checks (count=200, categories=functional+style, all passes=false, >=10-step tests=30)
+notes: Required files now present and bootstrap returns MISSING_REQUIRED_FILES=false. Next unit is implementing feature #1 end-to-end.
+
+[2026-05-23T07:44:59Z] [START]
+entry_id: devlog-20260523-vektor-data-ml-progress-audit
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-vektor-data-ml-progress-audit
+git_branch: codex/process-compliance
+git_commit_start: 915be516ab5477f06a94bb9225b883fd47dc0005
+git_commit_end:
+scope: Audit current Vektor data + ML progress in repo reality, including runtime checks and targeted test verification.
+active_phase: verification
+files:
+- backend/app/data_pipeline/service.py
+- backend/app/data_pipeline/warehouse.py
+- backend/app/data_pipeline/router.py
+- backend/app/data/market_data.py
+- backend/app/data/news.py
+- backend/app/data/fundamentals.py
+- backend/app/ml/alpha_model.py
+- backend/app/strategies/deterministic_ml_engine.py
+- backend/app/strategies/hybrid.py
+- backend/app/fund/orchestrator.py
+- backend/app/fund/policy_gate.py
+- backend/app/fund/runtime_guard.py
+- backend/app/main.py
+- backend/tests/test_data_pipeline.py
+- backend/tests/test_quant_regime.py
+- backend/tests/test_signals.py
+- backend/tests/test_fund_policy_gate.py
+- backend/tests/test_fund_agent_runtime.py
+- backend/tests/test_fund_pipeline.py
+validation: in_progress
+notes: Began graph-first audit; detected index drift for backend/app/data_pipeline and switched to direct file inspection for that package.
+
+[2026-05-23T08:14:59Z] [END]
+entry_id: devlog-20260523-vektor-data-ml-progress-audit
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-vektor-data-ml-progress-audit
+git_branch: codex/process-compliance
+git_commit_start: 915be516ab5477f06a94bb9225b883fd47dc0005
+git_commit_end: 915be516ab5477f06a94bb9225b883fd47dc0005
+scope: Audit current Vektor data + ML progress in repo reality, including runtime checks and targeted test verification.
+active_phase: verification
+files:
+- backend/app/data_pipeline/service.py
+- backend/app/data_pipeline/warehouse.py
+- backend/app/data_pipeline/router.py
+- backend/app/data/market_data.py
+- backend/app/data/news.py
+- backend/app/data/fundamentals.py
+- backend/app/ml/alpha_model.py
+- backend/app/strategies/deterministic_ml_engine.py
+- backend/app/strategies/hybrid.py
+- backend/app/fund/orchestrator.py
+- backend/app/fund/policy_gate.py
+- backend/app/fund/runtime_guard.py
+- backend/app/main.py
+- backend/tests/test_data_pipeline.py
+- backend/tests/test_quant_regime.py
+- backend/tests/test_signals.py
+- backend/tests/test_fund_policy_gate.py
+- backend/tests/test_fund_agent_runtime.py
+- backend/tests/test_fund_pipeline.py
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: py -3 -m pytest backend\tests\test_data_pipeline.py backend\tests\test_quant_regime.py backend\tests\test_signals.py -q -o cache_dir=C:\tmp\tradingbot-pytest-cache (10 passed); py -3 -m pytest backend\tests\test_fund_policy_gate.py backend\tests\test_fund_agent_runtime.py backend\tests\test_fund_pipeline.py -q -o cache_dir=C:\tmp\tradingbot-pytest-cache (20 passed, 1 skipped); py -3 -c "from app.ml.alpha_model import ensure_model, model_status; ensure_model(); print(model_status())" (ready=True, features=39); py -3 -c "from app.storage import db as storage_db; storage_db.init_db(); from app.data_pipeline.service import data_pipeline; print(data_pipeline.status())" (warehouse counts and provider health reported)
+notes: Verified deterministic ML signal path, policy-gate thresholds, and quant data-pipeline persistence paths; observed MCP graph index drift (data_pipeline package not indexed) despite local index refresh.

@@ -70,7 +70,7 @@ Useful canonical fund roles:
 Gap you can exploit:
 - Encode the full structure directly into agent roles, data contracts, and enforcement policies.
 
-## 4) Directly Applied from `everything-claude-code` Pattern
+## 4) Directly Applied from `everything-codex` Pattern
 
 You asked to use `/agents` and `/subagents` patterns. This repo now includes:
 - `agents/` markdown role files (agent interface style).
@@ -168,10 +168,10 @@ Reference implementation notes are in:
 
 ## 10) Sources
 
-- https://github.com/affaan-m/everything-claude-code
-- https://raw.githubusercontent.com/affaan-m/everything-claude-code/main/.codex/config.toml
-- https://raw.githubusercontent.com/affaan-m/everything-claude-code/main/.codex/agents/explorer.toml
-- https://code.claude.com/docs/en/subagents
+- https://github.com/affaan-m/everything-codex
+- https://raw.githubusercontent.com/affaan-m/everything-codex/main/.codex/config.toml
+- https://raw.githubusercontent.com/affaan-m/everything-codex/main/.codex/agents/explorer.toml
+- https://developers.openai.com/codex/
 - https://github.com/openclaw/openclaw
 - https://raw.githubusercontent.com/openclaw/openclaw/main/README.md
 - https://docs.openclaw.ai/

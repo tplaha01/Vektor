@@ -22,7 +22,7 @@ Required decision packet:
 - `research_report_id`
 - `thesis_id`
 - `risk_assessment_id`
-- `execution_intent_id`
+- `execution_intent_id`     
 - `portfolio_impact_summary`
 
 If any field is missing, return `decision_status=blocked_missing_artifact`.

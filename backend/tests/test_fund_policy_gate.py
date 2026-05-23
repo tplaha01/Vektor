@@ -16,7 +16,21 @@ def _base_intent(**overrides):
         "agent_id": "trader-1",
         "broker_mode": "paper",
         "price": 100.0,
-        "metadata": {"available_cash": 100_000.0, "sleeve": "tactical"},
+        "metadata": {
+            "available_cash": 100_000.0,
+            "sleeve": "tactical",
+            "decision_scoring": {
+                "score": 0.75,
+                "confidence": 0.75,
+                "direction": "long_bias",
+                "strategy_family": "deterministic_ml_firm_engine",
+                "metrics": {
+                    "regime_alignment": 0.7,
+                    "liquidity_score": 0.7,
+                    "news_intensity_count": 2,
+                },
+            },
+        },
     }
     payload.update(overrides)
     return ExecutionIntent(**payload)

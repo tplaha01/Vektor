@@ -1,48 +1,34 @@
-import "./globals.css";
+﻿import "./globals.css";
 import { ThemeProvider } from "./ThemeProvider";
-import { baseUrl } from "../lib/site";
+
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
 export const metadata = {
-  metadataBase: new URL(baseUrl),
+  metadataBase: new URL(siteUrl),
   title: {
-    default: "Vektor | Deterministic ML Trading Operations Platform",
-    template: "%s | Vektor",
+    default: "Vektor - Landing",
+    template: "Vektor - %s",
   },
   description:
-    "Vektor is a deterministic ML trading operations platform for paper-first portfolio automation, market data ingest, risk gates, and decision auditability.",
+    "Vektor is a paper-first AI-native hedge fund operating system with multi-agent orchestration, decision traceability, and sleeve-level capital allocation.",
   applicationName: "Vektor",
-  keywords: [
-    "deterministic trading platform",
-    "ML trading operations",
-    "paper trading platform",
-    "portfolio risk controls",
-    "quant data pipeline",
-    "trade decision audit trail",
-  ],
-  alternates: {
-    canonical: "/",
-  },
   icons: {
     icon: "/VektorLogo.png?v=20260422b",
     apple: "/VektorLogo.png?v=20260422b",
   },
-  robots: {
-    index: true,
-    follow: true,
-  },
   openGraph: {
     type: "website",
-    title: "Vektor | Deterministic ML Trading Operations Platform",
+    title: "Vektor - Landing",
     description:
-      "Paper-first trading operations with market data lineage, deterministic ML decisioning, risk controls, and auditable execution.",
+      "Build and operate an AI-native hedge fund stack with institutional controls and auditability.",
     url: "/",
     siteName: "Vektor",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Vektor | Deterministic ML Trading Operations Platform",
+    title: "Vektor - Landing",
     description:
-      "A firm-grade operating layer for paper-traded ML portfolios, data ingest, risk gates, and decision auditability.",
+      "Paper-first multi-agent hedge fund operations with full decision lineage.",
   },
 };
 
@@ -57,3 +43,5 @@ export default function RootLayout({ children }) {
     </html>
   );
 }
+
+

@@ -43,7 +43,6 @@ from app.fund.execution_adapter import (
     PaperExecutionAdapter,
 )
 from app.fund.knowledge_graph import KnowledgeGraph, knowledge_graph
-from app.fund.openclaw_ingest import OpenClawIngestService, openclaw_ingest_service
 from app.fund.policy_gate import (
     PolicyGate,
     build_portfolio_threshold_context,
@@ -64,6 +63,7 @@ from app.fund.sentiment_ingest import (
     SentimentSnapshot,
     sentiment_ingest,
 )
+from app.strategies.deterministic_ml_engine import deterministic_signal
 from app.fund.task_bus import TaskBus, task_bus
 from app.storage import db as storage_db
 
@@ -86,7 +86,7 @@ class FirmOrchestrator:
         decision_ledger_service: DecisionLedger = decision_ledger,
         audit_log_service: AuditLog = audit_log,
         policy_gate_service: PolicyGate = policy_gate,
-        openclaw_service: OpenClawIngestService = openclaw_ingest_service,
+        openclaw_service: Any | None = None,  # deprecated, kept for backwards-compatible tests/instantiation
         research_memory_store: ResearchMemoryStore = research_memory,
         sentiment_store: SentimentIngestService = sentiment_ingest,
         broker: PaperBroker = shared_broker,
@@ -98,7 +98,6 @@ class FirmOrchestrator:
         self._decision_ledger = decision_ledger_service
         self._audit_log = audit_log_service
         self._policy_gate = policy_gate_service
-        self._openclaw = openclaw_service
         self._research_memory = research_memory_store
         self._sentiment_store = sentiment_store
         self._broker = broker
@@ -740,29 +739,55 @@ class FirmOrchestrator:
         routing_mode = infer_routing_mode(normalized_symbol, asset_class)
         underlier_symbol = infer_underlier_symbol(normalized_symbol, asset_class)
         discovery_snapshot = self.latest_discovery_opportunity(run_id=run_id, symbol=normalized_symbol)
-        discovery_ml = dict(discovery_snapshot.get("ml") or {}) if isinstance(discovery_snapshot, dict) else {}
+        engine_signal = deterministic_signal(normalized_symbol).to_dict()
+        score = float(engine_signal.get("score") or 0.0)
+        confidence = float(engine_signal.get("confidence") or 0.0)
+        direction = "long_bias" if score >= 0 else "short_bias"
+        diagnostics = engine_signal.get("diagnostics") if isinstance(engine_signal.get("diagnostics"), dict) else {}
+        technical_diag = diagnostics.get("technical") if isinstance(diagnostics.get("technical"), dict) else {}
+        sentiment_diag = diagnostics.get("sentiment") if isinstance(diagnostics.get("sentiment"), dict) else {}
+        model_name = str((engine_signal.get("model") or {}).get("selected") or "deterministic_ml")
         decision_scoring = {
             "symbol": normalized_symbol,
             "asset_class": asset_class,
-            "strategy_family": discovery_snapshot.get("strategy_family") if isinstance(discovery_snapshot, dict) else None,
-            "score": float(discovery_snapshot.get("score") or 0.0) if isinstance(discovery_snapshot, dict) else None,
-            "confidence": float(discovery_snapshot.get("confidence") or 0.0) if isinstance(discovery_snapshot, dict) else None,
-            "direction": discovery_snapshot.get("direction") if isinstance(discovery_snapshot, dict) else None,
-            "horizon": discovery_snapshot.get("horizon") if isinstance(discovery_snapshot, dict) else None,
-            "math_summary": discovery_ml.get("math_summary") if discovery_ml else None,
+            "strategy_family": "deterministic_ml_firm_engine",
+            "score": score,
+            "confidence": confidence,
+            "direction": direction,
+            "horizon": "swing",
+            "math_summary": f"deterministic_ml={score:.4f} confidence={confidence:.4f} model={model_name}",
             "metrics": {
-                "directional_probability_up": discovery_ml.get("directional_probability_up"),
-                "technical_confidence": discovery_ml.get("technical_confidence"),
-                "ml_confidence": discovery_ml.get("ml_confidence"),
-                "sentiment_normalized": discovery_ml.get("sentiment_normalized"),
-                "liquidity_score": discovery_ml.get("liquidity_score"),
-                "volatility_score": discovery_ml.get("volatility_score"),
-                "news_intensity_count": discovery_ml.get("news_intensity_count"),
-                "regime_alignment": discovery_ml.get("regime_alignment"),
+                "directional_probability_up": float(max(0.0, min(1.0, 0.5 + score / 2.0))),
+                "technical_confidence": float(technical_diag.get("confidence") or 0.0),
+                "ml_confidence": float(max(0.0, min(1.0, abs(score)))),
+                "sentiment_normalized": float(engine_signal.get("subscores", {}).get("sentiment") or 0.0),
+                "liquidity_score": float(technical_diag.get("volume_ratio") or 0.0),
+                "volatility_score": float(technical_diag.get("atr_pct") or 0.0),
+                "news_intensity_count": int(sentiment_diag.get("headline_count") or 0),
+                "regime_alignment": float(max(0.0, min(1.0, 0.5 + float(technical_diag.get("regime_edge") or 0.0) / 2.0))),
+                "model_name": model_name,
+                "ml_mandatory": True,
             },
         }
         positions = self._broker.list_positions(self._price_lookup)
         equity = self._current_equity(positions)
+        portfolio_threshold_context = build_portfolio_threshold_context(
+            symbol=normalized_symbol,
+            asset_class=asset_class,
+            positions=positions,
+            equity=equity,
+            notional=estimated_notional,
+            metadata=metadata or {},
+        )
+        decision_gate_thresholds = resolve_decision_gate_thresholds(
+            self._settings,
+            asset_class=asset_class,
+            strategy_family=decision_scoring.get("strategy_family"),
+            portfolio_context=portfolio_threshold_context,
+        ).as_dict()
+        decision_gate_thresholds["enabled"] = True
+        decision_gate_thresholds["ml_mandatory"] = True
+
         intent_metadata = {
             "available_cash": self._broker.cash,
             "asset_class": asset_class,
@@ -782,23 +807,9 @@ class FirmOrchestrator:
             "sleeve_budget_used_usd": budget_state["used_usd"],
             "sleeve_budget_remaining_usd": budget_state["remaining_usd"],
             "estimated_notional_usd": estimated_notional,
+            "deterministic_ml_signal": engine_signal,
             **(metadata or {}),
         }
-        portfolio_threshold_context = build_portfolio_threshold_context(
-            symbol=normalized_symbol,
-            asset_class=asset_class,
-            positions=positions,
-            equity=equity,
-            notional=estimated_notional,
-            metadata=intent_metadata,
-        )
-        decision_gate_thresholds = resolve_decision_gate_thresholds(
-            self._settings,
-            asset_class=asset_class,
-            strategy_family=decision_scoring.get("strategy_family"),
-            portfolio_context=portfolio_threshold_context,
-        ).as_dict()
-        decision_gate_thresholds["enabled"] = bool(self._settings.DECISION_GATE_ML_ENABLED)
         intent = AdapterExecutionIntent(
             symbol=normalized_symbol,
             side=normalized_side,
@@ -1307,21 +1318,23 @@ class FirmOrchestrator:
         return combined
 
     def ingest_openclaw(self, *, kind: str, payload: dict[str, Any], token: str) -> dict[str, Any]:
-        result = self._openclaw.ingest(kind=kind, payload=payload, token=token)
-        self._log_event(
-            "openclaw.ingest",
-            run_id=payload.get("run_id"),
-            agent_id=payload.get("agent_id"),
-            decision_id=payload.get("decision_id"),
-            payload={"kind": kind, "accepted": result.get("accepted")},
-        )
-        return result
+        return {
+            'accepted': False,
+            'enabled': False,
+            'reason': 'openclaw_orchestration_removed',
+            'kind': kind,
+            'run_id': payload.get('run_id') if isinstance(payload, dict) else None,
+        }
 
     def openclaw_health(self) -> dict[str, Any]:
-        return self._openclaw.health()
+        return {
+            'enabled': False,
+            'status': 'removed',
+            'reason': 'openclaw_orchestration_removed',
+        }
 
     def openclaw_rejections(self, *, limit: int = 100) -> list[dict[str, Any]]:
-        return self._openclaw.list_rejected(limit=limit)
+        return []
 
     def list_knowledge_events(
         self,
@@ -1643,7 +1656,6 @@ class FirmOrchestrator:
         self._audit_log.set_event_sink(lambda event: self._capture_knowledge_event("audit_log", event))
         self._research_memory.set_event_sink(lambda event: self._capture_knowledge_event("research_memory", event))
         self._sentiment_store.set_event_sink(lambda event: self._capture_knowledge_event("sentiment_ingest", event))
-        self._openclaw.set_event_sink(lambda event: self._capture_knowledge_event("openclaw_ingest", event))
         self._backfill_knowledge_graph()
 
     def _capture_knowledge_event(self, source: str, event: dict[str, Any]) -> None:
@@ -1695,32 +1707,6 @@ class FirmOrchestrator:
                     "run_id": snapshot.metadata.get("run_id"),
                     "agent_id": snapshot.metadata.get("agent_id"),
                     "payload": snapshot.model_dump(mode="json"),
-                },
-            )
-        for row in self._openclaw.list_accepted(limit=10_000):
-            self._knowledge_graph.capture(
-                "openclaw_ingest",
-                {
-                    "event_id": row.get("ingest_id"),
-                    "event_type": "openclaw.ingest.accepted",
-                    "received_at": row.get("received_at"),
-                    "run_id": (row.get("payload") or {}).get("run_id"),
-                    "agent_id": (row.get("payload") or {}).get("agent_id"),
-                    "decision_id": (row.get("payload") or {}).get("decision_id"),
-                    "payload": row,
-                },
-            )
-        for row in self._openclaw.list_rejected(limit=10_000):
-            self._knowledge_graph.capture(
-                "openclaw_ingest",
-                {
-                    "event_id": row.get("reject_id"),
-                    "event_type": "openclaw.ingest.rejected",
-                    "received_at": row.get("received_at"),
-                    "run_id": (row.get("payload") or {}).get("run_id"),
-                    "agent_id": (row.get("payload") or {}).get("agent_id"),
-                    "decision_id": (row.get("payload") or {}).get("decision_id"),
-                    "payload": row,
                 },
             )
 

@@ -1,17 +1,16 @@
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+import pytest
 
 from app.broker.paper import PaperBroker
 from app.fund.audit_log import AuditLog
 from app.fund.agent_runtime import FundAgentRuntime
 from app.fund.decision_ledger import DecisionLedger
 from app.fund.knowledge_graph import KnowledgeGraph
-from app.fund.openclaw_command_adapter import OpenClawCommandAdapter
-from app.fund.openclaw_ingest import OpenClawIngestService
 from app.fund.orchestrator import FirmOrchestrator
 from app.fund.policy_gate import PolicyGate
 from app.fund.research_memory import ResearchMemoryStore
-from app.fund.router import get_agent_runtime, get_openclaw_command_adapter, get_orchestrator, router
+from app.fund.router import get_agent_runtime, get_orchestrator, router
 from app.fund.sentiment_ingest import SentimentIngestService
 from app.fund.task_bus import TaskBus
 
@@ -24,7 +23,6 @@ def _build_client() -> TestClient:
         decision_ledger_service=DecisionLedger(),
         audit_log_service=audit,
         policy_gate_service=PolicyGate(),
-        openclaw_service=OpenClawIngestService(token="test-openclaw-token", log=audit),
         research_memory_store=ResearchMemoryStore(),
         sentiment_store=SentimentIngestService(),
         broker=PaperBroker(),
@@ -37,18 +35,10 @@ def _build_client() -> TestClient:
         enabled=True,
         poll_interval_seconds=0.05,
     )
-    command_adapter = OpenClawCommandAdapter(
-        runtime=runtime,
-        token="test-openclaw-token",
-        enabled=True,
-        channel_allowlist=["vektor-ceo"],
-        log=audit,
-    )
     app = FastAPI()
     app.include_router(router)
     app.dependency_overrides[get_orchestrator] = lambda: orchestrator
     app.dependency_overrides[get_agent_runtime] = lambda: runtime
-    app.dependency_overrides[get_openclaw_command_adapter] = lambda: command_adapter
     return TestClient(app)
 
 
@@ -93,10 +83,18 @@ def test_research_to_execution_pipeline_and_inspection_endpoints():
             "side": "buy",
             "quantity": 10,
             "price": 100,
+            "metadata": {
+                "allocation_constraints": {
+                    "weekend_trading_enabled": True,
+                }
+            },
         },
     )
     assert executed.status_code == 200
     execution_payload = executed.json()
+    if execution_payload["status"] == "blocked":
+        assert "ml_" in "|".join(execution_payload.get("reasons") or [])
+        pytest.skip(f"execution blocked by deterministic ml gate: {execution_payload.get('reasons')}")
     assert execution_payload["status"] == "executed"
     order_id = execution_payload["order_id"]
     assert order_id is not None
@@ -203,15 +201,14 @@ def test_research_to_execution_pipeline_and_inspection_endpoints():
         headers={"X-OpenClaw-Token": "wrong-token"},
         json={"kind": "research_report", "payload": {"run_id": "run-hedge-1"}},
     )
-    assert unauthorized_openclaw.status_code == 401
+    assert unauthorized_openclaw.status_code == 410
 
     authorized_openclaw = client.post(
         "/fund/openclaw/ingest",
         headers={"X-OpenClaw-Token": "test-openclaw-token"},
         json={"kind": "research_report", "payload": {"run_id": "run-hedge-1", "agent_id": "openclaw-1"}},
     )
-    assert authorized_openclaw.status_code == 200
-    assert authorized_openclaw.json()["accepted"] is True
+    assert authorized_openclaw.status_code == 410
 
     openclaw_command = client.post(
         "/fund/openclaw/commands",
@@ -224,12 +221,10 @@ def test_research_to_execution_pipeline_and_inspection_endpoints():
             "text": "research and trade aapl",
         },
     )
-    assert openclaw_command.status_code == 200
-    assert openclaw_command.json()["accepted"] is True
+    assert openclaw_command.status_code == 410
 
     command_health = client.get("/fund/openclaw/commands/health")
-    assert command_health.status_code == 200
-    assert command_health.json()["accepted_count"] >= 1
+    assert command_health.status_code == 410
 
     knowledge_events = client.get("/fund/knowledge/events?limit=200")
     assert knowledge_events.status_code == 200

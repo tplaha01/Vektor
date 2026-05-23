@@ -1,0 +1,21 @@
+# Codex Progress Log
+
+Last updated: 2026-05-23T02:04:49.621805Z
+
+## Session Summary
+- Established Codex-only long-running workflow naming and required files.
+- Added `app_spec.txt` for deterministic ML-first Vektor requirements.
+- Added `feature_list.json` with 200 ordered end-to-end tests.
+- Ensured all tests start with `passes: false`.
+
+## Completed Tests
+- 0/200 tests passing
+
+## Current Focus
+- Run session bootstrap and select the highest-priority pending feature.
+- Implement one feature fully with verification evidence before updating pass state.
+
+## Next Steps
+1. Run `powershell -ExecutionPolicy Bypass -File scripts/session-bootstrap.ps1 -CountRemaining`.
+2. Run `powershell -ExecutionPolicy Bypass -File scripts/select-next-feature.ps1`.
+3. Complete the first pending feature end-to-end, then update only its `passes` field.

@@ -4,6 +4,9 @@ This file is code-delivery governance only.
 Product vision, business goals, and role architecture live in `Viktor.md`.
 
 ## 1) Boot Sequence (Mandatory)
+0. Run mandatory session bearings bootstrap:
+   - `powershell -ExecutionPolicy Bypass -File scripts/session-bootstrap.ps1 -CountRemaining`
+   - If files are missing (`app_spec.txt`, `feature_list.json`, `codex-progress.txt`), stop feature work and restore initializer baseline first.
 1. Read `Viktor.md`.
 2. Read `docs/VEKTOR_PHASED_EXECUTION_PLAN.md`.
 2. Read `Dev_Logs.md`.
@@ -22,6 +25,7 @@ Product vision, business goals, and role architecture live in `Viktor.md`.
 - Keep decisions traceable (`run_id`, `agent_id`, `decision_id`, `order_id` where applicable).
 - Do not bypass policy gates, sleeve budgets, or audit logging paths.
 - Tests must not mutate repo runtime state: when exercising singleton services (for example `knowledge_graph`), monkeypatch ingest/persistence or use isolated storage.
+- For long-running staged development, select the highest-priority pending feature from `feature_list.json` and complete one unit fully before moving to the next.
 
 ## 3) Branch and Commit Discipline
 - Work on an explicit branch.
