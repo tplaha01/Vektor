@@ -50,6 +50,8 @@ def run_core_engine(symbol: str, profile: str | None = None) -> CoreEngineResult
 
     diagnostics = {
         "signal_pipeline_only": True,
+        "llm_signal_path": False,
+        "market_pack_inference": True,
         "technical": technical.diagnostics,
         "fundamental": fundamental.diagnostics,
         "sentiment": sentiment.diagnostics,

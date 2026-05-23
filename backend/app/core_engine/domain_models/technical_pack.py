@@ -6,8 +6,8 @@ from typing import Any
 import numpy as np
 
 from app.core_engine.contracts import DomainModelOutput, EngineInputSnapshot
+from app.ml.alpha_model import ensure_model, model_status, predict
 from app.quant.regime import infer_market_regime
-from app.quant.statistics import adx_triplet, atr_pct, bollinger_position, macd_hist, rsi, stoch, volume_ratio
 from app.utils.common import clamp
 
 
@@ -21,7 +21,14 @@ def _safe_float(value: Any, default: float = 0.0) -> float:
     return default
 
 
-def run_technical_pack(snapshot: EngineInputSnapshot) -> DomainModelOutput:
+def _market_pack_confidence(alpha: float, *, model_ready: bool, bars: int) -> float:
+    magnitude = float(np.clip(abs(alpha), 0.0, 1.0))
+    readiness = 1.0 if model_ready else 0.0
+    history_term = float(np.clip((float(bars) - 80.0) / 240.0, 0.0, 1.0))
+    return float(np.clip(0.20 + 0.45 * magnitude + 0.20 * readiness + 0.15 * history_term, 0.0, 1.0))
+
+
+def run_market_pack_inference(snapshot: EngineInputSnapshot) -> DomainModelOutput:
     hist = snapshot.history
     if len(hist) < 80:
         return DomainModelOutput(
@@ -31,57 +38,41 @@ def run_technical_pack(snapshot: EngineInputSnapshot) -> DomainModelOutput:
             diagnostics={"reason": "insufficient_market_history", "bars": int(len(hist))},
         )
 
-    c = hist["close"].astype(float)
-    h = hist["high"].astype(float)
-    l = hist["low"].astype(float)
-    v = hist["volume"].astype(float).fillna(0.0)
+    regime = infer_market_regime(hist)
+    ensure_model()
+    learned_alpha = clamp(_safe_float(predict(hist)))
+    model_meta = model_status()
+    status = model_meta if isinstance(model_meta, dict) else {}
+    ready = bool(status.get("ready"))
 
-    snap = infer_market_regime(hist)
-    adx, adx_pos, adx_neg = adx_triplet(c, h, l)
-    atrp = atr_pct(c, h, l)
-    bb_pct, bb_width = bollinger_position(c)
-    rsi_val = rsi(c)
-    stoch_val = stoch(h, l, c)
-    macd_val, macd_accel = macd_hist(c)
-    volr = volume_ratio(v)
-
-    breakout_up = float(c.iloc[-1] > h.tail(20).max())
-    breakout_down = float(c.iloc[-1] < l.tail(20).min())
-    trap_down = float(l.iloc[-1] < l.tail(10).min() and c.iloc[-1] > c.iloc[-2])
-    trap_up = float(h.iloc[-1] > h.tail(10).max() and c.iloc[-1] < c.iloc[-2])
-    liquidity_trap = trap_down - trap_up
-
-    alpha = clamp(
-        0.30 * _safe_float(snap.edge)
-        + 0.18 * clamp((adx_pos - adx_neg) / 30.0)
-        + 0.14 * clamp((rsi_val - 50.0) / 25.0)
-        + 0.12 * clamp(macd_val * 8.0)
-        + 0.10 * clamp((stoch_val - 50.0) / 30.0)
-        + 0.10 * clamp((bb_pct - 0.5) * 2.0)
-        + 0.06 * clamp(liquidity_trap)
-    )
-
-    stability = float(np.clip(1.0 - (abs(atrp - 0.025) / 0.05), 0.0, 1.0))
-    uncertainty = float(np.clip(0.85 - 0.55 * stability - 0.25 * min(1.0, abs(alpha)), 0.05, 1.0))
+    confidence = _market_pack_confidence(learned_alpha, model_ready=ready, bars=len(hist))
+    uncertainty = float(np.clip(1.0 - confidence, 0.05, 1.0))
+    diagnostics = {
+        "inference_mode": "learned_market_pack" if ready else "learned_market_pack_fallback",
+        "legacy_indicator_scoring": False,
+        "authoritative_for_signal": bool(ready),
+        "model_ready": ready,
+        "model_training": bool(status.get("training")),
+        "model_features": int(status.get("features") or 0),
+        "model_artifact_path": status.get("path"),
+        "confidence": confidence,
+        "regime": regime.regime,
+        "regime_edge": _safe_float(regime.edge),
+        "regime_confidence": _safe_float(regime.confidence),
+        "atr_pct": _safe_float(regime.atr_pct),
+        "volume_ratio": _safe_float(regime.volume_ratio),
+        "realised_vol_20d": _safe_float(regime.realised_vol_20d),
+    }
+    if not ready:
+        diagnostics["reason"] = "market_pack_model_not_ready"
 
     return DomainModelOutput(
         name="technical",
-        alpha=alpha,
+        alpha=learned_alpha,
         uncertainty=uncertainty,
-        diagnostics={
-            "regime": snap.regime,
-            "regime_edge": _safe_float(snap.edge),
-            "adx": adx,
-            "atr_pct": atrp,
-            "rsi": rsi_val,
-            "stoch": stoch_val,
-            "macd_hist": macd_val,
-            "macd_accel": macd_accel,
-            "bb_pct": bb_pct,
-            "bb_width": bb_width,
-            "volume_ratio": volr,
-            "breakout_up": breakout_up,
-            "breakout_down": breakout_down,
-            "liquidity_trap": liquidity_trap,
-        },
+        diagnostics=diagnostics,
     )
+
+
+def run_technical_pack(snapshot: EngineInputSnapshot) -> DomainModelOutput:
+    return run_market_pack_inference(snapshot)

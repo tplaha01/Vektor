@@ -60,6 +60,11 @@ def test_core_engine_emits_contract_payload(monkeypatch):
     assert "lineage" in out["diagnostics"]
     assert "policy" in out["diagnostics"]
     assert out["diagnostics"]["signal_pipeline_only"] is True
+    assert out["diagnostics"]["llm_signal_path"] is False
+    assert out["diagnostics"]["market_pack_inference"] is True
+    technical_diag = out["diagnostics"]["technical"]
+    assert str(technical_diag.get("inference_mode") or "").startswith("learned_market_pack")
+    assert technical_diag.get("legacy_indicator_scoring") is False
     assert "feature_hash" in out["diagnostics"]["lineage"]
     assert "contract_hash" in out["diagnostics"]["determinism"]
     assert out["model"]["mandatory_ml"] is True
@@ -132,6 +137,42 @@ def test_core_engine_contract_hash_is_deterministic_for_same_snapshot(monkeypatc
     assert first["action"] == second["action"]
     assert first["diagnostics"]["lineage"]["feature_hash"] == second["diagnostics"]["lineage"]["feature_hash"]
     assert first["diagnostics"]["determinism"]["contract_hash"] == second["diagnostics"]["determinism"]["contract_hash"]
+
+
+def test_core_engine_disables_polarity_only_sentiment_model(monkeypatch):
+    monkeypatch.setattr(feature_store.FEED, "history", lambda symbol, bars=320: _history_frame(min(220, bars)))
+    monkeypatch.setattr(
+        feature_store,
+        "get_fundamentals",
+        lambda symbol: {
+            "revenue_growth": 0.08,
+            "gross_margin": 0.41,
+            "oper_margin": 0.22,
+            "debt_to_equity": 0.85,
+            "pe": 21.0,
+            "updated_at": "2026-05-22T20:00:00Z",
+        },
+    )
+    monkeypatch.setattr(
+        feature_store,
+        "latest_news",
+        lambda symbol, limit=24: [
+            {
+                "symbol": symbol,
+                "headline": "Major earnings surprise and forward guidance revision",
+                "source": "Reuters",
+                "url": "",
+                "published_at": "2026-05-22T21:00:00Z",
+            }
+        ],
+    )
+    monkeypatch.setattr("app.core_engine.domain_models.sentiment_pack.sentiment_model_name", lambda: "VADER")
+
+    out = run_core_engine("AAPL", profile="balanced").to_dict()
+    sentiment_diag = out["diagnostics"]["sentiment"]
+    assert sentiment_diag["reason"] == "polarity_only_model_disabled"
+    assert sentiment_diag["authoritative_for_signal"] is False
+    assert out["subscores"]["sentiment"] == 0.0
 
 
 def test_core_engine_rejects_stale_sentiment_when_profile_requires_it(monkeypatch):

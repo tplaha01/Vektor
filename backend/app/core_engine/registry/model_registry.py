@@ -97,7 +97,8 @@ def get_active_model_versions(profile_name: str | None) -> dict[str, str]:
     profile = get_profile(profile_name)
     return {
         "profile": profile.name,
-        "technical_pack": "technical-v1.0.0",
+        "technical_pack": "market-pack-v2.0.0",
+        "market_pack": "market-pack-v2.0.0",
         "fundamental_pack": "fundamental-v1.0.0",
         "sentiment_pack": "sentiment-v1.0.0",
         "meta_intent": "meta-intent-v1.0.0",
