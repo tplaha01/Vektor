@@ -7653,3 +7653,45 @@ files:
 - knowledge_graph/events.jsonl
 validation: pytest tests/test_signals.py tests/test_admin_metrics_summary.py -q --capture=no (3 passed); npm run build in frontend (passed); ..\scripts\index-repo.ps1 status=indexed nodes=8973 edges=14983
 notes: Legacy analytics endpoint/client usage removed from operator surfaces, signal generation is profile-driven through core engine, and UI now renders deterministic core diagnostics and ML-context performance views.
+[2026-05-23T18:52:29Z] [START]
+entry_id: devlog-20260523-relevant-dirty-deploy
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-relevant-dirty-deploy
+git_branch: tmp-deploy-main
+git_commit_start: e8976b0e772dec487a3e2a841de60d75c403d96b
+git_commit_end:
+scope: Understand and push relevant dirty backend/runtime files, then verify deployed app alias serves latest main commit.
+active_phase: phase_alpha_backend_core
+files:
+- backend/app/websocket/stream.py
+- backend/tests/test_websocket_stream.py
+- backend/tests/test_admin_lineage_detail.py
+- backend/tests/test_admin_runtime_controls.py
+- backend/tests/test_fund_pipeline.py
+validation: in_progress
+notes: Isolated runtime-relevant dirty files from generated artifacts and began production push/deploy verification.
+[2026-05-23T18:53:03Z] [END]
+entry_id: devlog-20260523-relevant-dirty-deploy
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-relevant-dirty-deploy
+git_branch: tmp-deploy-main
+git_commit_start: e8976b0e772dec487a3e2a841de60d75c403d96b
+git_commit_end: e27c1daf6f1b96f579c75fa6abfb4296d433856a
+scope: Understand and push relevant dirty backend/runtime files, then verify deployed app alias serves latest main commit.
+active_phase: phase_alpha_backend_core
+files:
+- backend/app/websocket/stream.py
+- backend/tests/test_websocket_stream.py
+- backend/tests/test_admin_lineage_detail.py
+- backend/tests/test_admin_runtime_controls.py
+- backend/tests/test_fund_pipeline.py
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: pytest tests/test_websocket_stream.py -q --capture=no (2 passed); grouped admin/runtime pipeline tests blocked by missing httpx in local venv; git push origin HEAD:main succeeded to e27c1daf; vercel inspect https://vektor-trading.vercel.app reported production alias ready (dpl_7HF9cBbyCwaR8gdHaoPmuY2nuPdx); scripts/index-repo.ps1 status=indexed nodes=8973 edges=14983
+notes: Pushed only runtime-relevant dirty files and tests; excluded generated artifacts (tmppytest-temp, knowledge_graph entity/event snapshots, vektor-deploy.tar).
