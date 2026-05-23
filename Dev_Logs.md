@@ -7380,7 +7380,7 @@ actor_provider: openai
 run_id: run-20260523-core-engine-signal-plan
 git_branch: tmp-deploy-main
 git_commit_start: d6d07a0969e4b11abcc17c306e0ba3012102920f
-git_commit_end: d6d07a0969e4b11abcc17c306e0ba3012102920f
+git_commit_end: 422e0d1fed97223f0aac564fbb3f6406e58808e5
 scope: Create CORE_ENGINE.md implementation plan for deterministic multi-model ML/RL/DL signal and stacked intent engine.
 active_phase: phase_alpha_backend_core
 files:
