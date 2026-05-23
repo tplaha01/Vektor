@@ -42,12 +42,15 @@ import { adminAPI, blogAPI, researchAPI } from '../api/adminAPI';
 import { useToast } from '../components/common/Toast';
 import ToastContainer from '../components/common/Toast';
 import KPIGrid from '../components/admin/KPIGrid';
+import CoreEnginePanel from '../components/admin/CoreEnginePanel';
 import DecisionQueue from '../components/admin/DecisionQueue';
 import RiskGauges from '../components/admin/RiskGauges';
 import PositionsPanel from '../components/admin/PositionsPanel';
 import LineagePanel from '../components/admin/LineagePanel';
 import KnowledgeTraceGraph from '../components/admin/KnowledgeTraceGraph';
 import TradingViewWidget from '../components/TradingViewWidget';
+
+const backendTarget = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
 const badgeTone = (status) => {
   const normalized = String(status || '').toLowerCase();
@@ -342,9 +345,12 @@ const STATUS_KEYS = [
 
 const Admin = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState('warroom');
+  const [activeTab, setActiveTab] = useState('core');
   const [metrics, setMetrics] = useState(null);
   const [systemStatus, setSystemStatus] = useState(null);
+  const [pipelineStatus, setPipelineStatus] = useState(null);
+  const [mlStatus, setMlStatus] = useState(null);
+  const [riskStatus, setRiskStatus] = useState(null);
   const [runtimeControl, setRuntimeControl] = useState(null);
   const [controlHistory, setControlHistory] = useState([]);
   const [knowledgeStats, setKnowledgeStats] = useState(null);
@@ -368,6 +374,8 @@ const Admin = () => {
   const [pendingApprovals, setPendingApprovals] = useState([]);
   const [pendingEditorial, setPendingEditorial] = useState([]);
   const [marketWatch, setMarketWatch] = useState(null);
+  const [mlEffectiveness, setMlEffectiveness] = useState(null);
+  const [currentSentiment, setCurrentSentiment] = useState(null);
   const [reports, setReports] = useState([]);
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -424,6 +432,7 @@ const Admin = () => {
   const isMounted = useRef(true);
 
   const navigationItems = [
+    { id: 'core', label: 'Core Engine', icon: Sigma, description: 'Deterministic ML-native decision stack' },
     { id: 'warroom', label: 'War Room', icon: Workflow, description: 'CEO theater and command surface' },
     { id: 'agents', label: 'Agents', icon: Bot, description: 'Hierarchy, workers, swarm runtime' },
     { id: 'performance', label: 'Performance', icon: LineChart, description: 'Track record, alpha, drawdown' },
@@ -445,6 +454,9 @@ const Admin = () => {
       const results = await Promise.allSettled([
         adminAPI.getMetricsSummary(),
         adminAPI.getSystemStatusBadges(),
+        adminAPI.getDataPipelineStatus(),
+        adminAPI.getMlStatus(),
+        adminAPI.getRiskStatus(),
         adminAPI.getRuntimeControlStatus(),
         adminAPI.getRuntimeControlHistory(20),
         adminAPI.getKnowledgeStats(),
@@ -467,6 +479,8 @@ const Admin = () => {
         adminAPI.getPendingApprovals(50),
         adminAPI.getPendingEditorial(),
         adminAPI.getMarketWatch(),
+        adminAPI.getCeoMlEffectiveness(),
+        researchAPI.getCurrentSentiment(),
         researchAPI.getReports({ surface: 'kb', limit: 24 }),
         blogAPI.getPosts({ limit: 24, status: 'published' }),
       ]);
@@ -481,6 +495,9 @@ const Admin = () => {
       const [
         metricsResult,
         systemResult,
+        pipelineStatusResult,
+        mlStatusResult,
+        riskStatusResult,
         runtimeResult,
         historyResult,
         knowledgeResult,
@@ -503,12 +520,17 @@ const Admin = () => {
         pendingApprovalsResult,
         pendingEditorialResult,
         marketWatchResult,
+        mlEffectivenessResult,
+        currentSentimentResult,
         reportsResult,
         postsResult,
       ] = results;
 
       if (metricsResult.status === 'fulfilled') setMetrics(metricsResult.value);
       if (systemResult.status === 'fulfilled') setSystemStatus(systemResult.value);
+      if (pipelineStatusResult.status === 'fulfilled') setPipelineStatus(pipelineStatusResult.value);
+      if (mlStatusResult.status === 'fulfilled') setMlStatus(mlStatusResult.value);
+      if (riskStatusResult.status === 'fulfilled') setRiskStatus(riskStatusResult.value);
       if (runtimeResult.status === 'fulfilled') setRuntimeControl(runtimeResult.value);
       if (historyResult.status === 'fulfilled') setControlHistory(adminAPI.normalizeArray(historyResult.value, 'rows'));
       if (knowledgeResult.status === 'fulfilled') setKnowledgeStats(knowledgeResult.value);
@@ -534,6 +556,8 @@ const Admin = () => {
       if (pendingApprovalsResult.status === 'fulfilled') setPendingApprovals(adminAPI.normalizeArray(pendingApprovalsResult.value, 'approvals'));
       if (pendingEditorialResult.status === 'fulfilled') setPendingEditorial(adminAPI.normalizeArray(pendingEditorialResult.value, 'items'));
       if (marketWatchResult.status === 'fulfilled') setMarketWatch(marketWatchResult.value);
+      if (mlEffectivenessResult.status === 'fulfilled') setMlEffectiveness(mlEffectivenessResult.value);
+      if (currentSentimentResult.status === 'fulfilled') setCurrentSentiment(currentSentimentResult.value);
       if (reportsResult.status === 'fulfilled') setReports(adminAPI.normalizeArray(reportsResult.value, 'reports'));
       if (postsResult.status === 'fulfilled') setPosts(adminAPI.normalizeArray(postsResult.value, 'posts'));
 
@@ -556,12 +580,12 @@ const Admin = () => {
   useEffect(() => {
     isMounted.current = true;
     fetchAdminState();
-    const interval = setInterval(() => fetchAdminState(), 20000);
+    const interval = setInterval(() => fetchAdminState(), connectionStatus === 'error' ? 60000 : 20000);
     return () => {
       isMounted.current = false;
       clearInterval(interval);
     };
-  }, [fetchAdminState]);
+  }, [connectionStatus, fetchAdminState]);
 
   useEffect(() => {
     const interval = window.setInterval(() => setNowTick(Date.now()), 1000);
@@ -791,6 +815,7 @@ const Admin = () => {
   ];
 
   const sidebarCounts = useMemo(() => ({
+    core: Number(systemStatus?.discovery?.status_counts?.selected ?? workersStatus?.signal_packs?.length ?? 0),
     warroom: activeTasks.length,
     agents: workerRows.length,
     performance: Number(performanceSummary?.snapshot_count ?? 0),
@@ -800,7 +825,7 @@ const Admin = () => {
     positions: Number(metrics?.portfolio?.positions ?? metrics?.portfolio?.holdings ?? 0),
     marketwatch: Number((marketWatch?.news || []).length || 0),
     settings: Number(controlHistory.length || 0),
-  }), [activeTasks.length, blogDeliverables.length, controlHistory.length, marketWatch?.news, metrics, pendingApprovalRows.length, performanceSummary?.snapshot_count, reportDeliverables.length, systemStatus, workerRows.length]);
+  }), [activeTasks.length, blogDeliverables.length, controlHistory.length, marketWatch?.news, metrics, pendingApprovalRows.length, performanceSummary?.snapshot_count, reportDeliverables.length, systemStatus, workerRows.length, workersStatus?.signal_packs?.length]);
 
   const marketChartSymbols = useMemo(() => {
     const chartSymbols = Array.isArray(marketWatch?.chart_symbols) ? marketWatch.chart_symbols : [];
@@ -2834,8 +2859,41 @@ const Admin = () => {
                   </section>
                 )}
 
+                {connectionStatus === 'error' && (
+                  <section className="system-offline-banner" role="status" aria-live="polite">
+                    <div className="system-offline-title">Backend unreachable</div>
+                    <div className="system-offline-message">
+                      Admin could not reach the deterministic runtime at <code>{backendTarget}</code>. Live layer telemetry is unavailable,
+                      so the UI is showing honest unknown or pending states instead of false healthy indicators.
+                    </div>
+                  </section>
+                )}
+
                 <div className="admin-workspace">
                   <div className="admin-primary-pane">
+                    {activeTab === 'core' && (
+                      <CoreEnginePanel
+                        backendTarget={backendTarget}
+                        connectionStatus={connectionStatus}
+                        systemStatus={systemStatus}
+                        workersStatus={workersStatus}
+                        pipelineStatus={pipelineStatus}
+                        mlStatus={mlStatus}
+                        riskStatus={riskStatus}
+                        mlEffectiveness={mlEffectiveness}
+                        currentSentiment={currentSentiment}
+                        decisionScoringRows={decisionScoringRows}
+                        pendingApprovalRows={pendingApprovalRows}
+                        latestNoTradeDiscovery={latestNoTradeDiscovery}
+                        paperSummary={paperSummary}
+                        performanceLatest={performanceLatest}
+                        reportDeliverables={reportDeliverables}
+                        blogDeliverables={blogDeliverables}
+                        onOpenApproval={openApprovalContext}
+                        onOpenDeliverable={openDeliverable}
+                      />
+                    )}
+
                     {activeTab === 'warroom' && (
                       <div className="tab-dashboard">
                         <section className="content-section command-hero">
@@ -3001,7 +3059,7 @@ const Admin = () => {
                                 <small>{workersStatus?.data_integrity?.strict_real_data_only ? 'strict mode enforced' : 'strict mode off'}</small>
                               </div>
                               <div className="openclaw-summary-card">
-                                <span>LLM adapter</span>
+                                <span>AI support adapter</span>
                                 <strong>{workersStatus?.ai_role_adapter?.mode || workersStatus?.ai_role_adapter?.provider || 'n/a'}</strong>
                                 <small>{nextProviderWindow.provider}: {nextProviderWindow.detail}</small>
                               </div>
@@ -3475,8 +3533,8 @@ const Admin = () => {
                         <section className="content-section">
                           <div className="section-header section-header-tight">
                             <div>
-                              <div className="theater-kicker">3) OpenClaw Layer</div>
-                              <h2 className="section-title">Orchestration runtime</h2>
+                              <div className="theater-kicker">3) AI Support Layer</div>
+                              <h2 className="section-title">Support and orchestration runtime</h2>
                             </div>
                             <span className="command-pill">
                               <Network size={13} />
@@ -3485,8 +3543,8 @@ const Admin = () => {
                           </div>
                           <div className="openclaw-layer-grid">
                             <div className="openclaw-layer-card">
-                              <span>What OpenClaw is doing</span>
-                              <strong>{workersStatus?.autopilot?.enabled ? 'Coordinating scout + specialist swarm + paper execution' : 'Accepting manual CEO dispatch only'}</strong>
+                              <span>What the AI layer is doing</span>
+                              <strong>{workersStatus?.autopilot?.enabled ? 'Coordinating scout, specialist support, and handoff into deterministic review' : 'Accepting manual CEO dispatch only'}</strong>
                               <small>{workersStatus?.autopilot?.last_session?.reason || 'No market session context available'}</small>
                             </div>
                             <div className="openclaw-layer-card">
@@ -3500,9 +3558,9 @@ const Admin = () => {
                               <small>{workersStatus?.signal_packs?.[0]?.symbol ? `Latest ${workersStatus.signal_packs[0].symbol}` : 'No recent packs'}</small>
                             </div>
                             <div className="openclaw-layer-card">
-                              <span>LLM stack</span>
+                              <span>AI stack</span>
                               <strong>{workersStatus?.ai_role_adapter?.provider || 'n/a'} · {workersStatus?.ai_role_adapter?.default_model || 'n/a'}</strong>
-                              <small>{workersStatus?.ai_role_adapter?.last_error || 'No adapter error reported'}</small>
+                              <small>{workersStatus?.ai_role_adapter?.last_error || 'Support layer idle or healthy'}</small>
                             </div>
                           </div>
                           <div className="openclaw-packs-list">

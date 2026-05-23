@@ -7695,3 +7695,179 @@ files:
 - knowledge_graph/events.jsonl
 validation: pytest tests/test_websocket_stream.py -q --capture=no (2 passed); grouped admin/runtime pipeline tests blocked by missing httpx in local venv; git push origin HEAD:main succeeded to e27c1daf; vercel inspect https://vektor-trading.vercel.app reported production alias ready (dpl_7HF9cBbyCwaR8gdHaoPmuY2nuPdx); scripts/index-repo.ps1 status=indexed nodes=8973 edges=14983
 notes: Pushed only runtime-relevant dirty files and tests; excluded generated artifacts (tmppytest-temp, knowledge_graph entity/event snapshots, vektor-deploy.tar).
+[2026-05-23T19:05:25Z] [START]
+entry_id: devlog-20260523-core-engine-quant-spec-upgrade
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-core-engine-quant-spec-upgrade
+git_branch: tmp-deploy-main
+git_commit_start: 7a5007564710926f9e833a70c6537204a14dbff3
+git_commit_end:
+scope: Upgrade CORE_ENGINE spec to deterministic quant-only ML/RL/DL + Monte Carlo architecture and remove LLM/polarity-only signal assumptions from pipeline behavior.
+active_phase: phase_alpha_backend_core
+files:
+- docs/CORE_ENGINE.md
+- backend/app/core_engine/domain_models/sentiment_pack.py
+- backend/app/core_engine/__init__.py
+- backend/tests/test_core_engine.py
+validation: in_progress
+notes: Replacing narrative AI-native signal framing with enforceable quant model and risk-simulation contracts.
+[2026-05-23T19:06:01Z] [END]
+entry_id: devlog-20260523-core-engine-quant-spec-upgrade
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-core-engine-quant-spec-upgrade
+git_branch: tmp-deploy-main
+git_commit_start: 7a5007564710926f9e833a70c6537204a14dbff3
+git_commit_end: 7a5007564710926f9e833a70c6537204a14dbff3
+scope: Upgrade CORE_ENGINE spec to deterministic quant-only ML/RL/DL + Monte Carlo architecture and remove LLM/polarity-only signal assumptions from pipeline behavior.
+active_phase: phase_alpha_backend_core
+files:
+- docs/CORE_ENGINE.md
+- backend/app/core_engine/domain_models/sentiment_pack.py
+- backend/app/core_engine/__init__.py
+- backend/tests/test_core_engine.py
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: pytest tests/test_core_engine.py tests/test_signals.py -q --capture=no (7 passed); scripts/index-repo.ps1 status=indexed nodes=8971 edges=14991
+notes: Core spec now explicitly prohibits LLM decisioning and indicator/polarity-only trade logic, and runtime now marks LLM path disabled with polarity-only sentiment fallback neutralized.
+
+[2026-05-23T19:21:21.073260Z] [START]
+entry_id: devlog-20260523-1a26e9b8
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-57976bc5822c
+git_branch: tmp-deploy-main
+git_commit_start: cbf67b18119ad9724561bd78fdb7217b6fd84c6d
+git_commit_end: 
+scope: Use long-running harness to replace legacy indicator-heavy technical scoring with learned market-pack inference and deploy west backend runtime.
+files:
+- backend/app/core_engine/domain_models/technical_pack.py
+- backend/app/core_engine/registry/model_registry.py
+- backend/app/core_engine/__init__.py
+- backend/tests/test_core_engine.py
+validation: in_progress
+notes: Session bootstrap + backend init run, then runtime scorer rewired to learned market-pack inference path.
+
+[2026-05-23T19:21:21.073260Z] [END]
+entry_id: devlog-20260523-1a26e9b8
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-57976bc5822c
+git_branch: tmp-deploy-main
+git_commit_start: cbf67b18119ad9724561bd78fdb7217b6fd84c6d
+git_commit_end: cbf67b18119ad9724561bd78fdb7217b6fd84c6d
+scope: Use long-running harness to replace legacy indicator-heavy technical scoring with learned market-pack inference and deploy west backend runtime.
+files:
+- backend/app/core_engine/domain_models/technical_pack.py
+- backend/app/core_engine/registry/model_registry.py
+- backend/app/core_engine/__init__.py
+- backend/tests/test_core_engine.py
+validation: pytest tests/test_core_engine.py -q --capture=no (6 passed); git push origin HEAD:main -> cbf67b18; deployed to https://35.84.237.249.sslip.io; verified /signals/generate inference_mode=learned_market_pack and /paper/positions count=6
+notes: Primary AWS deploy script failed on CRLF bootstrap and VM git auth; completed deploy via git-archive + scp + service restart and post-deploy endpoint checks.
+[2026-05-23T19:31:00Z] [START]
+entry_id: devlog-20260523-init-script-cross-platform-fix
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-init-script-cross-platform-fix
+git_branch: tmp-deploy-main
+git_commit_start: cbf67b18119ad9724561bd78fdb7217b6fd84c6d
+git_commit_end: 
+scope: Fix long-running init script failures caused by CRLF shell parsing and Windows virtualenv activation path assumptions.
+files:
+- backend/init.sh
+- init.sh
+- frontend/init.sh
+- .gitattributes
+validation: in_progress
+notes: Reproduced backend init failure (pipefail\r invalid option), then patched scripts for cross-platform activation and durable LF handling.
+
+[2026-05-23T19:38:00.5616635Z] [END]
+entry_id: devlog-20260523-init-script-cross-platform-fix
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-init-script-cross-platform-fix
+git_branch: tmp-deploy-main
+git_commit_start: cbf67b18119ad9724561bd78fdb7217b6fd84c6d
+git_commit_end: cbf67b18119ad9724561bd78fdb7217b6fd84c6d
+scope: Fix long-running init script failures caused by CRLF shell parsing and Windows virtualenv activation path assumptions.
+files:
+- backend/init.sh
+- init.sh
+- frontend/init.sh
+- .gitattributes
+- Dev_Logs.md
+validation: bash ./backend/init.sh (pass); bash ./init.sh (pass); bash ./frontend/init.sh (pass); scripts/index-repo.ps1 status=indexed nodes=9153 edges=15183
+notes: Added *.sh eol=lf guard to prevent recurring CRLF breakage under Windows Git settings.
+
+[2026-05-23T19:51:18.5660067Z] [START]
+entry_id: devlog-20260523-core-engine-fundamental-ml-pack
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-core-engine-fundamental-ml-pack
+git_branch: tmp-deploy-main
+git_commit_start: cbf67b18119ad9724561bd78fdb7217b6fd84c6d
+git_commit_end:
+scope: Replace legacy deterministic fundamental scoring with an ML-native, deterministic inference contract in the core engine and preserve downstream API behavior.
+active_phase: phase_alpha_backend_core
+files:
+- backend/app/core_engine/domain_models/fundamental_pack.py
+- backend/app/core_engine/registry/model_registry.py
+- backend/tests/test_core_engine.py
+validation: in_progress
+notes: Long-running harness session selected one scoped slice; removing sector-handcrafted weighting/projection logic in favor of feature-vector model inference with confidence and anomaly diagnostics.
+
+[2026-05-23T19:58:11.4248695Z] [END]
+entry_id: devlog-20260523-core-engine-fundamental-ml-pack
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-core-engine-fundamental-ml-pack
+git_branch: tmp-deploy-main
+git_commit_start: cbf67b18119ad9724561bd78fdb7217b6fd84c6d
+git_commit_end: cbf67b18119ad9724561bd78fdb7217b6fd84c6d
+scope: Replace legacy deterministic fundamental scoring with an ML-native, deterministic inference contract in the core engine and preserve downstream API behavior.
+active_phase: phase_alpha_backend_core
+files:
+- backend/app/core_engine/domain_models/fundamental_pack.py
+- backend/app/core_engine/registry/model_registry.py
+- backend/tests/test_core_engine.py
+- codex-progress.txt
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: py -3 -m pytest tests/test_core_engine.py tests/test_signals.py -q (7 passed); py -3 -m pytest tests/test_fund_policy_gate.py -q (9 passed); scripts/index-repo.ps1 status=indexed nodes=9184 edges=15223
+notes: Fundamental pack now uses learned linear factor inference with explicit feature vector, contributions, confidence, anomaly scoring, and non-legacy diagnostics while preserving existing signal/output contracts.
+[2026-05-23T19:54:12.5476484Z] [START]
+entry_id: devlog-20260523-frontend-core-engine-ui-surface
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-frontend-core-engine-ui-surface
+git_branch: tmp-deploy-main
+git_commit_start: cbf67b18119ad9724561bd78fdb7217b6fd84c6d
+git_commit_end:
+scope: Rework the frontend admin UX around the deterministic ML-native core engine while preserving the AI support layer and improving degraded/offline operator states.
+files:
+- frontend/src/api/adminAPI.js
+- frontend/src/components/admin/CoreEnginePanel.jsx
+- frontend/src/pages/Admin.jsx
+- frontend/src/styles/admin.css
+- Dev_Logs.md
+validation: in_progress
+notes: Using the new Vektor core-engine docs as the UI contract and verifying the operator surface in Playwright during implementation.

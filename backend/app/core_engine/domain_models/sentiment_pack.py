@@ -13,12 +13,27 @@ from app.utils.sentiment import sentiment_model_name, sentiment_score
 
 def run_sentiment_pack(snapshot: EngineInputSnapshot) -> DomainModelOutput:
     news = snapshot.news
+    model_name = str(sentiment_model_name() or "unknown")
     if not news:
         return DomainModelOutput(
             name="sentiment",
             alpha=0.0,
             uncertainty=0.95,
-            diagnostics={"reason": "no_news", "model": sentiment_model_name()},
+            diagnostics={"reason": "no_news", "model": model_name},
+        )
+
+    # Polarity-only sentiment models are intentionally non-authoritative for
+    # trade intent. They can inform diagnostics, but cannot drive alpha.
+    if "VADER" in model_name.upper():
+        return DomainModelOutput(
+            name="sentiment",
+            alpha=0.0,
+            uncertainty=0.98,
+            diagnostics={
+                "reason": "polarity_only_model_disabled",
+                "model": model_name,
+                "authoritative_for_signal": False,
+            },
         )
 
     source_weights = {
@@ -62,7 +77,7 @@ def run_sentiment_pack(snapshot: EngineInputSnapshot) -> DomainModelOutput:
             name="sentiment",
             alpha=0.0,
             uncertainty=0.95,
-            diagnostics={"reason": "no_usable_news", "model": sentiment_model_name()},
+            diagnostics={"reason": "no_usable_news", "model": model_name},
         )
 
     weight_total = sum(r["weight"] for r in rows) + 1e-9
@@ -77,9 +92,10 @@ def run_sentiment_pack(snapshot: EngineInputSnapshot) -> DomainModelOutput:
         alpha=alpha,
         uncertainty=uncertainty,
         diagnostics={
-            "model": sentiment_model_name(),
+            "model": model_name,
             "headline_count": len(rows),
             "crowd_proxy": crowd_sentiment,
+            "authoritative_for_signal": True,
             "source_breakdown": rows,
         },
     )

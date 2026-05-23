@@ -12,8 +12,16 @@ if [[ -d "${ROOT_DIR}/backend" ]]; then
     if [[ ! -d .venv ]]; then
       python -m venv .venv
     fi
-    # shellcheck disable=SC1091
-    source .venv/bin/activate
+    if [[ -f .venv/bin/activate ]]; then
+      # shellcheck disable=SC1091
+      source .venv/bin/activate
+    elif [[ -f .venv/Scripts/activate ]]; then
+      # shellcheck disable=SC1091
+      source .venv/Scripts/activate
+    else
+      echo "[vektor:init] ERROR: could not find backend venv activation script under .venv" >&2
+      exit 1
+    fi
     pip install -r requirements.txt
   )
 fi
@@ -35,7 +43,7 @@ if [[ -d "${ROOT_DIR}/landing-next" && -f "${ROOT_DIR}/landing-next/package.json
 fi
 
 echo "[vektor:init] complete"
-echo "backend:  cd backend && source .venv/bin/activate && uvicorn app.main:app --reload --port 8000"
+echo "backend:  cd backend && source .venv/bin/activate (or .venv/Scripts/activate on Windows) && uvicorn app.main:app --reload --port 8000"
 echo "frontend: cd frontend && npm run dev"
 echo "landing:  cd landing-next && npm run dev"
 echo "session bootstrap: pwsh ./scripts/session-bootstrap.ps1 -CountRemaining"

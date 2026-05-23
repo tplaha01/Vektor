@@ -1,21 +1,24 @@
 # Codex Progress Log
 
-Last updated: 2026-05-23T02:04:49.621805Z
+Last updated: 2026-05-23T20:00:24.3339320Z
 
 ## Session Summary
 - Established Codex-only long-running workflow naming and required files.
 - Added `app_spec.txt` for deterministic ML-first Vektor requirements.
 - Added `feature_list.json` with 200 ordered end-to-end tests.
 - Ensured all tests start with `passes: false`.
+- Replaced legacy rule-based fundamental scoring with `learned_fundamental_pack_linear` in core engine.
+- Added core-engine assertions enforcing non-legacy fundamental inference diagnostics.
+- Reworked the frontend admin surface around the deterministic ML-native core engine and added honest degraded/offline operator states.
 
 ## Completed Tests
 - 0/200 tests passing
 
 ## Current Focus
-- Run session bootstrap and select the highest-priority pending feature.
-- Implement one feature fully with verification evidence before updating pass state.
+- Continue highest-priority pending feature work while keeping the new core-engine operator surface aligned with backend telemetry contracts.
+- Keep one-slice commits with verified tests, Playwright evidence, and devlog/knowledge-graph ingestion per session.
 
 ## Next Steps
 1. Run `powershell -ExecutionPolicy Bypass -File scripts/session-bootstrap.ps1 -CountRemaining`.
 2. Run `powershell -ExecutionPolicy Bypass -File scripts/select-next-feature.ps1`.
-3. Complete the first pending feature end-to-end, then update only its `passes` field.
+3. Replace the next deterministic legacy seam (meta-intent or policy gate) with ML-native diagnostics and run focused tests.

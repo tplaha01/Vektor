@@ -60,6 +60,15 @@ export const adminAPI = {
   getSystemStatusBadges: async () => {
     return fetchJson(`${API_BASE}/admin/system/status-badges`);
   },
+  getDataPipelineStatus: async () => {
+    return fetchJson(`${BACKEND_BASE}/data-pipeline/status`);
+  },
+  getMlStatus: async () => {
+    return fetchJson(`${BACKEND_BASE}/ml/status`);
+  },
+  getRiskStatus: async () => {
+    return fetchJson(`${BACKEND_BASE}/risk/status`);
+  },
   getRuntimeControlStatus: async () => {
     return fetchJson(`${API_BASE}/admin/system/runtime/control`);
   },

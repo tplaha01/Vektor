@@ -65,6 +65,9 @@ def test_core_engine_emits_contract_payload(monkeypatch):
     technical_diag = out["diagnostics"]["technical"]
     assert str(technical_diag.get("inference_mode") or "").startswith("learned_market_pack")
     assert technical_diag.get("legacy_indicator_scoring") is False
+    fundamental_diag = out["diagnostics"]["fundamental"]
+    assert fundamental_diag.get("inference_mode") == "learned_fundamental_pack_linear"
+    assert fundamental_diag.get("legacy_rule_scoring") is False
     assert "feature_hash" in out["diagnostics"]["lineage"]
     assert "contract_hash" in out["diagnostics"]["determinism"]
     assert out["model"]["mandatory_ml"] is True
