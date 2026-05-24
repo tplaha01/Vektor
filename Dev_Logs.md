@@ -8627,3 +8627,43 @@ files:
 - codex-progress.txt
 validation: frontend `bash -n ./init.sh` passed; frontend `npm run build` passed.
 notes: The frontend harness now names `origin/main` explicitly in `frontend/AGENTS.md`, `frontend/init.sh` prints the required handoff command, and the restored admin surface builds successfully from local `codex/main`.
+
+[2026-05-24T23:46:22.1330667Z] [START]
+entry_id: devlog-20260524-compliance-batch-05-14
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260524-compliance-batch-05-14
+git_branch: codex/main
+git_commit_start: b03a07ebf44861d74959cec8e632daa54b63c244
+git_commit_end:
+scope: Validate and close workflow compliance tests #5 through #14 using the long-running backend harness and live deterministic signal evidence.
+active_phase: phase_alpha_backend_ops
+files:
+- feature_list.json
+- codex-progress.txt
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: in_progress
+notes: Reusing one fresh evidence batch for the duplicated compliance contract after confirming required files, repo-managed services, and the canonical `codex/main` state.
+
+[2026-05-24T23:47:22.1330667Z] [END]
+entry_id: devlog-20260524-compliance-batch-05-14
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260524-compliance-batch-05-14
+git_branch: codex/main
+git_commit_start: b03a07ebf44861d74959cec8e632daa54b63c244
+git_commit_end: b03a07ebf44861d74959cec8e632daa54b63c244
+scope: Validate and close workflow compliance tests #5 through #14 using the long-running backend harness and live deterministic signal evidence.
+active_phase: phase_alpha_backend_ops
+files:
+- feature_list.json
+- codex-progress.txt
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: required file gate passed; `/health` returned `status=ok`; `/data-pipeline/status` returned `enabled=true` and `running=true`; `/signals/generate` for `AAPL` returned technical, fundamental, sentiment, ML, meta-intent, and explicit policy diagnostics; focused backend pytest passed (2 passed).
+notes: Closed the duplicated compliance batch `#5` through `#14` together after the live signal response produced an explicit `hold` with policy rejections (`confidence_below_threshold`, `expected_utility_below_threshold`, `fundamentals_timestamp_missing`, `stale_market_data`) and no silent fallback path.
