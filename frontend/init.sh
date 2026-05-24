@@ -15,4 +15,4 @@ fi
 echo "[frontend:init] complete"
 echo "run: npm run dev"
 echo "bootstrap: pwsh ../scripts/session-bootstrap.ps1 -WorkDir .. -CountRemaining"
-
+echo "handoff: pwsh ../scripts/session-handoff.ps1 -WorkDir .. -CommitMessage \"<summary>\""

@@ -8583,3 +8583,47 @@ files:
 - codex-progress.txt
 validation: backend pytest passed (24 passed); frontend build passed; updated session bootstrap ran successfully; session-handoff PowerShell parsed without errors.
 notes: The harness now enforces a canonical local branch (`codex/main`), a canonical remote handoff target (`origin/main`), and an explicit clean-tree/push verification step before the next agent resumes work.
+
+[2026-05-24T23:35:07.6865240Z] [START]
+entry_id: devlog-20260524-frontend-agent-handoff
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260524-frontend-agent-handoff
+git_branch: codex/main
+git_commit_start: e9b89655c7670771052ac74d1dc4897c5ab44010
+git_commit_end:
+scope: Restore the richer admin control surface that remained local and make the frontend harness explicitly hand off through `origin/main`.
+active_phase: phase_alpha_frontend_ops
+files:
+- frontend/src/pages/Admin.jsx
+- frontend/AGENTS.md
+- frontend/init.sh
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+- codex-progress.txt
+validation: in_progress
+notes: Preserving the recovered frontend admin tabs and layout while making the frontend bootstrap/init surface remind every agent to finish through the shared `codex/main` -> `origin/main` handoff path.
+
+[2026-05-24T23:36:07.6865240Z] [END]
+entry_id: devlog-20260524-frontend-agent-handoff
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260524-frontend-agent-handoff
+git_branch: codex/main
+git_commit_start: e9b89655c7670771052ac74d1dc4897c5ab44010
+git_commit_end: e9b89655c7670771052ac74d1dc4897c5ab44010
+scope: Restore the richer admin control surface that remained local and make the frontend harness explicitly hand off through `origin/main`.
+active_phase: phase_alpha_frontend_ops
+files:
+- frontend/src/pages/Admin.jsx
+- frontend/AGENTS.md
+- frontend/init.sh
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+- codex-progress.txt
+validation: frontend `bash -n ./init.sh` passed; frontend `npm run build` passed.
+notes: The frontend harness now names `origin/main` explicitly in `frontend/AGENTS.md`, `frontend/init.sh` prints the required handoff command, and the restored admin surface builds successfully from local `codex/main`.

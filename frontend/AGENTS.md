@@ -14,6 +14,7 @@ Then initialize frontend environment:
 
 Rules:
 - Work from local `codex/main`; do not leave frontend sessions on feature branches.
+- Every frontend session must hand off through remote `origin/main` so the next agent resumes from the same published state.
 - Work one feature at a time from `../feature_list.json` (`passes: false` highest priority first).
 - Never edit feature descriptions/steps; only flip `passes` after end-to-end browser verification.
 - Keep `Dev_Logs.md` and KB ingestion in sync per `../DevViktor.md`.

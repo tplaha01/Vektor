@@ -2187,6 +2187,584 @@ export default function Admin() {
     );
   };
 
+  const renderCore = () => renderPipeline();
+
+  const renderWarRoom = () => renderOverview();
+
+  const renderAgents = () => (
+    <>
+      <div className="ops-grid ops-grid-overview">
+        <Panel
+          eyebrow="Hierarchy"
+          title="System Overview"
+          description="Restored live hierarchy map and WebSocket-backed agent posture from the pre-refactor admin surface."
+        >
+          <SystemOverview />
+        </Panel>
+
+        <Panel
+          eyebrow="Swarm"
+          title="Agent Monitor"
+          description="Specialist workers, active tasks, and recent runtime events."
+        >
+          <AgentMonitor expanded />
+        </Panel>
+      </div>
+
+      <div className="ops-grid ops-grid-controls-live">
+        <Panel
+          eyebrow="Operator CRM"
+          title="Workers and task board"
+          description="The lighter operator CRM slice the newer admin surface introduced."
+        >
+          {workerRows.length ? (
+            <div className="ops-worker-grid">
+              {workerRows.map((row) => (
+                <article key={row.role} className="ops-worker-card">
+                  <div className="ops-worker-head">
+                    <div>
+                      <strong>{titleize(row.role)}</strong>
+                      <small>{row.running ? 'running' : row.started ? 'started' : 'idle'}</small>
+                    </div>
+                    <TonePill tone={row.running ? 'good' : row.started ? 'neutral' : 'caution'}>
+                      {row.running ? 'Running' : row.started ? 'Standby' : 'Idle'}
+                    </TonePill>
+                  </div>
+                  <div className="ops-worker-stats">
+                    <div className="ops-worker-stat">
+                      <span>Done</span>
+                      <strong>{number(row.completed_count)}</strong>
+                    </div>
+                    <div className="ops-worker-stat">
+                      <span>Failed</span>
+                      <strong>{number(row.failed_count)}</strong>
+                    </div>
+                    <div className="ops-worker-stat">
+                      <span>Blocked</span>
+                      <strong>{number(row.blocked_count)}</strong>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="ops-empty">Worker posture has not been published yet.</div>
+          )}
+
+          {taskHistoryRows.length ? (
+            <div className="ops-task-list">
+              {taskHistoryRows.slice(0, 8).map((row) => (
+                <article key={`${row.task_id}-${row.ts}`} className="ops-task-row">
+                  <div className="ops-task-head">
+                    <strong>{row.details?.symbol || row.payload?.symbol || titleize(row.role)}</strong>
+                    <TonePill tone={statusTone(row.status)}>{titleize(row.status)}</TonePill>
+                  </div>
+                  <p className="ops-task-copy">
+                    {titleize(row.role)} / {row.run_id || 'n/a'}
+                  </p>
+                  <div className="ops-task-meta">
+                    <span>{compactDateTime(row.ts)}</span>
+                    <span>{summarize(row.details?.reason || row.payload?.command || row.event, 120)}</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="ops-empty">No recent task history is available from the operator CRM surface.</div>
+          )}
+        </Panel>
+
+        <Panel
+          eyebrow="Runtime memory"
+          title="Control history"
+          description="Recovered control actions and operator-visible runtime memory."
+        >
+          {controlHistory.length ? (
+            <div className="ops-timeline-list">
+              {controlHistory.map((row) => (
+                <article key={row.event_id} className="ops-timeline-row">
+                  <div className="ops-timeline-head">
+                    <div>
+                      <strong>{titleize(row.action || row.event_type)}</strong>
+                      <small>{compactDateTime(row.timestamp)}</small>
+                    </div>
+                    <TonePill tone={statusTone(row.status)}>{titleize(row.status)}</TonePill>
+                  </div>
+                  <p className="ops-timeline-reason">
+                    {summarize(row.reason || row.payload?.reason || row.event_type, 180)}
+                  </p>
+                  <div className="ops-timeline-meta">
+                    <span>{row.actor || 'api.admin'}</span>
+                    <span>{row.run_id || 'n/a'}</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="ops-empty">Runtime control history is not available yet.</div>
+          )}
+        </Panel>
+      </div>
+    </>
+  );
+
+  const renderPerformance = () => (
+    <>
+      <div className="ops-metric-grid ops-metric-grid-portfolio">
+        <MetricTile
+          icon={Database}
+          label="Cash"
+          value={currency(latestSnapshot?.cash)}
+          detail={`Broker mode ${latestSnapshot?.broker_mode || 'paper'}`}
+          tone="neutral"
+        />
+        <MetricTile
+          icon={Activity}
+          label="Market Value"
+          value={currency(latestSnapshot?.market_value)}
+          detail={`${positions.length} active holdings`}
+          tone="good"
+        />
+        <MetricTile
+          icon={TrendingUp}
+          label="Total P&L"
+          value={currency(latestSnapshot?.total_pnl)}
+          detail={`${latestSnapshot?.total_trades || 0} total trades`}
+          tone={Number(latestSnapshot?.total_pnl || 0) >= 0 ? 'good' : 'bad'}
+        />
+        <MetricTile
+          icon={Shield}
+          label="Alpha vs SPY"
+          value={signedPlainPercent(performanceSummary?.track_record?.alpha_vs_primary_benchmark_pct, 2)}
+          detail={`SPY return ${plainPercent(performanceSummary?.track_record?.primary_benchmark_return_pct, 2)}`}
+          tone={Number(performanceSummary?.track_record?.alpha_vs_primary_benchmark_pct || 0) >= 0 ? 'good' : 'caution'}
+        />
+      </div>
+
+      <div className="ops-grid ops-grid-overview">
+        <Panel
+          eyebrow="Track record"
+          title="Equity and P&L curve"
+          description="Paper performance history captured by the backend snapshot ledger."
+        >
+          {performanceSeries.length ? (
+            <>
+              <div className="ops-chart-wrap">
+                <ResponsiveContainer width="100%" height={280}>
+                  <AreaChart data={performanceSeries} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="opsPerformanceFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="rgba(0, 201, 167, 0.45)" />
+                        <stop offset="100%" stopColor="rgba(0, 201, 167, 0)" />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
+                    <XAxis dataKey="label" stroke="rgba(221,225,234,0.5)" tickLine={false} axisLine={false} />
+                    <YAxis
+                      stroke="rgba(221,225,234,0.5)"
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(value) => `$${Math.round(value / 1000)}k`}
+                      domain={[
+                        (dataMin) => Math.max(0, dataMin - 50),
+                        (dataMax) => dataMax + 50,
+                      ]}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: 12,
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        backgroundColor: '#0f141c',
+                      }}
+                      formatter={(value) => currency(value)}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="equity"
+                      stroke="#00c9a7"
+                      strokeWidth={2}
+                      fill="url(#opsPerformanceFill)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="ops-kv-grid ops-kv-grid-tight">
+                <div className="ops-kv">
+                  <span className="ops-kv-label">Latest snapshot</span>
+                  <strong className="ops-kv-value">{formatDateTime(latestSnapshot?.recorded_at)}</strong>
+                </div>
+                <div className="ops-kv">
+                  <span className="ops-kv-label">Sharpe ratio</span>
+                  <strong className="ops-kv-value">{Number(metrics?.sharpe_ratio || 0).toFixed(2)}</strong>
+                </div>
+                <div className="ops-kv">
+                  <span className="ops-kv-label">Sample days</span>
+                  <strong className="ops-kv-value">{number(performanceSummary?.track_record?.sample_days)}</strong>
+                </div>
+                <div className="ops-kv">
+                  <span className="ops-kv-label">Snapshot count</span>
+                  <strong className="ops-kv-value">{number(performanceSummary?.snapshot_count)}</strong>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="ops-empty">Performance snapshots have not loaded yet.</div>
+          )}
+        </Panel>
+
+        <Panel
+          eyebrow="Post-trade context"
+          title="Area breakdown and review trail"
+          description="Portfolio-level context sourced from the CEO performance and post-trade review surfaces."
+        >
+          <div className="ops-kv-grid">
+            <div className="ops-kv">
+              <span className="ops-kv-label">Total unrealized</span>
+              <strong className="ops-kv-value">{currency(performanceBreakdown?.total_unrealized_pnl)}</strong>
+            </div>
+            <div className="ops-kv">
+              <span className="ops-kv-label">ML context count</span>
+              <strong className="ops-kv-value">{number(mlEffectiveness?.count)}</strong>
+            </div>
+            <div className="ops-kv">
+              <span className="ops-kv-label">Post-trade reviews</span>
+              <strong className="ops-kv-value">{number(postTradeReviews.length)}</strong>
+            </div>
+          </div>
+
+          {performanceAreaRows.length ? (
+            <div className="ops-mini-list">
+              {performanceAreaRows.map((row) => (
+                <div key={row.asset_class} className="ops-mini-row">
+                  <div>
+                    <strong>{titleize(row.asset_class)}</strong>
+                    <small>{number(row.count)} symbols</small>
+                  </div>
+                  <div className="ops-mini-value">
+                    <strong>{currency(row.market_value)}</strong>
+                    <small className={Number(row.unrealized_pnl || 0) >= 0 ? 'ops-positive' : 'ops-negative'}>
+                      {currency(row.unrealized_pnl)}
+                    </small>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="ops-empty">Performance breakdown rows have not been published yet.</div>
+          )}
+
+          {postTradeReviews.length ? (
+            <div className="ops-headline-list">
+              {postTradeReviews.slice(0, 4).map((row, index) => (
+                <article key={`${row.review_id || row.symbol}-${index}`} className="ops-headline-row">
+                  <div className="ops-headline-tags">
+                    <span className="ops-chip">{row.symbol || 'Review'}</span>
+                    <span className="ops-chip">{titleize(row.status || row.review_status || 'recorded')}</span>
+                    <span className="ops-chip">{formatRelative(row.created_at || row.recorded_at)}</span>
+                  </div>
+                  <p className="ops-headline-link is-static">
+                    {row.title || row.summary || row.notes || 'No review detail published yet.'}
+                  </p>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="ops-empty">No recent post-trade reviews are available.</div>
+          )}
+        </Panel>
+      </div>
+    </>
+  );
+
+  const renderDeliverables = () => (
+    <>
+      <div className="ops-grid ops-grid-overview">
+        <Panel
+          eyebrow="Knowledge outputs"
+          title="Reports, posts, and lineage"
+          description="Restored knowledge-base view so research outputs and downstream usage are visible again."
+        >
+          <div className="ops-kv-grid">
+            <div className="ops-kv">
+              <span className="ops-kv-label">KB reports</span>
+              <strong className="ops-kv-value">{number(reportDeliverables.length)}</strong>
+            </div>
+            <div className="ops-kv">
+              <span className="ops-kv-label">Published posts</span>
+              <strong className="ops-kv-value">{number(blogDeliverables.length)}</strong>
+            </div>
+            <div className="ops-kv">
+              <span className="ops-kv-label">Lineage rows</span>
+              <strong className="ops-kv-value">{number(lineageRows.length)}</strong>
+            </div>
+          </div>
+
+          <div className="ops-inline-chips">
+            {reportDeliverables.slice(0, 6).map((row) => (
+              <span key={row.report_id} className="ops-chip">
+                {row.title || row.report_id}
+              </span>
+            ))}
+          </div>
+        </Panel>
+
+        <Panel
+          eyebrow="Review trail"
+          title="Recent post-trade reviews"
+          description="The operational review artifacts that were hidden by the simplified surface."
+        >
+          {postTradeReviews.length ? (
+            <div className="ops-headline-list">
+              {postTradeReviews.slice(0, 6).map((row, index) => (
+                <article key={`${row.review_id || row.symbol}-${index}`} className="ops-headline-row">
+                  <div className="ops-headline-tags">
+                    <span className="ops-chip">{row.symbol || 'Review'}</span>
+                    <span className="ops-chip">{titleize(row.status || row.review_status || 'recorded')}</span>
+                  </div>
+                  <p className="ops-headline-link is-static">
+                    {row.title || row.summary || row.notes || 'No review detail published yet.'}
+                  </p>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="ops-empty">No recent post-trade reviews are available.</div>
+          )}
+        </Panel>
+      </div>
+
+      <Panel
+        eyebrow="Trace graph"
+        title="Knowledge output chain"
+        description="Research findings, KB documents, downstream consumers, and published outputs."
+      >
+        <KnowledgeTraceGraph reports={reportDeliverables} posts={blogDeliverables} lineageRows={lineageRows} />
+      </Panel>
+
+      <Panel
+        eyebrow="Lineage"
+        title="Recent lineage and traceability"
+        description="The pre-refactor lineage browser is back so backend outputs remain auditable."
+      >
+        <LineagePanel />
+      </Panel>
+    </>
+  );
+
+  const renderDecisions = () => (
+    <>
+      <div className="ops-grid ops-grid-overview">
+        <Panel
+          eyebrow="Queue"
+          title="Pending fund decisions"
+          description="Restored approval queue for operator review and audit-trail access."
+        >
+          <DecisionQueue expanded />
+        </Panel>
+
+        <Panel
+          eyebrow="Blocked"
+          title="Blocked and deferred items"
+          description="Operator CRM and risk-gate items that still need review."
+        >
+          {blockedDecisionRows.length ? (
+            <div className="ops-headline-list">
+              {blockedDecisionRows.slice(0, 8).map((row, index) => (
+                <article key={`${row.decision_id || row.symbol}-${index}`} className="ops-headline-row">
+                  <div className="ops-headline-tags">
+                    <span className="ops-chip">{row.symbol || 'Decision'}</span>
+                    <span className="ops-chip">{titleize(row.status || 'blocked')}</span>
+                  </div>
+                  <p className="ops-headline-link is-static">
+                    {summarize(row.reason || row.block_reason || row.message || JSON.stringify(row), 160)}
+                  </p>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="ops-empty">No blocked decisions are currently published.</div>
+          )}
+
+          {commandGroups.length ? (
+            <div className="ops-command-groups">
+              {commandGroups.map((group) => (
+                <section key={group.key} className="ops-command-group">
+                  <div className="ops-command-group-head">
+                    <strong>{group.label}</strong>
+                    <small>{number(group.items.length)} commands</small>
+                  </div>
+                  <div className="ops-command-chip-grid">
+                    {group.items.map((command) => (
+                      <button
+                        key={`${group.key}-${command}`}
+                        type="button"
+                        className="ops-command-chip"
+                        onClick={() => copyCommand(command)}
+                      >
+                        {command}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          ) : null}
+        </Panel>
+      </div>
+    </>
+  );
+
+  const renderRisk = () => (
+    <>
+      <div className="ops-grid ops-grid-overview">
+        <Panel
+          eyebrow="Controls"
+          title="Risk gauges"
+          description="The dedicated risk surface is restored instead of being folded into a generic runtime tab."
+        >
+          <RiskGauges metrics={metrics} expanded />
+        </Panel>
+
+        <Panel
+          eyebrow="Alerts"
+          title="Live risk alerts"
+          description="Drawdown, halt, and thesis degradation alerts published by the backend."
+        >
+          {riskAlerts.length ? (
+            <div className="ops-headline-list">
+              {riskAlerts.slice(0, 8).map((alert, index) => (
+                <article key={`${alert.type || 'risk'}-${index}`} className="ops-headline-row">
+                  <div className="ops-headline-tags">
+                    <span className="ops-chip">{titleize(alert.type || 'risk_alert')}</span>
+                    <span className="ops-chip">{titleize(alert.severity || 'info')}</span>
+                  </div>
+                  <p className="ops-headline-link is-static">{alert.message || 'No message provided.'}</p>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="ops-empty">No live risk alerts are currently reported by the backend.</div>
+          )}
+
+          <div className="ops-inline-chips">
+            <span className="ops-chip">System halt {systemStatus?.halt?.halted ? 'active' : 'clear'}</span>
+            <span className="ops-chip">Strict data {runtimeControl?.strict_real_data_only ? 'on' : 'off'}</span>
+            <span className="ops-chip">Drawdown {plainPercent(metrics?.current_drawdown, 2)}</span>
+          </div>
+        </Panel>
+      </div>
+
+      <Panel
+        eyebrow="Allocation"
+        title="Capital pressure"
+        description="Asset-class weights and live utilization from the active allocation policy."
+      >
+        {allocationRows.length ? (
+          <div className="ops-allocation-list">
+            {allocationRows.map((row) => (
+              <div key={row.assetClass} className="ops-allocation-row">
+                <div className="ops-allocation-head">
+                  <div>
+                    <strong>{titleize(row.assetClass)}</strong>
+                    <small>
+                      Weight {ratioPercent(row.weight)} · Allocated {currency(row.allocatedUsd)}
+                    </small>
+                  </div>
+                  <div className="ops-allocation-values">
+                    <strong>{currency(row.usedUsd)}</strong>
+                    <small>{ratioPercent(row.utilization)}</small>
+                  </div>
+                </div>
+                <div className="ops-allocation-meter">
+                  <span className="ops-allocation-fill" style={{ width: ratioPercent(row.utilization) }} />
+                </div>
+                <div className="ops-allocation-foot">
+                  <span>Remaining {currency(row.remainingUsd)}</span>
+                  <span>Live exposure {currency(row.liveExposureUsd)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="ops-empty">Allocation policy rows are not available.</div>
+        )}
+      </Panel>
+    </>
+  );
+
+  const renderPositions = () => (
+    <>
+      <div className="ops-grid ops-grid-overview">
+        <Panel
+          eyebrow="Legacy panel"
+          title="Portfolio positions"
+          description="The prior position module is back for operators who relied on the original view."
+        >
+          <PositionsPanel />
+        </Panel>
+
+        <Panel
+          eyebrow="Book context"
+          title="Current paper-book summary"
+          description="Quick ranking of the current book without leaving the positions tab."
+        >
+          <div className="ops-kv-grid">
+            <div className="ops-kv">
+              <span className="ops-kv-label">Cash</span>
+              <strong className="ops-kv-value">{currency(latestSnapshot?.cash)}</strong>
+            </div>
+            <div className="ops-kv">
+              <span className="ops-kv-label">Market value</span>
+              <strong className="ops-kv-value">{currency(latestSnapshot?.market_value)}</strong>
+            </div>
+            <div className="ops-kv">
+              <span className="ops-kv-label">Strongest name</span>
+              <strong className="ops-kv-value">
+                {strongestPosition ? `${strongestPosition.symbol} · ${currency(strongestPosition.unrealizedPnl)}` : 'n/a'}
+              </strong>
+            </div>
+            <div className="ops-kv">
+              <span className="ops-kv-label">Weakest name</span>
+              <strong className="ops-kv-value">
+                {weakestPosition ? `${weakestPosition.symbol} · ${currency(weakestPosition.unrealizedPnl)}` : 'n/a'}
+              </strong>
+            </div>
+          </div>
+        </Panel>
+      </div>
+      {renderPortfolio()}
+    </>
+  );
+
+  const renderMarketWatch = () => (
+    <>
+      <Panel
+        eyebrow="Charts"
+        title="Focus chart board"
+        description="The chart strip is back so operators can inspect the live focus names without leaving admin."
+      >
+        {focusChartSymbols.length ? (
+          <div className="market-watch-chart-grid">
+            {focusChartSymbols.map((symbol) => (
+              <div key={symbol} className="market-watch-chart-card">
+                <div className="market-watch-chart-head">
+                  <strong>{symbol}</strong>
+                  <span>{titleize(symbol)}</span>
+                </div>
+                <TradingViewWidget symbol={symbol} height={340} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="ops-empty">No focus symbols are available for the chart board.</div>
+        )}
+      </Panel>
+      {renderMarket()}
+    </>
+  );
+
+  const renderSettings = () => renderControls();
+
   return (
     <div className="ops-shell">
       <aside className="ops-sidebar">
@@ -2244,12 +2822,9 @@ export default function Admin() {
         <header className="ops-header">
           <div className="ops-header-top">
             <div className="ops-header-copy">
-              <p className="ops-header-eyebrow">Desktop operator surface</p>
-              <h1>Current Backend State, No Theater</h1>
-              <p className="ops-header-description">
-                This surface is aligned to the live backend contract: pipeline quality, deterministic model routing, policy gates,
-                paper positions, benchmark drift, and explicit support-layer status.
-              </p>
+              <p className="ops-header-eyebrow">Restored admin control surface</p>
+              <h1>{activeNavigationItem.label}</h1>
+              <p className="ops-header-description">{activeNavigationItem.description}</p>
             </div>
             <button
               type="button"
@@ -2330,11 +2905,16 @@ export default function Admin() {
             </div>
           ) : null}
 
-          {activeTab === 'overview' && renderOverview()}
-          {activeTab === 'pipeline' && renderPipeline()}
-          {activeTab === 'portfolio' && renderPortfolio()}
-          {activeTab === 'market' && renderMarket()}
-          {activeTab === 'controls' && renderControls()}
+          {activeTab === 'core' && renderCore()}
+          {activeTab === 'warroom' && renderWarRoom()}
+          {activeTab === 'agents' && renderAgents()}
+          {activeTab === 'performance' && renderPerformance()}
+          {activeTab === 'deliverables' && renderDeliverables()}
+          {activeTab === 'decisions' && renderDecisions()}
+          {activeTab === 'risk' && renderRisk()}
+          {activeTab === 'positions' && renderPositions()}
+          {activeTab === 'marketwatch' && renderMarketWatch()}
+          {activeTab === 'settings' && renderSettings()}
         </div>
 
         <ToastContainer />
