@@ -1,6 +1,6 @@
 # Codex Progress Log
 
-Last updated: 2026-05-24T23:24:48Z
+Last updated: 2026-05-24T23:28:30Z
 
 ## Session Summary
 - Established Codex-only long-running workflow naming and required files.
@@ -38,6 +38,7 @@ Last updated: 2026-05-24T23:24:48Z
 - Ran focused backend regressions `python -m pytest tests/test_signals.py -q` and `python -m pytest tests/test_admin_runtime_controls.py -k deterministic_ml_recover_disables_strict_mode_and_clears_halt -q` (2 passed total).
 - Normalized the long-running harness so every coding session must finish on local `codex/main`, push to `origin/main`, and leave a clean worktree for the next agent.
 - Added `scripts/session-handoff.ps1` to stage, commit, push, and verify `origin/main` matches the local handoff commit.
+- Tightened `scripts/session-handoff.ps1` to verify the exact remote ref `refs/heads/main` so remote-head checks cannot be confused by stale `origin/codex/main`.
 - Expanded `scripts/session-bootstrap.ps1` to report canonical branch state, dirty-tree status, and ahead/behind status against `origin/main`.
 - Updated workflow docs, sub-repo AGENTS files, and initializer/coding prompts to require `codex/main` -> `origin/main` handoff discipline.
 - Ignored volatile frontend and knowledge-graph artifacts so future handoff commits do not absorb generated noise.

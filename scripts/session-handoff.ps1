@@ -61,12 +61,12 @@ if (-not $SkipPush) {
 
     & git branch --set-upstream-to "$RemoteName/$RemoteBranch" $CanonicalBranch *> $null
 
-    $remoteLine = (& git ls-remote --heads $RemoteName $RemoteBranch)
-    if (-not $remoteLine) {
+    $remoteLines = @(& git ls-remote $RemoteName "refs/heads/$RemoteBranch")
+    if ($remoteLines.Count -eq 0) {
         throw "Could not read remote head for $RemoteName/$RemoteBranch."
     }
 
-    $remoteHead = ($remoteLine -split "\s+")[0].Trim()
+    $remoteHead = ($remoteLines[0] -split "\s+")[0].Trim()
     Write-Output "remote_head=$remoteHead"
     if ($remoteHead -ne $localHead) {
         throw "Remote head mismatch. local=$localHead remote=$remoteHead"
