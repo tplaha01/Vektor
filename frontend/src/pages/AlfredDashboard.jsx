@@ -26,6 +26,39 @@ const CORE_PROFILES = [
   { key: "risk_off", label: "Risk Off" },
 ];
 
+const REASON_LABELS = {
+  confidence_below_threshold: "confidence",
+  expected_utility_below_threshold: "utility",
+  fundamentals_timestamp_missing: "fresh fundamentals",
+  stale_market_data: "market data",
+  low_confidence: "low confidence",
+  policy_confidence_below_threshold: "policy confidence",
+  policy_expected_utility_below_threshold: "policy utility",
+  dominant_fundamental: "fundamental tilt",
+};
+
+const money = (value) =>
+  Number(value || 0).toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2,
+  });
+
+const percent = (value, digits = 2) => `${Number(value || 0).toFixed(digits)}%`;
+
+const shortHash = (value) => {
+  const text = String(value || "").trim();
+  if (!text) return "n/a";
+  if (text.length <= 16) return text;
+  return `${text.slice(0, 8)}...${text.slice(-8)}`;
+};
+
+const humanizeReason = (value) => {
+  const key = String(value || "").trim().toLowerCase();
+  if (!key) return "";
+  return REASON_LABELS[key] || key.replace(/_/g, " ");
+};
+
 export default function AlfredDashboard() {
   const [symbol,    setSymbol]    = useState("AAPL");
   const [input,     setInput]     = useState("AAPL");
@@ -83,6 +116,24 @@ export default function AlfredDashboard() {
   const tick = ticks[symbol];
   const wsColor = ws==="live" ? "var(--green)" : ws==="connecting" ? "var(--amber)" : "var(--red)";
   const wsLabel = ws==="live" ? "LIVE" : ws==="connecting" ? "CONNECTING" : "OFFLINE";
+  const openPositions = positions.filter((item) => Number(item.qty || 0) > 0);
+  const totalMarketValue = openPositions.reduce((sum, item) => sum + Number(item.market_value || 0), 0);
+  const totalUnrealized = openPositions.reduce((sum, item) => sum + Number(item.unrealized_pnl || 0), 0);
+  const diagnostics = signal?.diagnostics ?? {};
+  const policy = diagnostics?.policy ?? {};
+  const policyReasons = Array.from(new Set([
+    ...(Array.isArray(policy?.rejections) ? policy.rejections : []),
+    ...(Array.isArray(diagnostics?.reason_codes) ? diagnostics.reason_codes : []),
+  ].filter(Boolean)));
+  const policyChips = policyReasons.slice(0, 4).map(humanizeReason).filter(Boolean);
+  const profileLabel = diagnostics?.profile || signal?.model?.profile || profile;
+  const modelVersion = diagnostics?.model_versions?.meta_intent || signal?.model?.selected || "meta-intent-v1";
+  const contractHash = shortHash(diagnostics?.determinism?.contract_hash);
+  const coreBrief = policyChips.length
+    ? `Contract is holding for ${policyChips.slice(0, 3).join(", ")}${policyChips.length > 3 ? ", and other guardrails" : ""}.`
+    : "Deterministic contract is clear for the current symbol.";
+  const leadHeadline = news[0]?.headline || "No current intelligence headline.";
+  const leadPublishedAt = news[0]?.published_at ? new Date(news[0].published_at) : null;
 
   return (
     <div className="layout">
@@ -221,7 +272,13 @@ export default function AlfredDashboard() {
         {/* Order in sidebar */}
         <div style={{ padding:"10px 14px" }}>
           <OrderPanel symbol={symbol}
-            onPlace={async o => { await placeOrder(o); getPositions().then(setPositions); }} />
+            onPlace={async o => {
+              const result = await placeOrder(o);
+              if (result?.approved) {
+                getPositions().then(setPositions).catch(console.warn);
+              }
+              return result;
+            }} />
         </div>
       </aside>
 
@@ -237,7 +294,79 @@ export default function AlfredDashboard() {
 
         {/* Tab content */}
         <div className="fade d2" style={{ flex:1, display:"flex", flexDirection:"column", gap:10 }}>
-          {tab==="chart"    && <TradingViewWidget symbol={symbol} />}
+          {tab==="chart"    && (
+            <>
+              <TradingViewWidget symbol={symbol} height={460} />
+              <div className="legacy-bottom-grid">
+                <section className="panel panel-pad legacy-brief-card">
+                  <div className="legacy-brief-head">
+                    <span className="label">Core Brief</span>
+                    <span className="legacy-brief-kicker">{String(profileLabel).toUpperCase()}</span>
+                  </div>
+                  <div className="legacy-brief-value">
+                    {String(signal?.action || "hold").toUpperCase()} {Number(signal?.score || 0) >= 0 ? "+" : ""}{Number(signal?.score || 0).toFixed(3)}
+                  </div>
+                  <p className="legacy-brief-copy">{coreBrief}</p>
+                  <div className="legacy-chip-row">
+                    {policyChips.length ? policyChips.map((reason) => (
+                      <span key={reason} className="legacy-chip">{reason}</span>
+                    )) : <span className="legacy-chip">contract clear</span>}
+                  </div>
+                </section>
+
+                <section className="panel panel-pad legacy-brief-card">
+                  <div className="legacy-brief-head">
+                    <span className="label">Execution Envelope</span>
+                    <span className="legacy-brief-kicker">{policy?.safe_mode ? "SAFE HOLD" : "CLEAR"}</span>
+                  </div>
+                  <div className="legacy-stat-grid">
+                    <div className="legacy-stat">
+                      <span>Confidence</span>
+                      <strong>{percent(Number(signal?.confidence || 0) * 100, 1)}</strong>
+                    </div>
+                    <div className="legacy-stat">
+                      <span>ATR</span>
+                      <strong>{percent(Number(signal?.volatility || diagnostics?.technical?.atr_pct || 0) * 100, 2)}</strong>
+                    </div>
+                    <div className="legacy-stat">
+                      <span>Model</span>
+                      <strong>{modelVersion}</strong>
+                    </div>
+                    <div className="legacy-stat">
+                      <span>Contract</span>
+                      <strong>{contractHash}</strong>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="panel panel-pad legacy-brief-card">
+                  <div className="legacy-brief-head">
+                    <span className="label">Book And Wire</span>
+                    <span className="legacy-brief-kicker">{wsLabel}</span>
+                  </div>
+                  <div className="legacy-stat-grid">
+                    <div className="legacy-stat">
+                      <span>Positions</span>
+                      <strong>{openPositions.length}</strong>
+                    </div>
+                    <div className="legacy-stat">
+                      <span>Exposure</span>
+                      <strong>{money(totalMarketValue)}</strong>
+                    </div>
+                    <div className="legacy-stat">
+                      <span>uPnL</span>
+                      <strong style={{ color: totalUnrealized >= 0 ? "var(--green)" : "var(--red)" }}>{money(totalUnrealized)}</strong>
+                    </div>
+                    <div className="legacy-stat">
+                      <span>Lead wire</span>
+                      <strong>{leadPublishedAt ? leadPublishedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "n/a"}</strong>
+                    </div>
+                  </div>
+                  <p className="legacy-brief-copy">{leadHeadline}</p>
+                </section>
+              </div>
+            </>
+          )}
           {tab==="backtest" && <BacktestPanel />}
           {tab==="risk"     && <RiskDashboard riskData={risk} />}
           {tab==="perf"     && <StrategyDashboard />}

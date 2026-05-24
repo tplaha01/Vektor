@@ -6,6 +6,19 @@ const ACTIONS = {
   hold: { color: "var(--txt2)", bg: "rgba(139,145,158,0.06)", border: "rgba(139,145,158,0.15)", label: "HOLD" },
 };
 
+const REASON_LABELS = {
+  confidence_below_threshold: "confidence",
+  expected_utility_below_threshold: "utility",
+  fundamentals_timestamp_missing: "fresh fundamentals",
+  stale_market_data: "fresh market data",
+  dominant_fundamental: "fundamental tilt",
+  low_confidence: "low confidence",
+  policy_confidence_below_threshold: "policy confidence",
+  policy_expected_utility_below_threshold: "policy utility",
+  ml_score_below_threshold: "ml score",
+  market_data_stale: "market data",
+};
+
 function Bar({ label, value }) {
   const v = Number(value || 0);
   const pct = Math.min(Math.abs(v) * 100, 100);
@@ -32,6 +45,19 @@ function shortHash(value) {
   return `${text.slice(0, 8)}...${text.slice(-8)}`;
 }
 
+function formatReason(value) {
+  const key = String(value || "").trim().toLowerCase();
+  if (!key) return "";
+  return REASON_LABELS[key] || key.replace(/_/g, " ");
+}
+
+function reasonSummary(values) {
+  const items = Array.from(new Set(values.map(formatReason).filter(Boolean)));
+  if (!items.length) return "Deterministic contract is clear for this symbol.";
+  const focus = items.slice(0, 3).join(", ");
+  return `Contract is holding for ${focus}${items.length > 3 ? ", and other guardrails" : ""}.`;
+}
+
 export default function SignalCard({ signal, symbol, tick }) {
   const a = ACTIONS[signal?.action ?? "hold"] ?? ACTIONS.hold;
   const score = Number(signal?.score || 0);
@@ -49,6 +75,10 @@ export default function SignalCard({ signal, symbol, tick }) {
   const volatilityWarn = volatility > 0.035;
   const rejections = Array.isArray(policy?.rejections) ? policy.rejections : [];
   const safeMode = Boolean(policy?.safe_mode);
+  const policyReasons = Array.from(new Set([...rejections, ...reasonCodes].filter(Boolean)));
+  const policyBadges = policyReasons.slice(0, 4).map(formatReason).filter(Boolean);
+  const policyState = safeMode ? "Safe hold" : policyReasons.length ? "Guarded" : "Clear";
+  const policyText = reasonSummary(policyReasons);
 
   return (
     <div className="panel" style={{ background: a.bg, borderColor: a.border }}>
@@ -84,19 +114,48 @@ export default function SignalCard({ signal, symbol, tick }) {
           <Bar label="Fundamental" value={sub.fundamental} />
           <Bar label="Sentiment" value={sub.sentiment} />
           <Bar label="Meta Intent" value={sub.ml_alpha ?? sub.ml} />
-          <div style={{ gridColumn: "1 / -1", marginTop: 2, display: "grid", gap: 4 }}>
-            <div className="label" style={{ fontSize: 8 }}>Core Engine Diagnostics</div>
-            <div style={{ fontFamily: "var(--f-data)", fontSize: 9, color: "var(--txt2)" }}>
-              MODEL {modelVersion} | CONTRACT {shortHash(contractHash)}
+          <div style={{ gridColumn: "1 / -1", marginTop: 4, display: "grid", gap: 6 }}>
+            <div className="label" style={{ fontSize: 8 }}>Core Engine Brief</div>
+            <div style={{ fontFamily: "var(--f-ui)", fontSize: 12, lineHeight: 1.45, color: "var(--txt)" }}>
+              {policyText}
             </div>
-            <div style={{ fontFamily: "var(--f-data)", fontSize: 9, color: safeMode ? "var(--amber)" : "var(--teal)" }}>
-              POLICY {safeMode ? "SAFE_MODE_HOLD" : "ACTIVE"} {rejections.length ? `| ${rejections.join(", ")}` : ""}
-            </div>
-            {!!reasonCodes.length && (
-              <div style={{ fontFamily: "var(--f-data)", fontSize: 9, color: "var(--txt3)" }}>
-                REASONS {reasonCodes.slice(0, 4).join(", ")}
+            {policyBadges.length ? (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {policyBadges.map((reason) => (
+                  <span
+                    key={reason}
+                    style={{
+                      padding: "3px 7px",
+                      borderRadius: 999,
+                      border: `1px solid ${safeMode ? "rgba(245,166,35,0.24)" : "rgba(255,255,255,0.1)"}`,
+                      fontFamily: "var(--f-data)",
+                      fontSize: 9,
+                      letterSpacing: "0.05em",
+                      color: safeMode ? "var(--amber)" : "var(--txt2)",
+                    }}
+                  >
+                    {reason}
+                  </span>
+                ))}
               </div>
-            )}
+            ) : null}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
+              <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "var(--r-sm)", padding: "8px 10px" }}>
+                <div className="label" style={{ fontSize: 8, marginBottom: 4 }}>Profile</div>
+                <div style={{ fontFamily: "var(--f-data)", fontSize: 10, color: "var(--txt)" }}>{String(profile).toUpperCase()}</div>
+              </div>
+              <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "var(--r-sm)", padding: "8px 10px" }}>
+                <div className="label" style={{ fontSize: 8, marginBottom: 4 }}>Policy</div>
+                <div style={{ fontFamily: "var(--f-data)", fontSize: 10, color: safeMode ? "var(--amber)" : "var(--teal)" }}>{policyState}</div>
+              </div>
+              <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "var(--r-sm)", padding: "8px 10px" }}>
+                <div className="label" style={{ fontSize: 8, marginBottom: 4 }}>Contract</div>
+                <div style={{ fontFamily: "var(--f-data)", fontSize: 10, color: "var(--txt2)" }}>{shortHash(contractHash)}</div>
+              </div>
+            </div>
+            <div style={{ fontFamily: "var(--f-data)", fontSize: 9, color: "var(--txt3)" }}>
+              MODEL {modelVersion}
+            </div>
           </div>
         </div>
 

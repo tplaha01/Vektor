@@ -343,8 +343,13 @@ const STATUS_KEYS = [
   ['llm_agent_health', 'LLM Agent Health'],
 ];
 
+const MOBILE_SIDEBAR_BREAKPOINT = 768;
+const isMobileSidebarViewport = () =>
+  typeof window !== 'undefined' && window.innerWidth <= MOBILE_SIDEBAR_BREAKPOINT;
+
 const Admin = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isMobileViewport, setIsMobileViewport] = useState(isMobileSidebarViewport);
+  const [sidebarOpen, setSidebarOpen] = useState(() => !isMobileSidebarViewport());
   const [activeTab, setActiveTab] = useState('core');
   const [metrics, setMetrics] = useState(null);
   const [systemStatus, setSystemStatus] = useState(null);
@@ -430,6 +435,34 @@ const Admin = () => {
   const { success, error: showError } = useToast();
   const fetchInProgress = useRef(false);
   const isMounted = useRef(true);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const handleResize = () => {
+      const nextIsMobile = isMobileSidebarViewport();
+      setIsMobileViewport((previousIsMobile) => {
+        if (previousIsMobile !== nextIsMobile) {
+          setSidebarOpen(!nextIsMobile);
+        }
+        return nextIsMobile;
+      });
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const handleSidebarToggle = useCallback(() => {
+    setSidebarOpen((previous) => !previous);
+  }, []);
+
+  const handleNavigationSelect = useCallback((tabId) => {
+    setActiveTab(tabId);
+    if (isMobileViewport) {
+      setSidebarOpen(false);
+    }
+  }, [isMobileViewport]);
 
   const navigationItems = [
     { id: 'core', label: 'Core Engine', icon: Sigma, description: 'Deterministic ML-native decision stack' },
@@ -2728,6 +2761,11 @@ const Admin = () => {
     <>
       <ToastContainer />
       <div className={`admin-container ${sidebarOpen ? '' : 'sidebar-collapsed'}`}>
+        <div
+          className={`sidebar-overlay ${!isMobileViewport || !sidebarOpen ? 'hidden' : ''}`}
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden={!isMobileViewport || !sidebarOpen}
+        />
         <aside className={`admin-sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
           <div className="sidebar-header">
             <div className="sidebar-logo">
@@ -2735,7 +2773,7 @@ const Admin = () => {
               <span>Vektor Admin</span>
               <span className={`admin-title-dot ${connectionStatus === 'connected' ? 'connected' : connectionStatus === 'connecting' ? 'connecting' : 'error'}`} />
             </div>
-            <button className="sidebar-toggle-mobile" onClick={() => setSidebarOpen(!sidebarOpen)} aria-label="Toggle sidebar">
+            <button className="sidebar-toggle-mobile" onClick={handleSidebarToggle} aria-label="Toggle sidebar" aria-expanded={sidebarOpen}>
               <X size={20} />
             </button>
           </div>
@@ -2763,9 +2801,7 @@ const Admin = () => {
                 <button
                   key={item.id}
                   className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
-                  onClick={() => {
-                    setActiveTab(item.id);
-                  }}
+                  onClick={() => handleNavigationSelect(item.id)}
                   title={`${item.label} · ${item.description}`}
                 >
                   <Icon size={16} className="nav-icon" />
@@ -2783,7 +2819,7 @@ const Admin = () => {
             </div>
             <div className="sidebar-footer-block">
               <span className="sidebar-footer-label">Data</span>
-              <strong>{systemStatus?.data_source?.status || 'Unknown'}</strong>
+              <strong>{Array.isArray(pipelineStatus?.provider_health) && pipelineStatus.provider_health.length ? 'Provider' : workersStatus?.data_integrity?.data_source_status || systemStatus?.data_source?.status || 'Unknown'}</strong>
             </div>
             <div className="sidebar-footer-block">
               <span className="sidebar-footer-label">Execution</span>
@@ -2810,7 +2846,7 @@ const Admin = () => {
         <main className="admin-main">
           <header className="admin-header">
             <div className="header-left">
-              <button className="sidebar-toggle" onClick={() => setSidebarOpen(!sidebarOpen)} aria-label="Toggle sidebar">
+              <button className="sidebar-toggle" onClick={handleSidebarToggle} aria-label="Toggle sidebar" aria-expanded={sidebarOpen}>
                 <Menu size={20} />
               </button>
               <div className="breadcrumb" role="navigation" aria-label="Breadcrumb">

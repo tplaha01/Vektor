@@ -39,6 +39,19 @@ const average = (rows, getter) => {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 };
 
+const compactList = (values, limit = 3) => {
+  const items = Array.from(
+    new Set(
+      (Array.isArray(values) ? values : [])
+        .map((value) => String(value || '').trim())
+        .filter(Boolean)
+    )
+  );
+  if (!items.length) return '';
+  const head = items.slice(0, limit).join(', ');
+  return items.length > limit ? `${head} +${items.length - limit}` : head;
+};
+
 const summarize = (value, max = 140) => {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
   if (!text) return 'No operator note published yet.';
@@ -69,6 +82,15 @@ const statusLabel = (tone) => {
   if (tone === 'ok') return 'Live';
   if (tone === 'bad') return 'Blocked';
   return 'Pending';
+};
+
+const describeNewsGuard = (newsStream) => {
+  const reason = String(newsStream?.disable_reason || '').trim();
+  if (!reason) return '';
+  if (reason === 'parallel_alpaca_ws_disabled') {
+    return 'News stream is intentionally parked while the market websocket owns the Alpaca connection budget.';
+  }
+  return `${titleize(reason)} is constraining the parallel news feed.`;
 };
 
 export default function CoreEnginePanel({
@@ -105,12 +127,36 @@ export default function CoreEnginePanel({
   const providerHealth = pipelineStatus?.provider_health || {};
   const stream = pipelineStatus?.stream || {};
   const newsStream = pipelineStatus?.news_stream || {};
+  const latestRun = pipelineStatus?.last_run || {};
+  const latestRunCounts = latestRun?.counts || {};
   const latestScoring = scoringRows[0] || null;
   const latestApproval = approvals[0] || null;
   const latestSentiment = sentimentRows[0] || null;
   const topMlRow = mlRows[0] || null;
   const selectedCount = Number(systemStatus?.discovery?.status_counts?.selected || 0);
   const qualifiedCount = Number(systemStatus?.discovery?.status_counts?.qualified || 0);
+  const latestRunQualityRows = useMemo(
+    () =>
+      Object.entries(latestRun?.quality || {})
+        .map(([symbol, row]) => ({
+          symbol,
+          featureCategory: row?.features?.category || row?.status || 'unknown',
+          featureScore: Number(row?.features?.score || 0),
+          row,
+        }))
+        .sort((left, right) => right.featureScore - left.featureScore),
+    [latestRun]
+  );
+  const tradeCandidateRows = latestRunQualityRows.filter((row) => row.featureCategory === 'trade_candidate');
+  const watchlistRows = latestRunQualityRows.filter((row) => row.featureCategory === 'watchlist');
+  const activeProfileConfig = profiles.find((row) => row?.name === mlStatus?.core_engine?.active_profile) || null;
+  const newsGuardSummary = describeNewsGuard(newsStream);
+  const supportLayerState = workersStatus?.ai_role_adapter?.enabled
+    ? titleize(workersStatus?.ai_role_adapter?.provider || workersStatus?.ai_role_adapter?.mode || 'configured')
+    : 'Standby';
+  const supportLayerDetail = workersStatus?.ai_role_adapter?.enabled
+    ? `${workersStatus?.ai_role_adapter?.default_model || 'model pending'} for research and editorial support.`
+    : `Configured through ${workersStatus?.ai_role_adapter?.provider || 'router'} and kept off the trade path.`;
   const reportByRole = useMemo(() => {
     const bucket = {
       technical_analyst: null,
@@ -210,14 +256,15 @@ export default function CoreEnginePanel({
         summary: disconnected
           ? 'Backend unreachable. The surface is preserving the operating contract but cannot verify live freshness.'
           : pipelineStatus?.enabled
-            ? `Pipeline ${pipelineStatus?.running ? 'running' : 'idle'} with ${Number(pipelineStatus?.configured_symbols?.length || 0)} configured symbols and provider health telemetry.`
+            ? `Scheduler ${pipelineStatus?.running ? 'running' : 'idle'} across ${Number(pipelineStatus?.configured_symbols?.length || 0)} symbols, with ${Number(latestRunCounts?.prices || 0)} price refreshes and ${Number(latestRunCounts?.text_events || 0)} text events in the latest run.`
             : 'Pipeline is disabled, so deterministic layers cannot validate canonical freshness.',
         metrics: [
-          { label: 'Ticks', value: Number(stream?.tick_count || 0).toLocaleString() },
-          { label: 'News', value: Number(newsStream?.event_count || 0).toLocaleString() },
+          { label: 'Universe', value: String(pipelineStatus?.configured_symbols?.length || 0) },
+          { label: 'Prices', value: Number(latestRunCounts?.prices || stream?.tick_count || 0).toLocaleString() },
           { label: 'Providers', value: String(Object.keys(providerHealth).length || 0) },
           { label: 'Last run', value: formatRelative(pipelineStatus?.last_run?.completed_at || pipelineStatus?.last_run?.started_at || pipelineStatus?.last_run) },
         ],
+        note: newsGuardSummary ? summarize(newsGuardSummary) : '',
       },
       {
         key: 'technical',
@@ -227,16 +274,27 @@ export default function CoreEnginePanel({
         title: 'Technical Pack',
         summary: latestScoring
           ? `${Math.round(Number(avgTechnical || 0) * 100)}% average technical confidence across ${scoringRows.length} discovery packets.`
+          : tradeCandidateRows.length
+            ? `${tradeCandidateRows.length} trade candidates surfaced in the latest scheduled pass led by ${compactList(tradeCandidateRows.map((row) => row.symbol), 3)}.`
           : disconnected
             ? 'Reconnect to inspect live technical model output.'
             : 'No technical scoring packets have been published yet.',
-        metrics: [
-          { label: 'Reports', value: String(reportCountsByRole.technical_analyst || 0) },
-          { label: 'Regime', value: avgRegime == null ? 'n/a' : percent(avgRegime) },
-          { label: 'Liquidity', value: avgLiquidity == null ? 'n/a' : percent(avgLiquidity) },
-          { label: 'Volatility', value: avgVolatility == null ? 'n/a' : percent(avgVolatility) },
-        ],
-        note: latestScoring ? summarize(latestScoring.mathSummary) : summarize(reportByRole.technical_analyst?.preview),
+        metrics: latestScoring
+          ? [
+              { label: 'Reports', value: String(reportCountsByRole.technical_analyst || 0) },
+              { label: 'Regime', value: avgRegime == null ? 'n/a' : percent(avgRegime) },
+              { label: 'Liquidity', value: avgLiquidity == null ? 'n/a' : percent(avgLiquidity) },
+              { label: 'Volatility', value: avgVolatility == null ? 'n/a' : percent(avgVolatility) },
+            ]
+          : [
+              { label: 'Reports', value: String(reportCountsByRole.technical_analyst || 0) },
+              { label: 'Candidates', value: String(tradeCandidateRows.length) },
+              { label: 'Watchlist', value: String(watchlistRows.length) },
+              { label: 'Last run', value: formatRelative(latestRun?.finished_at || latestRun?.started_at) },
+            ],
+        note: latestScoring
+          ? summarize(latestScoring.mathSummary)
+          : summarize(reportByRole.technical_analyst?.preview || `Latest ranked symbols: ${compactList(tradeCandidateRows.map((row) => row.symbol), 4) || 'no ranked symbols yet'}.`),
       },
       {
         key: 'fundamental',
@@ -246,13 +304,15 @@ export default function CoreEnginePanel({
         title: 'Fundamental Pack',
         summary: reportCountsByRole.fundamental_analyst
           ? `${reportCountsByRole.fundamental_analyst} fundamental analyst packets are available in the KB projection.`
+          : Number(latestRunCounts?.fundamentals || 0) === 0 && latestRunQualityRows.length
+            ? 'Fundamental refresh is cadence-controlled, so the latest run reused the valuation base instead of forcing a stale pass.'
           : disconnected
             ? 'No live fundamental telemetry while the backend is offline.'
             : 'The backend has not emitted explicit fundamental pack telemetry into the operator surface yet.',
         metrics: [
           { label: 'Packets', value: String(reportCountsByRole.fundamental_analyst || 0) },
           { label: 'Latest', value: formatRelative(reportByRole.fundamental_analyst?.timestamp) },
-          { label: 'Docs', value: String(reports.length) },
+          { label: 'Cadence', value: Number(latestRunCounts?.fundamentals || 0) > 0 ? 'refreshed' : 'deferred' },
           { label: 'Sleeves', value: String(Object.keys(systemStatus?.allocation_policy?.asset_classes || {}).length) },
         ],
         note: summarize(reportByRole.fundamental_analyst?.preview || 'Fundamental insight remains visible through research packets until dedicated pack diagnostics are exposed.'),
@@ -265,6 +325,8 @@ export default function CoreEnginePanel({
         title: 'Sentiment Pack',
         summary: latestSentiment
           ? `${latestSentiment.symbol} leads recent sentiment at ${signed(latestSentiment.sentiment_score)} with ${percent(latestSentiment.confidence)} confidence.`
+          : Number(latestRunCounts?.text_events || 0) > 0
+            ? `${Number(latestRunCounts.text_events || 0)} text events were ingested in the latest run even though no aggregate sentiment snapshot has been published yet.`
           : disconnected
             ? 'Sentiment snapshots are unavailable while the backend is disconnected.'
             : 'No current sentiment snapshots have been published yet.',
@@ -282,8 +344,8 @@ export default function CoreEnginePanel({
         tone: routerTone,
         icon: Sigma,
         title: 'Model Router',
-        summary: mlStatus?.core_engine?.active_profile
-          ? `${titleize(mlStatus.core_engine.active_profile)} is the active deterministic profile across ${profiles.length} registered profiles.`
+        summary: activeProfileConfig
+          ? `${titleize(activeProfileConfig.name)} is active with ${percent(activeProfileConfig.min_confidence)} minimum confidence and ${percent(activeProfileConfig.min_expected_utility)} expected-utility floor.`
           : disconnected
             ? 'Model readiness cannot be verified while the backend is offline.'
             : 'Waiting for model readiness and profile routing telemetry.',
@@ -291,7 +353,7 @@ export default function CoreEnginePanel({
           { label: 'LGBM', value: mlStatus?.lgbm?.ready ? 'ready' : mlStatus?.lgbm?.training ? 'training' : 'offline' },
           { label: 'Features', value: String(mlStatus?.lgbm?.features ?? 0) },
           { label: 'Profiles', value: String(profiles.length) },
-          { label: 'ML context', value: String(mlEffectiveness?.count ?? mlRows.length) },
+          { label: 'Min conf', value: activeProfileConfig ? percent(activeProfileConfig.min_confidence) : 'n/a' },
         ],
         note: topMlRow
           ? summarize(`${topMlRow.symbol} is the current lead ML context row with ${topMlRow.strategy_family} and ${money(topMlRow.unrealized_pnl)} unrealized PnL.`)
@@ -305,6 +367,8 @@ export default function CoreEnginePanel({
         title: 'Fusion And Scoring',
         summary: latestScoring
           ? `${selectedCount} selected candidates with ${avgScore == null ? 'n/a' : Number(avgScore).toFixed(3)} average score and ${avgConfidence == null ? 'n/a' : percent(avgConfidence)} confidence.`
+          : tradeCandidateRows.length
+            ? `${tradeCandidateRows.length} names cleared raw candidate scoring, but no fused decision packet has been emitted yet.`
           : disconnected
             ? 'Fusion telemetry is unavailable while the backend is offline.'
             : 'No fused decision packets have reached the operator surface yet.',
@@ -314,7 +378,13 @@ export default function CoreEnginePanel({
           { label: 'Signal packs', value: String(workersStatus?.signal_packs?.length || 0) },
           { label: 'Top side', value: latestScoring?.direction || 'n/a' },
         ],
-        note: summarize(latestScoring?.mathSummary || latestNoTradeDiscovery?.thesis),
+        note: summarize(
+          latestScoring?.mathSummary ||
+          latestNoTradeDiscovery?.thesis ||
+          (tradeCandidateRows.length
+            ? `Current candidate queue: ${compactList(tradeCandidateRows.map((row) => row.symbol), 4)}.`
+            : '')
+        ),
       },
       {
         key: 'policy',
@@ -328,7 +398,7 @@ export default function CoreEnginePanel({
             ? `Cash hold directive active because ${latestNoTradeDiscovery?.metadata?.discovery_reason || 'thresholds were not met'}.`
             : approvals.length
               ? `${approvals.length} approvals are waiting at the deterministic policy boundary.`
-              : 'No active gate blocks reported.',
+              : 'No active gate blocks or pending approvals are reported.',
         metrics: [
           { label: 'Approvals', value: String(approvals.length) },
           { label: 'Drawdown', value: percent(riskStatus?.drawdown_breaker?.current_drawdown, 2) },
@@ -372,6 +442,9 @@ export default function CoreEnginePanel({
     connectionStatus,
     disconnected,
     latestApproval,
+    latestRun,
+    latestRunCounts,
+    latestRunQualityRows.length,
     latestNoTradeDiscovery,
     latestScoring,
     latestSentiment,
@@ -399,7 +472,11 @@ export default function CoreEnginePanel({
     stream?.tick_count,
     systemStatus,
     topMlRow,
+    tradeCandidateRows,
+    watchlistRows.length,
     workersStatus?.signal_packs?.length,
+    activeProfileConfig,
+    newsGuardSummary,
   ]);
 
   const supportLayerRows = [
@@ -417,13 +494,13 @@ export default function CoreEnginePanel({
       action: blogDeliverables?.[0] || null,
       actionLabel: 'Open draft',
     },
-    {
-      label: 'AI adapter',
-      value: workersStatus?.ai_role_adapter?.provider || workersStatus?.ai_role_adapter?.mode || 'offline',
-      detail: workersStatus?.ai_role_adapter?.default_model || 'No model configured.',
-      action: null,
-      actionLabel: '',
-    },
+      {
+        label: 'AI adapter',
+        value: supportLayerState,
+        detail: supportLayerDetail,
+        action: null,
+        actionLabel: '',
+      },
   ];
 
   const signalLaneRows = scoringRows.slice(0, 4);
@@ -451,7 +528,7 @@ export default function CoreEnginePanel({
             </span>
             <span className="command-pill">
               <Bot size={13} />
-              AI support only
+              AI assist off trade path
             </span>
           </div>
         </div>
@@ -479,23 +556,27 @@ export default function CoreEnginePanel({
         <div className="core-status-strip">
           <article className="core-status-card">
             <span>Pipeline</span>
-            <strong>{pipelineStatus?.running ? 'Streaming' : pipelineStatus?.enabled ? 'Idle' : 'Offline'}</strong>
-            <small>{Number(stream?.tick_count || 0).toLocaleString()} ticks and {Number(newsStream?.event_count || 0).toLocaleString()} news events</small>
+            <strong>{pipelineStatus?.running ? 'Scheduler live' : pipelineStatus?.enabled ? 'Idle' : 'Offline'}</strong>
+            <small>
+              {String(pipelineStatus?.configured_symbols?.length || 0)} symbols | {Number(latestRunCounts?.prices || stream?.tick_count || 0).toLocaleString()} prices | {Number(latestRunCounts?.text_events || newsStream?.event_count || 0).toLocaleString()} text
+            </small>
           </article>
           <article className="core-status-card">
             <span>Model readiness</span>
-            <strong>{mlStatus?.lgbm?.ready ? 'Ready' : mlStatus?.lgbm?.training ? 'Training' : 'Unavailable'}</strong>
-            <small>{String(mlStatus?.lgbm?.features ?? 0)} engineered features exposed</small>
+            <strong>{activeProfileConfig ? titleize(activeProfileConfig.name) : mlStatus?.lgbm?.ready ? 'Ready' : mlStatus?.lgbm?.training ? 'Training' : 'Unavailable'}</strong>
+            <small>
+              {String(mlStatus?.lgbm?.features ?? 0)} features | {activeProfileConfig ? `${percent(activeProfileConfig.min_confidence)} min conf` : 'profile pending'}
+            </small>
           </article>
           <article className="core-status-card">
             <span>Policy boundary</span>
             <strong>{approvals.length ? `${approvals.length} waiting` : systemStatus?.halt?.halted ? 'Halted' : 'Clear'}</strong>
-            <small>{money(riskStatus?.equity || paperSummary?.equity)} tracked equity</small>
+            <small>{money(riskStatus?.equity || paperSummary?.equity)} equity | {percent(riskStatus?.drawdown_breaker?.current_drawdown, 2)} drawdown</small>
           </article>
           <article className="core-status-card support">
             <span>Support layer</span>
-            <strong>{workersStatus?.ai_role_adapter?.provider || workersStatus?.ai_role_adapter?.mode || 'Idle'}</strong>
-            <small>Research + editorial assist, out of trade path</small>
+            <strong>{supportLayerState}</strong>
+            <small>{supportLayerDetail}</small>
           </article>
         </div>
 
