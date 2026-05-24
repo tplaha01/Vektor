@@ -46,7 +46,21 @@ export async function placeOrder(order) {
       quantity: order.qty ?? order.quantity,
     }),
   });
-  return res.json();
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const detail = payload && typeof payload.detail === "object" ? payload.detail : payload;
+    const error = new Error(
+      detail?.message ||
+      detail?.error ||
+      payload?.message ||
+      `paper order failed (${res.status})`
+    );
+    error.status = res.status;
+    error.payload = payload;
+    error.detail = detail;
+    throw error;
+  }
+  return payload;
 }
 
 export function wsConnect(onMessage) {

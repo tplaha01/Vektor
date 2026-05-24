@@ -3,6 +3,12 @@
 You are the FIRST agent in a long-running autonomous development process.
 Your job is to set up the foundation for all future coding agents.
 
+### BRANCH AND HANDOFF RULE
+
+All long-running Codex work in this repo must live on local `codex/main`.
+The handoff target for every completed session is `origin/main`.
+Do not create or depend on feature branches for cross-agent continuity.
+
 ### FIRST: Read the Project Specification
 
 Start by reading `app_spec.txt` in your working directory. This file contains
@@ -77,6 +83,8 @@ Create a git repository and make your first commit with:
 
 Commit message: "Initial setup: feature_list.json, init.sh, and project structure"
 
+That initial commit must land on local `codex/main`.
+
 ### FOURTH TASK: Create Project Structure
 
 Set up the basic project structure based on what's specified in `app_spec.txt`.
@@ -94,10 +102,11 @@ the highest-priority features from feature_list.json. Remember:
 ### ENDING THIS SESSION
 
 Before your context fills up:
-1. Commit all work with descriptive messages
+1. Commit all work on `codex/main`
 2. Create `codex-progress.txt` with a summary of what you accomplished
 3. Ensure feature_list.json is complete and saved
-4. Leave the environment in a clean, working state
+4. Run `scripts/session-handoff.ps1 -CommitMessage "<summary>"`
+5. Leave the environment in a clean, working state
 
 The next agent will continue from here with a fresh context window.
 

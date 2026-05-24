@@ -490,9 +490,7 @@ async def get_orders():
 
 @app.post("/paper/order")
 async def place_order(order: OrderIn, request: Request):
-    from app.fund.audit_log import audit_log
-    from app.fund.contracts import DecisionRecord, Sleeve, make_immutable_id
-    from app.fund.decision_ledger import decision_ledger
+    from app.fund.contracts import make_immutable_id
 
     if data_integrity_guard.halted():
         raise HTTPException(
@@ -507,7 +505,10 @@ async def place_order(order: OrderIn, request: Request):
             },
         )
 
-    price = FEED.price(order.symbol)
+    normalized_symbol = order.symbol.upper().strip()
+    normalized_side = order.side.lower().strip()
+
+    price = FEED.price(normalized_symbol)
     if data_integrity_guard.halted():
         raise HTTPException(
             status_code=503,
@@ -521,116 +522,73 @@ async def place_order(order: OrderIn, request: Request):
             },
         )
     run_id = request.headers.get("X-Run-Id") or make_immutable_id(
-        "run", "manual", order.symbol, order.side, order.quantity, datetime.utcnow().isoformat()
+        "run", "manual", normalized_symbol, normalized_side, order.quantity, datetime.utcnow().isoformat()
     )
     agent_id = request.headers.get("X-Agent-Id") or "manual_trader"
     thesis_id = make_immutable_id("thesis", run_id, "manual")
     decision_id = request.headers.get("X-Decision-Id") or make_immutable_id(
-        "decision", run_id, thesis_id, order.symbol, order.side, order.quantity, price
-    )
-    risk_id = make_immutable_id("risk", decision_id, "legacy_risk_engine")
-    intent_id = make_immutable_id("intent", decision_id, order.symbol, order.side, order.quantity)
-    decision_ledger.add_decision(
-        DecisionRecord(
-            decision_id=decision_id,
-            run_id=run_id,
-            agent_id=agent_id,
-            sleeve=Sleeve.TACTICAL,
-            thesis_id=thesis_id,
-            risk_id=risk_id,
-            intent_id=intent_id,
-            status="proposed",
-        )
+        "decision", run_id, thesis_id, normalized_symbol, normalized_side, order.quantity, price
     )
     positions = broker.list_positions(lambda s: FEED.price(s))
-    approved, reason = risk.pre_trade_check(order.symbol, order.side, order.quantity, price, positions)
-    if not approved:
-        audit_log.record_pre_trade_decision(
-            approved=False,
-            run_id=run_id,
-            decision_id=decision_id,
-            agent_id=agent_id,
-            blocked_reasons=[reason],
-            policy_gate_id="legacy_risk_engine",
-            policy_version="legacy_risk_engine",
-            metadata={
-                "symbol": order.symbol,
-                "side": order.side,
-                "quantity": order.quantity,
-                "intent_id": intent_id,
-                "risk_id": risk_id,
-            },
-        )
-        decision_ledger.update_status(decision_id, "blocked", {"reason": reason})
-        decision_ledger.add_event(
-            event_type="paper.order.blocked",
-            decision_id=decision_id,
-            order_id=None,
-            payload={"reason": reason, "symbol": order.symbol, "side": order.side},
-        )
+    legacy_approved, legacy_reason = risk.pre_trade_check(
+        normalized_symbol, normalized_side, order.quantity, price, positions
+    )
+    blocked_reasons: list[str] = []
+    if not legacy_approved:
+        blocked_reasons.append(f"risk_engine:{legacy_reason}")
+    execution = firm_orchestrator.execute_manual_paper_order(
+        run_id=run_id,
+        agent_id=agent_id,
+        symbol=normalized_symbol,
+        side=normalized_side,
+        quantity=float(order.quantity),
+        price=float(price),
+        decision_id=decision_id,
+        external_blocked_reasons=blocked_reasons,
+    )
+    if not bool(execution.get("approved")):
+        reason = str(execution.get("error") or "policy_gate_blocked")
         return {
             "error": reason,
             "approved": False,
-            "run_id": run_id,
-            "decision_id": decision_id,
-            "risk_id": risk_id,
-            "intent_id": intent_id,
+            "run_id": str(execution.get("run_id") or run_id),
+            "decision_id": str(execution.get("decision_id") or decision_id),
+            "risk_id": str(execution.get("risk_id") or ""),
+            "intent_id": str(execution.get("intent_id") or ""),
+            "reasons": list(execution.get("reasons") or [reason]),
         }
-    audit_log.record_pre_trade_decision(
-        approved=True,
-        run_id=run_id,
-        decision_id=decision_id,
-        agent_id=agent_id,
-        policy_gate_id="legacy_risk_engine",
-        policy_version="legacy_risk_engine",
-        metadata={
-            "symbol": order.symbol,
-            "side": order.side,
-            "quantity": order.quantity,
-            "intent_id": intent_id,
-            "risk_id": risk_id,
-        },
-    )
-    created = broker.submit_order(order.symbol, order.side, order.quantity, price)
-    decision_ledger.update_status(decision_id, "executed", {"order_id": created.id})
-    decision_ledger.add_event(
-        event_type="paper.order.executed",
-        decision_id=decision_id,
-        order_id=created.id,
-        payload={
-            "symbol": created.symbol,
-            "side": created.side,
-            "quantity": created.qty,
-            "price": created.avg_price,
-        },
-    )
-    audit_log.record(
-        "paper.order.executed",
-        {
-            "run_id": run_id,
-            "decision_id": decision_id,
-            "risk_id": risk_id,
-            "intent_id": intent_id,
-            "order_id": created.id,
-            "symbol": created.symbol,
-            "side": created.side,
-            "quantity": created.qty,
-            "price": created.avg_price,
-            "agent_id": agent_id,
-        },
-    )
-    if order.side == "buy":
+    created = execution.get("order") if isinstance(execution.get("order"), dict) else {}
+    if not created:
+        reason = str(execution.get("error") or "execution_rejected")
+        return {
+            "error": reason,
+            "approved": False,
+            "run_id": str(execution.get("run_id") or run_id),
+            "decision_id": str(execution.get("decision_id") or decision_id),
+            "risk_id": str(execution.get("risk_id") or ""),
+            "intent_id": str(execution.get("intent_id") or ""),
+            "reasons": list(execution.get("reasons") or [reason]),
+        }
+    if normalized_side == "buy":
         from app.strategies.auto_trader import _current_atr
-        atr_val = _current_atr(order.symbol)
+        atr_val = _current_atr(normalized_symbol)
         if atr_val > 0:
-            risk.register_entry(order.symbol, price, atr_val, "long")
+            risk.register_entry(normalized_symbol, price, atr_val, "long")
     positions = broker.list_positions(lambda s: FEED.price(s))
     await manager.broadcast({"type": "positions_update", "data": positions, "ts": datetime.utcnow().isoformat()})
     return {
-        "id": created.id, "symbol": created.symbol, "side": created.side,
-        "quantity": created.qty, "price": created.avg_price,
-        "timestamp": created.created_at.isoformat(), "status": created.status, "approved": True,
-        "run_id": run_id, "decision_id": decision_id, "risk_id": risk_id, "intent_id": intent_id,
+        "id": str(created.get("id") or ""),
+        "symbol": str(created.get("symbol") or normalized_symbol),
+        "side": str(created.get("side") or normalized_side),
+        "quantity": float(created.get("quantity") or order.quantity),
+        "price": float(created.get("avg_price") or price),
+        "timestamp": str(created.get("created_at") or datetime.utcnow().isoformat()),
+        "status": str(created.get("status") or "filled"),
+        "approved": True,
+        "run_id": str(execution.get("run_id") or run_id),
+        "decision_id": str(execution.get("decision_id") or decision_id),
+        "risk_id": str(execution.get("risk_id") or ""),
+        "intent_id": str(execution.get("intent_id") or ""),
     }
 
 @app.get("/news/{symbol}")

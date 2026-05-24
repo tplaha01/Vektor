@@ -1,5 +1,6 @@
 from types import SimpleNamespace
 
+from app.fund.core_engine_scoring import resolve_decision_scoring
 from app.fund.execution_adapter import ExecutionIntent
 from app.fund.policy_gate import PolicyGate, PolicyLimits, resolve_decision_gate_thresholds
 
@@ -281,3 +282,77 @@ def test_policy_gate_uses_portfolio_state_to_tighten_thresholds():
     )
     assert approved is False
     assert "ml_score_below_threshold" in reasons
+
+
+def test_policy_gate_derives_scoring_from_core_engine_signal_when_missing():
+    gate = PolicyGate()
+    approved, reasons = gate.evaluate(
+        _base_intent(
+            metadata={
+                "available_cash": 100_000.0,
+                "sleeve": "tactical",
+                "asset_class": "equities",
+                "routing_mode": "paper_equity",
+                "instrument_type": "equity",
+                "deterministic_ml_signal": {
+                    "score": 0.74,
+                    "confidence": 0.79,
+                    "subscores": {"sentiment": 0.21},
+                    "model": {"selected": "meta-intent-v1.0.0"},
+                    "diagnostics": {
+                        "technical": {"volume_ratio": 0.91, "atr_pct": 0.03, "regime_edge": 0.32},
+                        "sentiment": {"headline_count": 2},
+                        "meta_intent": {
+                            "expected_utility": 0.11,
+                            "reason_codes": ["dominant_technical"],
+                            "diagnostics": {
+                                "sign_consensus": 0.86,
+                                "aggregate_uncertainty": 0.24,
+                                "domain_disagreement": 0.12,
+                            },
+                        },
+                        "policy": {"safe_mode": False},
+                    },
+                },
+            },
+        ),
+        positions=[],
+        equity=100_000.0,
+    )
+    assert approved is True
+    assert "ml_scoring_missing" not in reasons
+
+
+def test_resolve_decision_scoring_backfills_partial_metrics_from_signal():
+    scoring = resolve_decision_scoring(
+        metadata={
+            "asset_class": "equities",
+            "decision_scoring": {
+                "score": 0.71,
+                "confidence": 0.73,
+                "direction": "long_bias",
+                "strategy_family": "deterministic_ml_firm_engine",
+                "metrics": {"liquidity_score": 0.66},
+            },
+            "deterministic_ml_signal": {
+                "score": 0.71,
+                "confidence": 0.73,
+                "subscores": {"sentiment": 0.18},
+                "model": {"selected": "meta-intent-v1.0.0"},
+                "diagnostics": {
+                    "technical": {"volume_ratio": 0.82, "atr_pct": 0.02, "regime_edge": 0.28},
+                    "sentiment": {"headline_count": 3},
+                    "meta_intent": {
+                        "expected_utility": 0.09,
+                        "diagnostics": {"sign_consensus": 0.83, "aggregate_uncertainty": 0.22},
+                    },
+                },
+            },
+        },
+        symbol="AAPL",
+        asset_class="equities",
+    )
+    metrics = scoring.get("metrics") if isinstance(scoring.get("metrics"), dict) else {}
+    assert metrics.get("liquidity_score") == 0.66
+    assert "regime_alignment" in metrics
+    assert "news_intensity_count" in metrics

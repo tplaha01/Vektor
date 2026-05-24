@@ -4,6 +4,7 @@ import {
   AlertCircle,
   Bot,
   Database,
+  FileText,
   Globe,
   LineChart,
   Pause,
@@ -24,10 +25,19 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import '../styles/admin.css';
 import '../styles/admin-portal.css';
-import { adminAPI } from '../api/adminAPI';
+import { adminAPI, blogAPI, researchAPI } from '../api/adminAPI';
 import { useToast } from '../components/common/Toast';
 import ToastContainer from '../components/common/Toast';
+import AgentMonitor from '../components/admin/AgentMonitor';
+import DecisionQueue from '../components/admin/DecisionQueue';
+import KnowledgeTraceGraph from '../components/admin/KnowledgeTraceGraph';
+import LineagePanel from '../components/admin/LineagePanel';
+import PositionsPanel from '../components/admin/PositionsPanel';
+import RiskGauges from '../components/admin/RiskGauges';
+import SystemOverview from '../components/admin/SystemOverview';
+import TradingViewWidget from '../components/TradingViewWidget';
 
 const backendTarget = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 const POLL_INTERVAL_MS = 20000;
@@ -35,34 +45,64 @@ const RETRY_INTERVAL_MS = 60000;
 
 const navigationItems = [
   {
-    id: 'overview',
-    label: 'Overview',
+    id: 'core',
+    label: 'Core Engine',
     icon: Sigma,
-    description: 'Fund state, deterministic profile, and live book context',
+    description: 'Deterministic model contract, pipeline health, and candidate quality',
   },
   {
-    id: 'pipeline',
-    label: 'Pipeline',
-    icon: Database,
-    description: 'Data freshness, provider posture, and signal candidates',
+    id: 'warroom',
+    label: 'War Room',
+    icon: Workflow,
+    description: 'Immediate operator priorities, quick actions, and runtime truth',
   },
   {
-    id: 'portfolio',
-    label: 'Portfolio',
+    id: 'agents',
+    label: 'Agents',
+    icon: Bot,
+    description: 'Hierarchy, workers, swarm runtime, and operator CRM',
+  },
+  {
+    id: 'performance',
+    label: 'Performance',
     icon: LineChart,
-    description: 'Positions, allocation usage, and benchmark context',
+    description: 'Track record, equity curve, alpha, and post-trade context',
   },
   {
-    id: 'market',
-    label: 'Market',
+    id: 'deliverables',
+    label: 'KB',
+    icon: FileText,
+    description: 'Knowledge documents, outputs, and lineage trace',
+  },
+  {
+    id: 'decisions',
+    label: 'Decisions',
+    icon: TrendingUp,
+    description: 'Pending approvals, blocked items, and command context',
+  },
+  {
+    id: 'risk',
+    label: 'Risk',
+    icon: Shield,
+    description: 'Limits, alerts, allocation pressure, and drawdown posture',
+  },
+  {
+    id: 'positions',
+    label: 'Positions',
+    icon: Activity,
+    description: 'Holdings, allocation usage, and position-level intelligence',
+  },
+  {
+    id: 'marketwatch',
+    label: 'Market Watch',
     icon: Globe,
-    description: 'Tape board, headline feed, and coverage universe',
+    description: 'Focus charts, news flow, and monitored universe',
   },
   {
-    id: 'controls',
-    label: 'Controls',
+    id: 'settings',
+    label: 'Settings',
     icon: Settings,
-    description: 'Runtime actions, policy boundaries, and lineage state',
+    description: 'Runtime controls, recovery, and knowledge-store posture',
   },
 ];
 
@@ -139,6 +179,18 @@ const formatRelative = (value) => {
   return `${diffDays}d ago`;
 };
 
+const compactDateTime = (value) => {
+  if (!value) return 'n/a';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'n/a';
+  return date.toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+};
+
 const providerNotice = (reason) => {
   const normalized = String(reason || '').trim();
   if (!normalized) return 'No stream warning published.';
@@ -207,7 +259,7 @@ function MetricTile({ icon: Icon, label, value, detail, tone = 'neutral' }) {
 
 export default function Admin() {
   const { success, error: showError } = useToast();
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('core');
   const [metrics, setMetrics] = useState(null);
   const [systemStatus, setSystemStatus] = useState(null);
   const [pipelineStatus, setPipelineStatus] = useState(null);
@@ -218,7 +270,21 @@ export default function Admin() {
   const [performanceSummary, setPerformanceSummary] = useState(null);
   const [performanceSnapshots, setPerformanceSnapshots] = useState([]);
   const [paperPositions, setPaperPositions] = useState([]);
+  const [ceoPositionsSummary, setCeoPositionsSummary] = useState(null);
   const [marketWatch, setMarketWatch] = useState(null);
+  const [performanceBreakdown, setPerformanceBreakdown] = useState(null);
+  const [mlEffectiveness, setMlEffectiveness] = useState(null);
+  const [riskAlerts, setRiskAlerts] = useState([]);
+  const [operatorCrm, setOperatorCrm] = useState(null);
+  const [controlHistory, setControlHistory] = useState([]);
+  const [postTradeReviews, setPostTradeReviews] = useState([]);
+  const [reportDeliverables, setReportDeliverables] = useState([]);
+  const [blogDeliverables, setBlogDeliverables] = useState([]);
+  const [lineageRows, setLineageRows] = useState([]);
+  const [commandHelp, setCommandHelp] = useState(null);
+  const [selectedSymbol, setSelectedSymbol] = useState('');
+  const [positionBrief, setPositionBrief] = useState(null);
+  const [positionBriefLoading, setPositionBriefLoading] = useState(false);
   const [knowledgeStats, setKnowledgeStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -250,6 +316,16 @@ export default function Admin() {
           adminAPI.getPaperPositions(),
           adminAPI.getMarketWatch(),
           adminAPI.getKnowledgeStats(),
+          adminAPI.getCeoRiskAlerts(),
+          adminAPI.getCeoPerformanceBreakdown(),
+          adminAPI.getCeoMlEffectiveness(),
+          adminAPI.getRuntimeControlHistory(10),
+          adminAPI.getOperatorCrm({ taskLimit: 12, opportunityLimit: 6 }),
+          adminAPI.getCeoPositions(),
+          adminAPI.getLatestPostTradeReviews(8),
+          researchAPI.getReports({ surface: 'kb', limit: 12 }),
+          blogAPI.getPosts({ limit: 12, status: 'published' }),
+          adminAPI.getRecentLineage(24),
         ]);
 
         if (!isMounted.current) return;
@@ -272,6 +348,16 @@ export default function Admin() {
           paperPositionsResult,
           marketWatchResult,
           knowledgeStatsResult,
+          riskAlertsResult,
+          performanceBreakdownResult,
+          mlEffectivenessResult,
+          controlHistoryResult,
+          operatorCrmResult,
+          ceoPositionsResult,
+          postTradeReviewsResult,
+          reportsResult,
+          blogPostsResult,
+          lineageResult,
         ] = results;
 
         if (metricsResult.status === 'fulfilled') setMetrics(metricsResult.value);
@@ -290,6 +376,36 @@ export default function Admin() {
         }
         if (marketWatchResult.status === 'fulfilled') setMarketWatch(marketWatchResult.value);
         if (knowledgeStatsResult.status === 'fulfilled') setKnowledgeStats(knowledgeStatsResult.value);
+        if (riskAlertsResult.status === 'fulfilled') {
+          setRiskAlerts(adminAPI.normalizeArray(riskAlertsResult.value, 'alerts'));
+        }
+        if (performanceBreakdownResult.status === 'fulfilled') {
+          setPerformanceBreakdown(performanceBreakdownResult.value);
+        }
+        if (mlEffectivenessResult.status === 'fulfilled') {
+          setMlEffectiveness(mlEffectivenessResult.value);
+        }
+        if (controlHistoryResult.status === 'fulfilled') {
+          setControlHistory(adminAPI.normalizeArray(controlHistoryResult.value, 'rows'));
+        }
+        if (operatorCrmResult.status === 'fulfilled') {
+          setOperatorCrm(operatorCrmResult.value);
+        }
+        if (ceoPositionsResult.status === 'fulfilled') {
+          setCeoPositionsSummary(ceoPositionsResult.value);
+        }
+        if (postTradeReviewsResult.status === 'fulfilled') {
+          setPostTradeReviews(adminAPI.normalizeArray(postTradeReviewsResult.value, 'items'));
+        }
+        if (reportsResult.status === 'fulfilled') {
+          setReportDeliverables(adminAPI.normalizeArray(reportsResult.value, 'reports'));
+        }
+        if (blogPostsResult.status === 'fulfilled') {
+          setBlogDeliverables(adminAPI.normalizeArray(blogPostsResult.value, 'posts'));
+        }
+        if (lineageResult.status === 'fulfilled') {
+          setLineageRows(adminAPI.normalizeArray(lineageResult.value, 'rows'));
+        }
 
         setConnectionStatus('connected');
         setLastUpdate(new Date().toISOString());
@@ -324,6 +440,23 @@ export default function Admin() {
     };
   }, [connectionStatus, fetchAdminState]);
 
+  useEffect(() => {
+    let active = true;
+
+    adminAPI
+      .getCeoCommandHelp()
+      .then((value) => {
+        if (active) setCommandHelp(value);
+      })
+      .catch((err) => {
+        console.error('Failed to load CEO command help:', err);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const handleRuntimeAction = useCallback(
     async (actionKey) => {
       try {
@@ -341,6 +474,10 @@ export default function Admin() {
           case 'recover':
             await adminAPI.recoverDeterministicMlRuntime();
             success('Deterministic runtime recovery requested');
+            break;
+          case 'kick':
+            await adminAPI.kickAutopilot();
+            success('Autopilot kick requested');
             break;
           case 'clear-halt':
             await adminAPI.clearSystemHalt();
@@ -366,6 +503,18 @@ export default function Admin() {
     [fetchAdminState, showError, success]
   );
 
+  const copyCommand = useCallback(
+    async (value) => {
+      try {
+        await navigator.clipboard.writeText(value);
+        success('Command copied to clipboard');
+      } catch (err) {
+        showError(`Copy failed: ${err.message}`);
+      }
+    },
+    [showError, success]
+  );
+
   const activeProfile = useMemo(() => {
     const profiles = safeArray(mlStatus?.core_engine?.available_profiles);
     return profiles.find((profile) => profile?.name === mlStatus?.core_engine?.active_profile) || null;
@@ -374,6 +523,14 @@ export default function Admin() {
   const packWeights = activeProfile?.stack_weights || {};
   const latestRun = pipelineStatus?.last_run || null;
   const latestSnapshot = performanceSummary?.latest_snapshot || null;
+  const ceoPositionMap = useMemo(
+    () =>
+      safeArray(ceoPositionsSummary?.positions).reduce((rows, row) => {
+        if (row?.symbol) rows[row.symbol] = row;
+        return rows;
+      }, {}),
+    [ceoPositionsSummary]
+  );
 
   const positions = useMemo(
     () =>
@@ -386,6 +543,7 @@ export default function Admin() {
           const unrealizedPnl = Number(position.unrealized_pnl ?? marketValue - quantity * avgPrice);
           const costBasis = Math.abs(quantity * avgPrice);
           const returnPct = costBasis > 0 ? (unrealizedPnl / costBasis) * 100 : 0;
+          const ceoRow = ceoPositionMap[position.symbol] || {};
 
           return {
             ...position,
@@ -395,10 +553,15 @@ export default function Admin() {
             marketValue,
             unrealizedPnl,
             returnPct,
+            thesisState: ceoRow.thesis_state || 'unknown',
+            reviewStatus: ceoRow.review_status || 'unknown',
+            riskFlags: safeArray(ceoRow.risk_flags),
+            assetClass: ceoRow.asset_class || position.asset_class || 'equities',
+            allocationPct: Number(ceoRow.allocation_pct || 0),
           };
         })
         .sort((left, right) => right.unrealizedPnl - left.unrealizedPnl),
-    [paperPositions]
+    [ceoPositionMap, paperPositions]
   );
 
   const strongestPosition = positions[0] || null;
@@ -410,6 +573,48 @@ export default function Admin() {
       null
     );
   }, [positions]);
+
+  useEffect(() => {
+    const symbols = positions.map((row) => row.symbol);
+
+    if (!symbols.length) {
+      setSelectedSymbol('');
+      setPositionBrief(null);
+      return;
+    }
+
+    if (!selectedSymbol || !symbols.includes(selectedSymbol)) {
+      setSelectedSymbol(symbols[0]);
+    }
+  }, [positions, selectedSymbol]);
+
+  useEffect(() => {
+    let active = true;
+
+    if (!selectedSymbol) {
+      setPositionBrief(null);
+      setPositionBriefLoading(false);
+      return undefined;
+    }
+
+    setPositionBriefLoading(true);
+    adminAPI
+      .getCeoPositionBrief(selectedSymbol)
+      .then((value) => {
+        if (active) setPositionBrief(value);
+      })
+      .catch((err) => {
+        console.error('Failed to load position brief:', err);
+        if (active) setPositionBrief(null);
+      })
+      .finally(() => {
+        if (active) setPositionBriefLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [lastUpdate, selectedSymbol]);
 
   const allocationRows = useMemo(
     () =>
@@ -508,6 +713,111 @@ export default function Admin() {
         .slice(0, 8),
     [knowledgeStats]
   );
+  const pipelineFailures = useMemo(
+    () =>
+      Object.entries(latestRun?.quality || {})
+        .filter(([, row]) => String(row?.status || '').toLowerCase() === 'symbol_failed' || row?.error)
+        .map(([symbol, row]) => ({
+          symbol,
+          error: row?.error || row?.status || 'symbol_failed',
+        })),
+    [latestRun]
+  );
+  const workerRows = safeArray(operatorCrm?.swarm_snapshot?.workers);
+  const taskHistoryRows = safeArray(operatorCrm?.tasks?.history);
+  const blockedDecisionRows = safeArray(operatorCrm?.decisions?.blocked);
+  const performanceAreaRows = safeArray(performanceBreakdown?.areas);
+  const mlCoverageRows = safeArray(mlEffectiveness?.positions_with_ml_context);
+  const latestControlAction = controlHistory[0] || null;
+  const latestTaskRow = taskHistoryRows[0] || null;
+  const commandGroups = useMemo(
+    () =>
+      [
+        { key: 'controls', label: 'Controls', items: safeArray(commandHelp?.controls).slice(0, 6) },
+        { key: 'queries', label: 'CEO queries', items: safeArray(commandHelp?.ceo_queries).slice(0, 6) },
+        { key: 'approvals', label: 'Approvals', items: safeArray(commandHelp?.approvals).slice(0, 5) },
+      ].filter((group) => group.items.length),
+    [commandHelp]
+  );
+  const priorityRows = useMemo(
+    () => [
+      {
+        key: 'runtime',
+        title: runtimeControl?.runtime_started ? 'Runtime is armed' : 'Runtime is paused',
+        tone: runtimeControl?.runtime_started ? 'good' : 'caution',
+        status: runtimeControl?.runtime_started ? 'Running' : 'Paused',
+        detail: runtimeControl?.runtime_started
+          ? `${number(runtimeControl?.active_task_count)} active tasks and autopilot ${
+              runtimeControl?.autopilot?.enabled ? 'enabled' : 'disabled'
+            }.`
+          : `Resume runtime before issuing autopilot work for ${number(
+              safeArray(runtimeControl?.autopilot?.symbols).length
+            )} priority symbols.`,
+      },
+      {
+        key: 'strict',
+        title: runtimeControl?.strict_real_data_only ? 'Strict real-data policy is on' : 'Strict real-data policy is off',
+        tone: runtimeControl?.strict_real_data_only ? 'good' : 'caution',
+        status: runtimeControl?.strict_real_data_only ? 'Strict' : 'Relaxed',
+        detail: runtimeControl?.strict_real_data_only
+          ? 'Deterministic signals remain gated to live provider data only.'
+          : 'Recovery flow disabled strict mode. Keep autonomy constrained until providers are fully clean.',
+      },
+      {
+        key: 'pipeline',
+        title: pipelineFailures.length ? 'Pipeline exceptions need review' : 'Pipeline quality is clear',
+        tone: pipelineFailures.length ? 'bad' : 'good',
+        status: pipelineFailures.length ? `${pipelineFailures.length} failed` : 'Clear',
+        detail: pipelineFailures.length
+          ? `${pipelineFailures.map((row) => row.symbol).join(', ')} - ${summarize(pipelineFailures[0]?.error, 120)}`
+          : `Latest completed run ${formatRelative(latestRun?.finished_at)} across ${number(
+              safeArray(pipelineStatus?.configured_symbols).length
+            )} names.`,
+      },
+      {
+        key: 'risk',
+        title: riskAlerts.length ? 'CEO risk alerts are active' : systemStatus?.halt?.halted ? 'System halt is active' : 'Risk queue is clear',
+        tone: riskAlerts.length || systemStatus?.halt?.halted ? 'bad' : 'good',
+        status: riskAlerts.length ? `${riskAlerts.length} alerts` : systemStatus?.halt?.halted ? 'Halted' : 'Clear',
+        detail: riskAlerts.length
+          ? summarize(riskAlerts[0]?.message || JSON.stringify(riskAlerts[0] || {}), 140)
+          : systemStatus?.halt?.halted
+            ? summarize(systemStatus?.halt?.message || systemStatus?.halt?.reason, 140)
+            : 'No blocked trades, drawdown breaker halts, or thesis degradation alerts are currently published.',
+      },
+      {
+        key: 'memory',
+        title: latestControlAction ? 'Recent control activity is available' : 'No recent control memory',
+        tone: latestControlAction ? statusTone(latestControlAction?.status) : 'neutral',
+        status: latestControlAction ? titleize(latestControlAction?.action) : 'Idle',
+        detail: latestControlAction
+          ? `${compactDateTime(latestControlAction?.timestamp)} - ${summarize(
+              latestControlAction?.reason || latestControlAction?.payload?.reason,
+              140
+            )}`
+          : latestTaskRow
+            ? `${titleize(latestTaskRow?.role)} last moved ${formatRelative(latestTaskRow?.ts)}.`
+            : 'Task and control history will appear here once operators or automations act.',
+      },
+    ],
+    [latestControlAction, latestRun, latestTaskRow, pipelineFailures, pipelineStatus, riskAlerts, runtimeControl, systemStatus]
+  );
+  const quickActions = useMemo(
+    () => [
+      runtimeControl?.runtime_started
+        ? { key: 'pause', label: 'Pause runtime', icon: Pause, disabled: busyAction === 'pause' }
+        : { key: 'resume', label: 'Resume runtime', icon: Play, disabled: busyAction === 'resume' },
+      { key: 'recover', label: 'Recover ML', icon: Workflow, disabled: busyAction === 'recover' },
+      {
+        key: 'kick',
+        label: 'Kick autopilot',
+        icon: Activity,
+        disabled: busyAction === 'kick' || !runtimeControl?.runtime_started,
+      },
+      { key: 'capture', label: 'Capture snapshot', icon: LineChart, disabled: busyAction === 'capture' },
+    ],
+    [busyAction, runtimeControl]
+  );
 
   const stageCards = useMemo(
     () => [
@@ -567,6 +877,20 @@ export default function Admin() {
   );
   const recoveryChecklist = safeArray(systemStatus?.halt?.recovery_checklist || runtimeControl?.recovery_checklist);
   const supportRoleModels = Object.entries(workersStatus?.ai_role_adapter?.role_models || {}).slice(0, 6);
+  const focusChartSymbols = useMemo(
+    () =>
+      Array.from(
+        new Set([
+          ...positions.map((row) => row.symbol),
+          ...tradeCandidates.map((row) => row.symbol),
+          ...safeArray(pipelineStatus?.configured_symbols),
+        ])
+      )
+        .filter(Boolean)
+        .slice(0, 4),
+    [pipelineStatus, positions, tradeCandidates]
+  );
+  const activeNavigationItem = navigationItems.find((item) => item.id === activeTab) || navigationItems[0];
 
   const renderOverview = () => (
     <>
@@ -631,6 +955,62 @@ export default function Admin() {
             </article>
           );
         })}
+      </div>
+
+      <div className="ops-grid ops-grid-command-center">
+        <Panel
+          eyebrow="Operator queue"
+          title="Immediate priorities"
+          description="The backend truth that most affects whether the desk is safe to steer right now."
+        >
+          <div className="ops-priority-list">
+            {priorityRows.map((row) => (
+              <article key={row.key} className="ops-priority-card">
+                <div className="ops-priority-head">
+                  <div>
+                    <strong>{row.title}</strong>
+                    <small>{row.key === 'memory' ? 'Operator memory' : 'Live runtime signal'}</small>
+                  </div>
+                  <TonePill tone={row.tone}>{row.status}</TonePill>
+                </div>
+                <p>{row.detail}</p>
+              </article>
+            ))}
+          </div>
+        </Panel>
+
+        <Panel
+          eyebrow="CEO command deck"
+          title="Copyable control language"
+          description="Published by the backend so the operator surface and command rail stay aligned."
+        >
+          {commandGroups.length ? (
+            <div className="ops-command-groups">
+              {commandGroups.map((group) => (
+                <section key={group.key} className="ops-command-group">
+                  <div className="ops-command-group-head">
+                    <strong>{group.label}</strong>
+                    <small>{number(group.items.length)} commands</small>
+                  </div>
+                  <div className="ops-command-chip-grid">
+                    {group.items.map((command) => (
+                      <button
+                        key={command}
+                        type="button"
+                        className="ops-command-chip"
+                        onClick={() => copyCommand(command)}
+                      >
+                        {command}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          ) : (
+            <div className="ops-empty">Command help has not loaded yet.</div>
+          )}
+        </Panel>
       </div>
 
       <div className="ops-grid ops-grid-overview">
@@ -1122,7 +1502,7 @@ export default function Admin() {
         <Panel
           eyebrow="Positions"
           title="Paper Book"
-          description="A compact position sheet tied directly to `/paper/positions`."
+          description="Click a symbol to pull the CEO brief, latest order lineage, and symbol-specific news."
         >
           {positions.length ? (
             <div className="ops-table-wrap">
@@ -1136,12 +1516,24 @@ export default function Admin() {
                     <th>Value</th>
                     <th>Unrealized P&L</th>
                     <th>Return</th>
+                    <th>Risk flags</th>
                   </tr>
                 </thead>
                 <tbody>
                   {positions.map((row) => (
                     <tr key={row.symbol}>
-                      <td className="ops-symbol-cell">{row.symbol}</td>
+                      <td className="ops-symbol-cell">
+                        <button
+                          type="button"
+                          className={`ops-table-button ${selectedSymbol === row.symbol ? 'is-active' : ''}`}
+                          onClick={() => setSelectedSymbol(row.symbol)}
+                        >
+                          {row.symbol}
+                        </button>
+                        <small className="ops-table-subcopy">
+                          {titleize(row.thesisState)} / {titleize(row.reviewStatus)}
+                        </small>
+                      </td>
                       <td>{number(row.quantity)}</td>
                       <td>{currency(row.avgPrice)}</td>
                       <td>{currency(row.marketPrice)}</td>
@@ -1152,6 +1544,7 @@ export default function Admin() {
                       <td className={row.returnPct >= 0 ? 'ops-positive' : 'ops-negative'}>
                         {signedPlainPercent(row.returnPct, 2)}
                       </td>
+                      <td>{row.riskFlags.length ? row.riskFlags.join(', ') : 'Clear'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1201,64 +1594,150 @@ export default function Admin() {
 
       <div className="ops-grid ops-grid-overview-bottom">
         <Panel
-          eyebrow="Benchmarks"
-          title="Reference Returns"
-          description="Latest benchmark baselines captured alongside the paper book."
+          eyebrow="CEO brief"
+          title={selectedSymbol ? `${selectedSymbol} spotlight` : 'Position spotlight'}
+          description="Position context published by the backend, including recent orders and symbol-linked news."
         >
-          {safeArray(latestSnapshot?.benchmarks).length ? (
-            <div className="ops-table-wrap">
-              <table className="ops-table">
-                <thead>
-                  <tr>
-                    <th>Symbol</th>
-                    <th>Price</th>
-                    <th>Baseline</th>
-                    <th>Return</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {safeArray(latestSnapshot?.benchmarks).map((row) => (
-                    <tr key={row.symbol}>
-                      <td className="ops-symbol-cell">{row.symbol}</td>
-                      <td>{currency(row.price)}</td>
-                      <td>{currency(row.baseline_price)}</td>
-                      <td className={Number(row.return_pct || 0) >= 0 ? 'ops-positive' : 'ops-negative'}>
-                        {signedPlainPercent(row.return_pct, 2)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          {positionBriefLoading ? (
+            <div className="ops-empty">Loading position brief for {selectedSymbol || 'the selected symbol'}.</div>
+          ) : positionBrief?.position ? (
+            <div className="ops-section-stack">
+              <div className="ops-kv-grid">
+                <div className="ops-kv">
+                  <span className="ops-kv-label">Quantity</span>
+                  <strong className="ops-kv-value">{number(positionBrief?.position?.quantity)}</strong>
+                </div>
+                <div className="ops-kv">
+                  <span className="ops-kv-label">Average price</span>
+                  <strong className="ops-kv-value">{currency(positionBrief?.position?.average_price)}</strong>
+                </div>
+                <div className="ops-kv">
+                  <span className="ops-kv-label">Market price</span>
+                  <strong className="ops-kv-value">{currency(positionBrief?.position?.market_price)}</strong>
+                </div>
+                <div className="ops-kv">
+                  <span className="ops-kv-label">Unrealized P&L</span>
+                  <strong className="ops-kv-value">{currency(positionBrief?.position?.unrealized_pnl)}</strong>
+                </div>
+                <div className="ops-kv">
+                  <span className="ops-kv-label">Routing mode</span>
+                  <strong className="ops-kv-value">{titleize(positionBrief?.position?.routing_mode)}</strong>
+                </div>
+                <div className="ops-kv">
+                  <span className="ops-kv-label">Allocation share</span>
+                  <strong className="ops-kv-value">{plainPercent(positionBrief?.position?.allocation_pct, 2)}</strong>
+                </div>
+              </div>
+
+              <div className="ops-section-block">
+                <span className="ops-universe-label">Recent orders</span>
+                {safeArray(positionBrief?.recent_orders).length ? (
+                  <div className="ops-mini-list">
+                    {safeArray(positionBrief?.recent_orders)
+                      .slice(0, 3)
+                      .map((row) => (
+                        <div key={`${row.id}-${row.created_at}`} className="ops-mini-row">
+                          <div>
+                            <strong>{titleize(row.side)} {number(row.qty)}</strong>
+                            <small>{compactDateTime(row.created_at)}</small>
+                          </div>
+                          <div className="ops-mini-value">
+                            <strong>{currency(row.avg_price)}</strong>
+                            <small>{titleize(row.status)}</small>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <div className="ops-empty">No recent orders are attached to this symbol.</div>
+                )}
+              </div>
+
+              <div className="ops-section-block">
+                <span className="ops-universe-label">Recent news</span>
+                {safeArray(positionBrief?.news).length ? (
+                  <div className="ops-headline-list">
+                    {safeArray(positionBrief?.news)
+                      .slice(0, 4)
+                      .map((row, index) => (
+                        <article key={`${row.published_at}-${index}`} className="ops-headline-row">
+                          <div className="ops-headline-tags">
+                            <span className="ops-chip">{row.source || 'Source'}</span>
+                            <span className="ops-chip">{formatRelative(row.published_at)}</span>
+                          </div>
+                          {row.url ? (
+                            <a className="ops-headline-link" href={row.url} target="_blank" rel="noreferrer">
+                              {row.headline}
+                            </a>
+                          ) : (
+                            <p className="ops-headline-link is-static">{row.headline}</p>
+                          )}
+                        </article>
+                      ))}
+                  </div>
+                ) : (
+                  <div className="ops-empty">No backend-linked headlines are attached to this position yet.</div>
+                )}
+              </div>
             </div>
           ) : (
-            <div className="ops-empty">Benchmark snapshots are not available.</div>
+            <div className="ops-empty">Select a live position to load the backend's CEO brief.</div>
           )}
         </Panel>
 
         <Panel
-          eyebrow="Contributors"
-          title="Position Contribution"
-          description="PnL contribution ordered by the live position sheet."
+          eyebrow="Performance context"
+          title="Area breakdown and ML coverage"
+          description="Portfolio-level context sourced from the CEO performance and post-trade review surfaces."
         >
-          {positions.length ? (
+          <div className="ops-kv-grid">
+            <div className="ops-kv">
+              <span className="ops-kv-label">Total unrealized</span>
+              <strong className="ops-kv-value">{currency(performanceBreakdown?.total_unrealized_pnl)}</strong>
+            </div>
+            <div className="ops-kv">
+              <span className="ops-kv-label">ML context count</span>
+              <strong className="ops-kv-value">{number(mlEffectiveness?.count)}</strong>
+            </div>
+            <div className="ops-kv">
+              <span className="ops-kv-label">Post-trade reviews</span>
+              <strong className="ops-kv-value">{number(postTradeReviews.length)}</strong>
+            </div>
+          </div>
+
+          {performanceAreaRows.length ? (
             <div className="ops-mini-list">
-              {positions.map((row) => (
-                <div key={row.symbol} className="ops-mini-row">
+              {performanceAreaRows.map((row) => (
+                <div key={row.asset_class} className="ops-mini-row">
                   <div>
-                    <strong>{row.symbol}</strong>
-                    <small>{currency(row.marketValue)}</small>
+                    <strong>{titleize(row.asset_class)}</strong>
+                    <small>{number(row.count)} symbols</small>
                   </div>
                   <div className="ops-mini-value">
-                    <strong className={row.unrealizedPnl >= 0 ? 'ops-positive' : 'ops-negative'}>
-                      {currency(row.unrealizedPnl)}
-                    </strong>
-                    <small>{signedPlainPercent(row.returnPct, 2)}</small>
+                    <strong>{currency(row.market_value)}</strong>
+                    <small className={Number(row.unrealized_pnl || 0) >= 0 ? 'ops-positive' : 'ops-negative'}>
+                      {currency(row.unrealized_pnl)}
+                    </small>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="ops-empty">No live positions to rank.</div>
+            <div className="ops-empty">Performance breakdown rows have not been published yet.</div>
+          )}
+
+          <p className="ops-note">{summarize(mlEffectiveness?.note, 220)}</p>
+
+          {mlCoverageRows.length ? (
+            <div className="ops-inline-chips">
+              {mlCoverageRows.slice(0, 8).map((row) => (
+                <span key={`${row.symbol}-${row.order_id || 'order'}`} className="ops-chip">
+                  {row.symbol} {titleize(row.strategy_family || 'ml')}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <div className="ops-empty">No open-position ML context is currently published.</div>
           )}
         </Panel>
       </div>
@@ -1414,6 +1893,14 @@ export default function Admin() {
               </div>
             </div>
 
+            <div className="ops-inline-chips">
+              <span className="ops-chip">Interval {number(runtimeControl?.autopilot?.interval_seconds)}s</span>
+              <span className="ops-chip">Universe {number(safeArray(runtimeControl?.autopilot?.scout_symbols).length)}</span>
+              <span className="ops-chip">Wave size {number(runtimeControl?.autopilot?.swarm_wave_size)}</span>
+              <span className="ops-chip">Sleeve {titleize(runtimeControl?.autopilot?.sleeve)}</span>
+              <span className="ops-chip">Min conviction {ratioPercent(runtimeControl?.autopilot?.min_trade_conviction)}</span>
+            </div>
+
             <div className="ops-button-row">
               <button
                 type="button"
@@ -1441,6 +1928,15 @@ export default function Admin() {
               >
                 <Workflow size={15} />
                 Recover deterministic ML
+              </button>
+              <button
+                type="button"
+                className="ops-button secondary"
+                disabled={busyAction === 'kick' || !runtimeControl?.runtime_started}
+                onClick={() => handleRuntimeAction('kick')}
+              >
+                <Activity size={15} />
+                Kick autopilot
               </button>
               <button
                 type="button"
@@ -1586,6 +2082,107 @@ export default function Admin() {
             ) : null}
           </Panel>
         </div>
+
+        <div className="ops-grid ops-grid-controls-live">
+          <Panel
+            eyebrow="Timeline"
+            title="Recent control history"
+            description="Recovered, paused, resumed, or command-adapter events recorded by the backend."
+          >
+            {controlHistory.length ? (
+              <div className="ops-timeline-list">
+                {controlHistory.map((row) => (
+                  <article key={row.event_id} className="ops-timeline-row">
+                    <div className="ops-timeline-head">
+                      <div>
+                        <strong>{titleize(row.action || row.event_type)}</strong>
+                        <small>{compactDateTime(row.timestamp)}</small>
+                      </div>
+                      <TonePill tone={statusTone(row.status)}>{titleize(row.status)}</TonePill>
+                    </div>
+                    <p className="ops-timeline-reason">
+                      {summarize(row.reason || row.payload?.reason || row.event_type, 180)}
+                    </p>
+                    <div className="ops-timeline-meta">
+                      <span>{row.actor || 'api.admin'}</span>
+                      <span>{row.run_id || 'n/a'}</span>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="ops-empty">Runtime control history is not available yet.</div>
+            )}
+          </Panel>
+
+          <Panel
+            eyebrow="Swarm"
+            title="Workers and task board"
+            description="Live worker posture plus the most recent operator-visible task events from the CRM surface."
+          >
+            {workerRows.length ? (
+              <div className="ops-worker-grid">
+                {workerRows.map((row) => (
+                  <article key={row.role} className="ops-worker-card">
+                    <div className="ops-worker-head">
+                      <div>
+                        <strong>{titleize(row.role)}</strong>
+                        <small>{row.running ? 'running' : row.started ? 'started' : 'idle'}</small>
+                      </div>
+                      <TonePill tone={row.running ? 'good' : row.started ? 'neutral' : 'caution'}>
+                        {row.running ? 'Running' : row.started ? 'Standby' : 'Idle'}
+                      </TonePill>
+                    </div>
+                    <div className="ops-worker-stats">
+                      <div className="ops-worker-stat">
+                        <span>Done</span>
+                        <strong>{number(row.completed_count)}</strong>
+                      </div>
+                      <div className="ops-worker-stat">
+                        <span>Failed</span>
+                        <strong>{number(row.failed_count)}</strong>
+                      </div>
+                      <div className="ops-worker-stat">
+                        <span>Blocked</span>
+                        <strong>{number(row.blocked_count)}</strong>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="ops-empty">Worker posture has not been published yet.</div>
+            )}
+
+            {taskHistoryRows.length ? (
+              <div className="ops-task-list">
+                {taskHistoryRows.slice(0, 6).map((row) => (
+                  <article key={`${row.task_id}-${row.ts}`} className="ops-task-row">
+                    <div className="ops-task-head">
+                      <strong>{row.details?.symbol || row.payload?.symbol || titleize(row.role)}</strong>
+                      <TonePill tone={statusTone(row.status)}>{titleize(row.status)}</TonePill>
+                    </div>
+                    <p className="ops-task-copy">
+                      {titleize(row.role)} / {row.run_id || 'n/a'}
+                    </p>
+                    <div className="ops-task-meta">
+                      <span>{compactDateTime(row.ts)}</span>
+                      <span>{summarize(row.details?.reason || row.payload?.command || row.event, 120)}</span>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="ops-empty">No recent task history is available from the operator CRM surface.</div>
+            )}
+
+            <div className="ops-inline-chips">
+              <span className="ops-chip">Blocked decisions {number(blockedDecisionRows.length)}</span>
+              <span className="ops-chip">Active tasks {number(runtimeControl?.active_task_count)}</span>
+              <span className="ops-chip">Opportunity rows {number(safeArray(operatorCrm?.discovery?.opportunities).length)}</span>
+            </div>
+          </Panel>
+        </div>
       </>
     );
   };
@@ -1672,6 +2269,30 @@ export default function Admin() {
                 <strong className="ops-status-value">{badge.value}</strong>
               </div>
             ))}
+          </div>
+
+          <div className="ops-command-strip">
+            <div className="ops-command-strip-copy">
+              <span>Quick actions</span>
+              <strong>{priorityRows[0]?.detail || 'Backend-aligned operator controls are ready.'}</strong>
+            </div>
+            <div className="ops-button-row compact">
+              {quickActions.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    className="ops-button small"
+                    disabled={item.disabled}
+                    onClick={() => handleRuntimeAction(item.key)}
+                  >
+                    <Icon size={14} />
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </header>
 

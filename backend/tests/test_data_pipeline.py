@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 
+import app.data_pipeline.service as pipeline_service_module
 from app.config import get_settings
 from app.data_pipeline.service import QuantDataPipeline
 from app.data_pipeline.warehouse import utc_iso, warehouse
@@ -268,3 +269,49 @@ def test_realtime_news_is_persisted_as_text_event(tmp_path, monkeypatch):
     status = warehouse.status()
     assert status["counts"]["data_raw_events"] == 1
     assert status["counts"]["data_text_events"] == 1
+
+
+def test_news_stream_skipped_when_market_stream_enabled_and_parallel_guard_active(monkeypatch):
+    monkeypatch.setenv("ALPACA_API_KEY", "test-key")
+    monkeypatch.setenv("ALPACA_SECRET_KEY", "test-secret")
+    monkeypatch.setenv("ALPACA_STREAM_ENABLED", "true")
+    monkeypatch.setenv("DATA_PIPELINE_NEWS_STREAM_ENABLED", "true")
+    monkeypatch.setenv("DATA_PIPELINE_NEWS_STREAM_ALLOW_PARALLEL_ALPACA_WS", "false")
+    get_settings.cache_clear()
+
+    pipeline = QuantDataPipeline()
+    pipeline._start_news_stream()
+
+    assert pipeline._news_stream_started is False
+    assert pipeline._news_stream_disable_reason == "parallel_alpaca_ws_disabled"
+    get_settings.cache_clear()
+
+
+def test_news_stream_can_start_when_parallel_guard_is_overridden(monkeypatch):
+    monkeypatch.setenv("ALPACA_API_KEY", "test-key")
+    monkeypatch.setenv("ALPACA_SECRET_KEY", "test-secret")
+    monkeypatch.setenv("ALPACA_STREAM_ENABLED", "true")
+    monkeypatch.setenv("DATA_PIPELINE_NEWS_STREAM_ENABLED", "true")
+    monkeypatch.setenv("DATA_PIPELINE_NEWS_STREAM_ALLOW_PARALLEL_ALPACA_WS", "true")
+    get_settings.cache_clear()
+
+    starts = {"count": 0}
+
+    class _StubThread:
+        def __init__(self, target, daemon, name):
+            self.target = target
+            self.daemon = daemon
+            self.name = name
+
+        def start(self):
+            starts["count"] += 1
+
+    monkeypatch.setattr(pipeline_service_module.threading, "Thread", _StubThread)
+
+    pipeline = QuantDataPipeline()
+    pipeline._start_news_stream()
+
+    assert starts["count"] == 1
+    assert pipeline._news_stream_started is True
+    assert pipeline._news_stream_disable_reason is None
+    get_settings.cache_clear()

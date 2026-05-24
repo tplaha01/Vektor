@@ -1,6 +1,6 @@
 # Codex Progress Log
 
-Last updated: 2026-05-23T20:00:24.3339320Z
+Last updated: 2026-05-24T23:24:48Z
 
 ## Session Summary
 - Established Codex-only long-running workflow naming and required files.
@@ -10,15 +10,52 @@ Last updated: 2026-05-23T20:00:24.3339320Z
 - Replaced legacy rule-based fundamental scoring with `learned_fundamental_pack_linear` in core engine.
 - Added core-engine assertions enforcing non-legacy fundamental inference diagnostics.
 - Reworked the frontend admin surface around the deterministic ML-native core engine and added honest degraded/offline operator states.
+- Added a deterministic core-engine scoring bridge so orchestrator approvals and policy-gate checks derive from `meta_intent` diagnostics instead of ad hoc legacy heuristics.
+- Backfilled policy-gate ML thresholds from `deterministic_ml_signal` when `decision_scoring` is missing/partial and validated via focused backend tests.
+- Refined the desktop-first admin surface so the deterministic core engine is immediately visible with a denser first fold, stickier command header, stronger status rail, and higher-contrast telemetry panels.
+- Migrated manual `/paper/order` pre-trade contracts from `legacy_risk_engine` naming to deterministic core-engine policy identifiers.
+- Added core-engine decision-scoring and policy metadata to manual order audit records, with focused approval/block route coverage.
+- Adapted the `/legacy` quick-order UI to the current `/paper/order` backend contract so manual trades now surface approved, blocked, and backend-unreachable outcomes with deterministic run/decision/risk/intent identifiers.
+- Consolidated manual `/paper/order` execution internals onto `FirmOrchestrator.execute_manual_paper_order`, reusing shared adapter execution and centralized policy/audit/ledger flows while preserving endpoint response compatibility.
+- Added regression coverage for both route delegation (`test_manual_order_policy.py`) and orchestrator manual execution parity (`test_orchestrator_manual_order.py`), including combined policy plus risk-breaker block reasons.
+- Hardened `scripts/vektor-services.ps1` against invalid global OpenClaw config by creating a sanitized runtime config and scoping `OPENCLAW_CONFIG_PATH` per OpenClaw command call.
+- Reduced Alpaca websocket degradation noise by defaulting news-stream parallelism off when market stream is enabled, exposing disable reasons in pipeline status, and fail-fasting connection-limit/HTTP-429 websocket failures into fallback mode.
+- Reframed the admin core-engine first fold around live scheduler, profile, policy-boundary, and support-layer telemetry from the current backend contract instead of placeholder zero-state copy.
+- Compressed the legacy signal and manual-order surface into operator language, added a desktop bottom rail for core brief, execution envelope, and live book context, and removed raw policy-code noise from the first fold.
+- Verified the updated `/admin` and `/legacy` surfaces against the live local backend with Playwright screenshots under `frontend/output/playwright/admin-audit/`.
+- Completed `feature_list.json` highest-priority pending feature `Session bootstrap, required file gate, and codex workflow compliance validation #1` with live backend evidence (`/health`, `/data-pipeline/status`, `/signals/generate`).
+- Validated deterministic signal diagnostics include technical, fundamental, sentiment, meta-intent, and policy blocks with explicit policy-gate rejections (no silent fallback path).
+- Used `/api/admin/system/deterministic-ml/recover` to clear a strict real-data halt before deterministic signal validation when provider failure initially blocked `/signals/generate`.
+- Completed `feature_list.json` highest-priority pending feature `Session bootstrap, required file gate, and codex workflow compliance validation #2` with fresh root/bootstrap/init/API evidence from the long-running harness.
+- Revalidated `/signals/generate` diagnostics contract (`technical`, `fundamental`, `sentiment`, `meta_intent`) and explicit deterministic policy-gate rejections (`confidence_below_threshold`, `expected_utility_below_threshold`, `fundamentals_timestamp_missing`, `stale_market_data`) with `signal_pipeline_only=true` and `llm_signal_path=false`.
+- Ran focused backend regression `python -m pytest tests/test_signals.py -q` (1 passed) after endpoint validation.
+- Completed `feature_list.json` highest-priority pending feature `Session bootstrap, required file gate, and codex workflow compliance validation #3` with fresh root/bootstrap/init/API evidence from the long-running harness.
+- Revalidated deterministic signal diagnostics and policy gate for `AAPL` (`technical`, `fundamental`, `sentiment`, `meta_intent`; explicit `hold` with rejection reasons) while confirming `signal_pipeline_only=true` and `llm_signal_path=false`.
+- Re-ran focused backend regression `python -m pytest tests/test_signals.py -q` (1 passed) as end-to-end verification evidence for this component.
+- Completed `feature_list.json` highest-priority pending feature `Session bootstrap, required file gate, and codex workflow compliance validation #4` with fresh root/bootstrap/init/API evidence and repo-managed runtime bring-up through `scripts/vektor-services.ps1`.
+- Captured `/fund/knowledge/stats`, `/fund/knowledge/events`, and `/fund/agents/workers/status` as the mandatory baseline state before feature verification and confirmed backend, Ollama, and OpenClaw were healthy locally.
+- Revalidated deterministic signal diagnostics and policy gate for `AAPL` after `/api/admin/system/deterministic-ml/recover`, confirming `signal_pipeline_only=true`, `llm_signal_path=false`, and explicit rejection reasons (`confidence_below_threshold`, `expected_utility_below_threshold`, `fundamentals_timestamp_missing`, `stale_market_data`).
+- Ran focused backend regressions `python -m pytest tests/test_signals.py -q` and `python -m pytest tests/test_admin_runtime_controls.py -k deterministic_ml_recover_disables_strict_mode_and_clears_halt -q` (2 passed total).
+- Normalized the long-running harness so every coding session must finish on local `codex/main`, push to `origin/main`, and leave a clean worktree for the next agent.
+- Added `scripts/session-handoff.ps1` to stage, commit, push, and verify `origin/main` matches the local handoff commit.
+- Expanded `scripts/session-bootstrap.ps1` to report canonical branch state, dirty-tree status, and ahead/behind status against `origin/main`.
+- Updated workflow docs, sub-repo AGENTS files, and initializer/coding prompts to require `codex/main` -> `origin/main` handoff discipline.
+- Ignored volatile frontend and knowledge-graph artifacts so future handoff commits do not absorb generated noise.
 
 ## Completed Tests
-- 0/200 tests passing
+- 4/200 tests passing
 
 ## Current Focus
+- Collapse branch sprawl into local `codex/main` plus remote `origin/main` only.
+- Publish the validated current working tree through the new handoff flow and verify deployed backend/frontend pick up the latest `origin/main`.
 - Continue highest-priority pending feature work while keeping the new core-engine operator surface aligned with backend telemetry contracts.
+- Preserve desktop-first operator clarity while backend telemetry and service health remain stable under the latest runtime hardening changes.
+- Keep the legacy dashboard order surface aligned with core-policy backend responses instead of generic success/error toasts.
+- Keep manual order execution behavior aligned across route-level compatibility wrappers and orchestrator-native execution contracts.
+- Keep admin and legacy desktop surfaces sourced from live backend status fields rather than stale fallback labels or placeholder empty-state messaging.
 - Keep one-slice commits with verified tests, Playwright evidence, and devlog/knowledge-graph ingestion per session.
 
 ## Next Steps
 1. Run `powershell -ExecutionPolicy Bypass -File scripts/session-bootstrap.ps1 -CountRemaining`.
 2. Run `powershell -ExecutionPolicy Bypass -File scripts/select-next-feature.ps1`.
-3. Replace the next deterministic legacy seam (meta-intent or policy gate) with ML-native diagnostics and run focused tests.
+3. Continue from local `codex/main` with `Session bootstrap, required file gate, and codex workflow compliance validation #5` as the next highest-priority pending feature.

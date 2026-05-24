@@ -28,7 +28,10 @@ Product vision, business goals, and role architecture live in `Viktor.md`.
 - For long-running staged development, select the highest-priority pending feature from `feature_list.json` and complete one unit fully before moving to the next.
 
 ## 3) Branch and Commit Discipline
-- Work on an explicit branch.
+- Long-running Codex sessions must work on local `codex/main` only.
+- `codex/main` is the canonical local handoff branch and must be kept aligned with `origin/main`.
+- End every coding session with a commit on `codex/main`, then push that commit to `origin/main` using `scripts/session-handoff.ps1`.
+- A session is incomplete if `git status --short` is non-empty or if local `codex/main` and `origin/main` differ.
 - Log `git_branch`, `git_commit_start`, and `git_commit_end` in `Dev_Logs.md`.
 - Keep commits migration-safe and reversible.
 
@@ -84,3 +87,4 @@ Before ending a session:
 5. Verify `END` entry exists in repo KB query results.
 6. Refresh the codebase-memory graph with `scripts/index-repo.ps1`.
 7. Verify the repo appears in the graph registry after indexing.
+8. Run `scripts/session-handoff.ps1 -CommitMessage "<summary>"` from `codex/main`.

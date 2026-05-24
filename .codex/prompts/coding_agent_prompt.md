@@ -3,6 +3,12 @@
 You are continuing work on a long-running autonomous development task.
 This is a FRESH context window - you have no memory of previous sessions.
 
+### BRANCH AND HANDOFF RULE
+
+All long-running Codex work in this repo must land on local `codex/main`.
+Every completed session must hand off to `origin/main`.
+Do not leave work behind on feature branches or with uncommitted changes.
+
 ### STEP 1: GET YOUR BEARINGS (MANDATORY)
 
 Start by orienting yourself:
@@ -129,20 +135,16 @@ to:
 
 **ONLY CHANGE `"passes"` FIELD AFTER VERIFICATION WITH SCREENSHOTS.**
 
-### STEP 8: COMMIT YOUR PROGRESS
+### STEP 8: PREPARE THE HANDOFF
 
-Make a descriptive git commit:
+Before ending the session, make sure the session state is ready for handoff:
 
 ```bash
-git add .
-git commit -m "Implement [feature name] - verified end-to-end
-
-- Added [specific changes]
-- Tested with browser automation
-- Updated feature_list.json: marked test #X as passing
-- Screenshots in verification/ directory
-"
+git branch --show-current
+git status --short
 ```
+
+The session must finish on local `codex/main`.
 
 ### STEP 9: UPDATE PROGRESS NOTES
 
@@ -156,11 +158,18 @@ Update `codex-progress.txt` with:
 ### STEP 10: END SESSION CLEANLY
 
 Before context fills up:
-1. Commit all working code
-2. Update codex-progress.txt
-3. Update feature_list.json if tests verified
-4. Ensure no uncommitted changes
-5. Leave app in working state (no broken features)
+1. Update `codex-progress.txt`
+2. Update `feature_list.json` if tests verified
+3. Ensure `Dev_Logs.md`, KB ingestion, and validation evidence are current
+4. Run the repo-local handoff script with a descriptive commit message:
+
+```powershell
+./scripts/session-handoff.ps1 -CommitMessage "Implement [feature name] - validated"
+```
+
+5. Ensure no uncommitted changes remain
+6. Ensure `origin/main` matches local `codex/main`
+7. Leave app in working state (no broken features)
 
 ---
 

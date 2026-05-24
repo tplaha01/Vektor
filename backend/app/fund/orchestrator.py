@@ -11,6 +11,7 @@ from typing import Any, Callable
 from app.broker.paper import PaperBroker
 from app.config import get_settings
 from app.core_engine import run_core_engine
+from app.core_engine.registry import get_active_model_versions
 from app.core.context import broker as shared_broker
 from app.data.market_data import FEED
 from app.fund.allocator import (
@@ -28,6 +29,7 @@ from app.fund.allocation_policy import (
 )
 from app.fund.approval_center import ApprovalCenter, approval_center
 from app.fund.audit_log import AuditLog, audit_log
+from app.fund.core_engine_scoring import build_decision_scoring_from_signal
 from app.fund.contracts import (
     DecisionRecord,
     ProvenanceRef,
@@ -740,35 +742,12 @@ class FirmOrchestrator:
         underlier_symbol = infer_underlier_symbol(normalized_symbol, asset_class)
         discovery_snapshot = self.latest_discovery_opportunity(run_id=run_id, symbol=normalized_symbol)
         engine_signal = run_core_engine(normalized_symbol).to_dict()
-        score = float(engine_signal.get("score") or 0.0)
-        confidence = float(engine_signal.get("confidence") or 0.0)
-        direction = "long_bias" if score >= 0 else "short_bias"
         diagnostics = engine_signal.get("diagnostics") if isinstance(engine_signal.get("diagnostics"), dict) else {}
-        technical_diag = diagnostics.get("technical") if isinstance(diagnostics.get("technical"), dict) else {}
-        sentiment_diag = diagnostics.get("sentiment") if isinstance(diagnostics.get("sentiment"), dict) else {}
-        model_name = str((engine_signal.get("model") or {}).get("selected") or "deterministic_ml")
-        decision_scoring = {
-            "symbol": normalized_symbol,
-            "asset_class": asset_class,
-            "strategy_family": "deterministic_ml_firm_engine",
-            "score": score,
-            "confidence": confidence,
-            "direction": direction,
-            "horizon": "swing",
-            "math_summary": f"deterministic_ml={score:.4f} confidence={confidence:.4f} model={model_name}",
-            "metrics": {
-                "directional_probability_up": float(max(0.0, min(1.0, 0.5 + score / 2.0))),
-                "technical_confidence": float(technical_diag.get("confidence") or 0.0),
-                "ml_confidence": float(max(0.0, min(1.0, abs(score)))),
-                "sentiment_normalized": float(engine_signal.get("subscores", {}).get("sentiment") or 0.0),
-                "liquidity_score": float(technical_diag.get("volume_ratio") or 0.0),
-                "volatility_score": float(technical_diag.get("atr_pct") or 0.0),
-                "news_intensity_count": int(sentiment_diag.get("headline_count") or 0),
-                "regime_alignment": float(max(0.0, min(1.0, 0.5 + float(technical_diag.get("regime_edge") or 0.0) / 2.0))),
-                "model_name": model_name,
-                "ml_mandatory": True,
-            },
-        }
+        decision_scoring = build_decision_scoring_from_signal(
+            symbol=normalized_symbol,
+            asset_class=asset_class,
+            engine_signal=engine_signal,
+        )
         positions = self._broker.list_positions(self._price_lookup)
         equity = self._current_equity(positions)
         portfolio_threshold_context = build_portfolio_threshold_context(
@@ -807,9 +786,15 @@ class FirmOrchestrator:
             "sleeve_budget_used_usd": budget_state["used_usd"],
             "sleeve_budget_remaining_usd": budget_state["remaining_usd"],
             "estimated_notional_usd": estimated_notional,
+            "meta_intent": diagnostics.get("meta_intent") if isinstance(diagnostics.get("meta_intent"), dict) else None,
+            "core_engine_policy": diagnostics.get("policy") if isinstance(diagnostics.get("policy"), dict) else None,
             "deterministic_ml_signal": engine_signal,
             **(metadata or {}),
         }
+        intent_metadata["strategy_family"] = decision_scoring.get("strategy_family")
+        intent_metadata["decision_scoring"] = decision_scoring
+        intent_metadata["ml_threshold_profile"] = decision_gate_thresholds
+        intent_metadata["deterministic_ml_signal"] = engine_signal
         intent = AdapterExecutionIntent(
             symbol=normalized_symbol,
             side=normalized_side,
@@ -976,6 +961,228 @@ class FirmOrchestrator:
             trader_task_id=trader_task.task_id,
             estimated_notional_usd=estimated_notional,
         )
+
+    def execute_manual_paper_order(
+        self,
+        *,
+        run_id: str,
+        agent_id: str,
+        symbol: str,
+        side: str,
+        quantity: float,
+        price: float | None = None,
+        decision_id: str | None = None,
+        external_blocked_reasons: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        normalized_symbol = symbol.upper().strip()
+        normalized_side = side.lower().strip()
+        effective_price = float(price if price is not None else self._price_lookup(normalized_symbol))
+        manual_thesis_id = make_immutable_id("thesis", run_id, "manual")
+        resolved_decision_id = str(
+            decision_id
+            or make_immutable_id(
+                "decision",
+                run_id,
+                manual_thesis_id,
+                normalized_symbol,
+                normalized_side,
+                quantity,
+                effective_price,
+            )
+        )
+        engine_signal = run_core_engine(normalized_symbol).to_dict()
+        decision_scoring = build_decision_scoring_from_signal(
+            symbol=normalized_symbol,
+            asset_class="equities",
+            engine_signal=engine_signal,
+        )
+        signal_diagnostics = (
+            engine_signal.get("diagnostics")
+            if isinstance(engine_signal.get("diagnostics"), dict)
+            else {}
+        )
+        model_versions = (
+            signal_diagnostics.get("model_versions")
+            if isinstance(signal_diagnostics.get("model_versions"), dict)
+            else {}
+        )
+        core_policy_version = str(
+            model_versions.get("policy")
+            or get_active_model_versions(getattr(self._settings, "CORE_ENGINE_PROFILE", "balanced")).get("policy")
+            or "deterministic-policy-v1.0.0"
+        )
+        core_policy_gate_id = "core_engine_policy"
+        risk_id = make_immutable_id("risk", resolved_decision_id, core_policy_version)
+        intent_id = make_immutable_id("intent", resolved_decision_id, normalized_symbol, normalized_side, quantity)
+        self._decision_ledger.add_decision(
+            DecisionRecord(
+                decision_id=resolved_decision_id,
+                run_id=run_id,
+                agent_id=agent_id,
+                sleeve=Sleeve.TACTICAL,
+                thesis_id=manual_thesis_id,
+                risk_id=risk_id,
+                intent_id=intent_id,
+                status="proposed",
+            )
+        )
+        positions = self._broker.list_positions(self._price_lookup)
+        equity = self._current_equity(positions)
+        intent_metadata = {
+            "available_cash": float(self._broker.cash),
+            "sleeve": "tactical",
+            "asset_class": "equities",
+            "instrument_type": "equity",
+            "routing_mode": "paper_equity",
+            "strategy_family": decision_scoring.get("strategy_family"),
+            "decision_scoring": decision_scoring,
+            "deterministic_ml_signal": engine_signal,
+            "core_engine_policy": signal_diagnostics.get("policy")
+            if isinstance(signal_diagnostics.get("policy"), dict)
+            else None,
+            **(metadata or {}),
+        }
+        intent_metadata["strategy_family"] = decision_scoring.get("strategy_family")
+        intent_metadata["decision_scoring"] = decision_scoring
+        intent_metadata["deterministic_ml_signal"] = engine_signal
+        intent = AdapterExecutionIntent(
+            symbol=normalized_symbol,
+            side=normalized_side,
+            quantity=float(quantity),
+            approved=True,
+            decision_id=resolved_decision_id,
+            risk_id=risk_id,
+            intent_id=intent_id,
+            run_id=run_id,
+            agent_id=agent_id,
+            sleeve="tactical",
+            broker_mode="paper",
+            price=float(effective_price),
+            asset_class="equities",
+            instrument_type="equity",
+            routing_mode="paper_equity",
+            underlier_symbol=normalized_symbol,
+            metadata=intent_metadata,
+        )
+        policy_approved, policy_reasons = self._policy_gate.evaluate(intent, positions, equity)
+        blocked_reasons = list(policy_reasons) + list(external_blocked_reasons or [])
+        blocked_reasons = list(
+            dict.fromkeys(str(reason).strip() for reason in blocked_reasons if str(reason).strip())
+        )
+        approved = policy_approved and len(blocked_reasons) == 0
+        self._audit_log.record_pre_trade_decision(
+            approved=approved,
+            run_id=run_id,
+            decision_id=resolved_decision_id,
+            agent_id=agent_id,
+            blocked_reasons=blocked_reasons,
+            policy_gate_id=core_policy_gate_id,
+            policy_version=core_policy_version,
+            thesis_id=manual_thesis_id,
+            metadata={
+                "symbol": normalized_symbol,
+                "side": normalized_side,
+                "quantity": quantity,
+                "intent_id": intent_id,
+                "risk_id": risk_id,
+                "decision_scoring": decision_scoring,
+                "deterministic_ml_signal": engine_signal,
+            },
+        )
+        if not approved:
+            reason = blocked_reasons[0] if blocked_reasons else "policy_gate_blocked"
+            self._decision_ledger.update_status(
+                resolved_decision_id,
+                "blocked",
+                {"reasons": blocked_reasons or [reason]},
+            )
+            self._decision_ledger.add_event(
+                event_type="paper.order.blocked",
+                decision_id=resolved_decision_id,
+                order_id=None,
+                payload={
+                    "reasons": blocked_reasons or [reason],
+                    "symbol": normalized_symbol,
+                    "side": normalized_side,
+                },
+            )
+            return {
+                "approved": False,
+                "status": "blocked",
+                "error": reason,
+                "run_id": run_id,
+                "decision_id": resolved_decision_id,
+                "risk_id": risk_id,
+                "intent_id": intent_id,
+                "reasons": blocked_reasons or [reason],
+                "policy_gate_id": core_policy_gate_id,
+                "policy_version": core_policy_version,
+                "decision_scoring": decision_scoring,
+                "deterministic_ml_signal": engine_signal,
+            }
+
+        execution_result = self._execute_adapter_intent(
+            intent=intent,
+            estimated_notional_usd=float(quantity) * float(effective_price),
+        )
+        order_payload = (
+            execution_result.get("execution", {}).get("order")
+            if isinstance(execution_result.get("execution"), dict)
+            else None
+        )
+        if isinstance(order_payload, dict):
+            self._decision_ledger.add_event(
+                event_type="paper.order.executed",
+                decision_id=resolved_decision_id,
+                order_id=str(order_payload.get("id") or ""),
+                payload={
+                    "symbol": str(order_payload.get("symbol") or normalized_symbol),
+                    "side": str(order_payload.get("side") or normalized_side),
+                    "quantity": float(order_payload.get("quantity") or quantity),
+                    "price": float(order_payload.get("avg_price") or effective_price),
+                },
+            )
+            self._audit_log.record(
+                "paper.order.executed",
+                {
+                    "run_id": run_id,
+                    "decision_id": resolved_decision_id,
+                    "risk_id": risk_id,
+                    "intent_id": intent_id,
+                    "order_id": str(order_payload.get("id") or ""),
+                    "symbol": str(order_payload.get("symbol") or normalized_symbol),
+                    "side": str(order_payload.get("side") or normalized_side),
+                    "quantity": float(order_payload.get("quantity") or quantity),
+                    "price": float(order_payload.get("avg_price") or effective_price),
+                    "agent_id": agent_id,
+                },
+            )
+        execution_status = str(execution_result.get("status") or "")
+        execution_reason = (
+            execution_result.get("execution", {}).get("reason")
+            if isinstance(execution_result.get("execution"), dict)
+            else None
+        )
+        reasons: list[str] = []
+        if execution_status != "executed":
+            reason = str(execution_reason or "execution_rejected")
+            reasons.append(reason)
+        return {
+            "approved": execution_status == "executed",
+            "status": execution_status,
+            "error": reasons[0] if reasons else None,
+            "run_id": run_id,
+            "decision_id": resolved_decision_id,
+            "risk_id": risk_id,
+            "intent_id": intent_id,
+            "reasons": reasons,
+            "order": order_payload if isinstance(order_payload, dict) else None,
+            "policy_gate_id": core_policy_gate_id,
+            "policy_version": core_policy_version,
+            "decision_scoring": decision_scoring,
+            "deterministic_ml_signal": engine_signal,
+        }
 
     def list_active_tasks(self) -> list[dict[str, Any]]:
         return [task.model_dump(mode="json") for task in self._task_bus.active_tasks()]

@@ -17,7 +17,8 @@ This enforces:
 4. features head read (`feature_list.json`)
 5. progress read (`codex-progress.txt`)
 6. recent git log
-7. remaining test count
+7. branch + handoff status (`codex/main` vs `origin/main`, dirty tree, ahead/behind)
+8. remaining test count
 
 ## Feature Selection Rule
 
@@ -47,12 +48,21 @@ Helper:
 
 ## Branching and Push Discipline
 
-- Use dedicated branch `codex` for long-running codex sessions.
-- Push atomic unit changes regularly.
-- Every unit change must include:
-  - focused commit
-  - updated progress note
-  - validation evidence
+- The only long-running local Codex branch is `codex/main`.
+- The only long-running remote handoff target is `origin/main`.
+- Do not leave work on feature branches between agents. If a session starts elsewhere, move the final state onto `codex/main` before ending the session.
+- Every coding session must end by running:
+
+```powershell
+./scripts/session-handoff.ps1 -CommitMessage "<summary>"
+```
+
+- A handoff is complete only when all of the following are true:
+  - the new commit exists on local `codex/main`
+  - `origin/main` matches local `HEAD`
+  - `git status --short` is empty
+  - `codex-progress.txt`, `Dev_Logs.md`, KB ingestion, and validation evidence are current
+- The next agent always resumes from `codex/main`.
 
 ## Sub-repo Environment Setup
 

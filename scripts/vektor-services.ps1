@@ -15,6 +15,38 @@ if (-not (Test-Path $RunDir)) {
 
 $BackendPidFile = Join-Path $RunDir "backend.pid"
 $OllamaPidFile = Join-Path $RunDir "ollama.pid"
+$OpenClawRuntimeConfigPath = Join-Path $RunDir "openclaw.runtime.json"
+
+function Get-OpenClawConfigPath {
+  $defaultPath = Join-Path (Join-Path $HOME ".openclaw") "openclaw.json"
+  if (-not (Test-Path $defaultPath)) {
+    return $null
+  }
+
+  try {
+    $raw = Get-Content -Path $defaultPath -Raw -ErrorAction Stop
+    if (-not $raw) {
+      return $null
+    }
+    $config = $raw | ConvertFrom-Json -ErrorAction Stop
+    if (@($config.PSObject.Properties.Name) -contains "mcpServers") {
+      $sanitizedConfig = [ordered]@{}
+      foreach ($prop in $config.PSObject.Properties) {
+        if ($prop.Name -ne "mcpServers") {
+          $sanitizedConfig[$prop.Name] = $prop.Value
+        }
+      }
+      $sanitized = $sanitizedConfig | ConvertTo-Json -Depth 100
+      Set-Content -Path $OpenClawRuntimeConfigPath -Value $sanitized -Encoding UTF8
+      Write-Host "[openclaw] sanitized runtime config at $OpenClawRuntimeConfigPath (removed unsupported mcpServers)"
+      return $OpenClawRuntimeConfigPath
+    }
+    return $defaultPath
+  } catch {
+    Write-Host "[openclaw] warning: failed to parse $defaultPath; using default OpenClaw profile fallback"
+    return $null
+  }
+}
 
 function Get-ListeningPids {
   param([int]$Port)
@@ -49,6 +81,15 @@ function Invoke-OpenClaw {
     [switch]$Quiet
   )
 
+  $resolvedConfigPath = Get-OpenClawConfigPath
+  $priorConfigPath = $env:OPENCLAW_CONFIG_PATH
+  $hasPriorConfigPath = [bool]$priorConfigPath
+  if ($resolvedConfigPath) {
+    $env:OPENCLAW_CONFIG_PATH = $resolvedConfigPath
+  } else {
+    Remove-Item Env:OPENCLAW_CONFIG_PATH -ErrorAction SilentlyContinue
+  }
+
   $prev = $ErrorActionPreference
   $ErrorActionPreference = "Continue"
   try {
@@ -61,6 +102,11 @@ function Invoke-OpenClaw {
   } catch {
     return 1
   } finally {
+    if ($hasPriorConfigPath) {
+      $env:OPENCLAW_CONFIG_PATH = $priorConfigPath
+    } else {
+      Remove-Item Env:OPENCLAW_CONFIG_PATH -ErrorAction SilentlyContinue
+    }
     $ErrorActionPreference = $prev
   }
 }
@@ -166,7 +212,9 @@ function Stop-OpenClaw {
 }
 
 function Get-ServiceHealth {
-  $backendOk = Test-Endpoint -Url "http://127.0.0.1:8000/health" -TimeoutSec 5
+  # /health includes fund/runtime summaries and can exceed 5s during startup.
+  # Use a wider timeout to avoid false "backend=down" status on healthy runs.
+  $backendOk = Test-Endpoint -Url "http://127.0.0.1:8000/health" -TimeoutSec 12
   $ollamaOk = Test-Endpoint -Url "http://127.0.0.1:11434/api/tags" -TimeoutSec 5
   $openclawOk = Test-OpenClawService
 

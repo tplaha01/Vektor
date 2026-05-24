@@ -52,6 +52,7 @@ class QuantDataPipeline:
         self._news_stream_started = False
         self._news_stream_count = 0
         self._last_news_stream_event: dict[str, Any] | None = None
+        self._news_stream_disable_reason: str | None = None
         self._last_stream_tick: dict[str, Any] | None = None
         self._last_stream_quote: dict[str, Any] | None = None
         self._last_history_refresh: dict[str, float] = {}
@@ -109,11 +110,25 @@ class QuantDataPipeline:
         if not getattr(self._settings, "ALPACA_API_KEY", None):
             logger.warning("Alpaca news stream not started: missing ALPACA_API_KEY")
             return
+        # Alpaca accounts can enforce low websocket connection caps. Running
+        # both market stream and news stream concurrently often triggers
+        # endless HTTP 429 reconnect loops from the SDK.
+        if (
+            bool(getattr(self._settings, "ALPACA_STREAM_ENABLED", False))
+            and not bool(getattr(self._settings, "DATA_PIPELINE_NEWS_STREAM_ALLOW_PARALLEL_ALPACA_WS", False))
+        ):
+            self._news_stream_disable_reason = "parallel_alpaca_ws_disabled"
+            logger.info(
+                "Alpaca news stream skipped: ALPACA_STREAM_ENABLED with parallel stream guard active "
+                "(set DATA_PIPELINE_NEWS_STREAM_ALLOW_PARALLEL_ALPACA_WS=true to force-enable)"
+            )
+            return
         thread = threading.Thread(
             target=self._run_news_stream,
             daemon=True,
             name="alpaca-news-stream",
         )
+        self._news_stream_disable_reason = None
         self._news_stream_started = True
         thread.start()
 
@@ -133,6 +148,7 @@ class QuantDataPipeline:
             stream.run()
         except Exception as exc:
             self._news_stream_started = False
+            self._news_stream_disable_reason = str(exc) or exc.__class__.__name__
             logger.warning("Alpaca news stream failed: %s", exc)
 
     async def _run_loop(self) -> None:
@@ -709,6 +725,10 @@ class QuantDataPipeline:
                 "news_stream": {
                     "enabled": bool(getattr(self._settings, "DATA_PIPELINE_NEWS_STREAM_ENABLED", True)),
                     "started": self._news_stream_started,
+                    "disable_reason": self._news_stream_disable_reason,
+                    "parallel_alpaca_ws_allowed": bool(
+                        getattr(self._settings, "DATA_PIPELINE_NEWS_STREAM_ALLOW_PARALLEL_ALPACA_WS", False)
+                    ),
                     "event_count": self._news_stream_count,
                     "last_event": self._last_news_stream_event,
                 },

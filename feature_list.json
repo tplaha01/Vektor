@@ -16,7 +16,7 @@
       "Step 11: Confirm policy gate state is explicit and no silent fallback path is used.",
       "Step 12: Record evidence in logs/screenshots and compare result to expected contract."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -35,7 +35,7 @@
       "Step 11: Confirm policy gate state is explicit and no silent fallback path is used.",
       "Step 12: Record evidence in logs/screenshots and compare result to expected contract."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -54,7 +54,7 @@
       "Step 11: Confirm policy gate state is explicit and no silent fallback path is used.",
       "Step 12: Record evidence in logs/screenshots and compare result to expected contract."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -73,7 +73,7 @@
       "Step 11: Confirm policy gate state is explicit and no silent fallback path is used.",
       "Step 12: Record evidence in logs/screenshots and compare result to expected contract."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",

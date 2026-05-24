@@ -272,6 +272,37 @@
   gap: 10px;
 }
 
+.ops-command-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--ops-soft-border);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.ops-command-strip-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ops-command-strip-copy span {
+  color: var(--txt2);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.ops-command-strip-copy strong {
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 600;
+}
+
 .ops-status-badge {
   min-width: 140px;
   padding: 10px 12px;
@@ -390,6 +421,14 @@
 
 .ops-grid-market {
   grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.9fr);
+}
+
+.ops-grid-command-center {
+  grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.95fr);
+}
+
+.ops-grid-controls-live {
+  grid-template-columns: minmax(360px, 0.95fr) minmax(0, 1.15fr);
 }
 
 .ops-metric-grid {
@@ -700,6 +739,167 @@
   text-align: right;
 }
 
+.ops-priority-list,
+.ops-command-groups,
+.ops-section-stack,
+.ops-timeline-list,
+.ops-task-list {
+  display: grid;
+  gap: 12px;
+}
+
+.ops-priority-card,
+.ops-timeline-row,
+.ops-task-row {
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--ops-soft-border);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.ops-priority-head,
+.ops-timeline-head,
+.ops-task-head,
+.ops-worker-head,
+.ops-command-group-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ops-priority-head strong,
+.ops-worker-head strong,
+.ops-command-group-head strong {
+  display: block;
+  font-size: 14px;
+}
+
+.ops-priority-head small,
+.ops-command-group-head small,
+.ops-timeline-head small,
+.ops-task-copy,
+.ops-timeline-meta,
+.ops-task-meta,
+.ops-worker-head small,
+.ops-table-subcopy {
+  color: var(--txt2);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.ops-priority-card p,
+.ops-timeline-reason {
+  margin: 10px 0 0;
+  color: var(--txt2);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.ops-command-group + .ops-command-group {
+  padding-top: 14px;
+  border-top: 1px solid var(--ops-soft-border);
+}
+
+.ops-command-chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ops-command-chip,
+.ops-table-button {
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+}
+
+.ops-command-chip {
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--ops-soft-border);
+  background: rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    border-color 0.18s ease,
+    transform 0.18s ease,
+    color 0.18s ease;
+}
+
+.ops-command-chip:hover,
+.ops-table-button:hover {
+  color: var(--ops-accent);
+}
+
+.ops-command-chip:hover {
+  border-color: rgba(0, 201, 167, 0.22);
+  transform: translateY(-1px);
+}
+
+.ops-command-chip:disabled,
+.ops-table-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ops-table-button {
+  padding: 0;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ops-table-button.is-active {
+  color: var(--ops-accent);
+}
+
+.ops-section-block {
+  display: grid;
+  gap: 10px;
+}
+
+.ops-worker-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.ops-worker-card {
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid var(--ops-soft-border);
+  background: rgba(255, 255, 255, 0.02);
+  display: grid;
+  gap: 10px;
+}
+
+.ops-worker-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ops-worker-stat {
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.02);
+  display: grid;
+  gap: 4px;
+}
+
+.ops-worker-stat span {
+  color: var(--txt2);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.ops-worker-stat strong {
+  font-size: 13px;
+}
+
 .ops-positive {
   color: var(--ops-accent);
 }
@@ -856,6 +1056,10 @@
   margin-top: 18px;
 }
 
+.ops-button-row.compact {
+  margin-top: 0;
+}
+
 .ops-button {
   display: inline-flex;
   align-items: center;
@@ -881,6 +1085,11 @@
 .ops-button.secondary {
   border-color: var(--ops-soft-border);
   background: rgba(255, 255, 255, 0.04);
+}
+
+.ops-button.small {
+  padding: 9px 12px;
+  font-size: 12px;
 }
 
 .ops-button:disabled {
@@ -954,7 +1163,9 @@
   .ops-grid-overview,
   .ops-grid-overview-bottom,
   .ops-grid-portfolio,
-  .ops-grid-market {
+  .ops-grid-market,
+  .ops-grid-command-center,
+  .ops-grid-controls-live {
     grid-template-columns: 1fr;
   }
 
@@ -974,6 +1185,15 @@
     flex-direction: column;
   }
 
+  .ops-command-strip,
+  .ops-timeline-head,
+  .ops-task-head,
+  .ops-priority-head,
+  .ops-command-group-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .ops-metric-grid,
   .ops-stage-grid,
   .ops-ticker-grid,
@@ -987,6 +1207,11 @@
   .ops-mini-row {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .ops-worker-grid,
+  .ops-worker-stats {
+    grid-template-columns: 1fr;
   }
 
   .ops-mini-value,

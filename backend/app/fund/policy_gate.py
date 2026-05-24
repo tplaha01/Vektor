@@ -7,6 +7,7 @@ from threading import RLock
 from typing import Any, Dict, List, Tuple
 
 from app.config import get_settings
+from app.fund.core_engine_scoring import resolve_decision_scoring
 from app.fund.execution_adapter import ExecutionIntent
 from app.quant.risk import infer_portfolio_risk_regime
 
@@ -468,7 +469,11 @@ class PolicyGate:
                     blocked.append("weekend_trading_disabled")
 
             if intent.side == "buy":
-                decision_scoring = intent.metadata.get("decision_scoring") if isinstance(intent.metadata.get("decision_scoring"), dict) else {}
+                decision_scoring = resolve_decision_scoring(
+                    metadata=intent.metadata,
+                    symbol=intent.symbol,
+                    asset_class=asset_class,
+                )
                 scoring_metrics = decision_scoring.get("metrics") if isinstance(decision_scoring.get("metrics"), dict) else {}
                 strategy_family = str(
                     decision_scoring.get("strategy_family")

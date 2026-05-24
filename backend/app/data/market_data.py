@@ -64,6 +64,15 @@ def _synthetic_history(symbol: str, bars: int) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def _is_alpaca_connection_limit_error(exc: Exception) -> bool:
+    message = str(exc or "").strip().lower()
+    return (
+        "connection limit exceeded" in message
+        or "http 429" in message
+        or "server rejected websocket connection: http 429" in message
+    )
+
+
 @contextmanager
 def _without_proxy_env():
     """
@@ -284,6 +293,30 @@ class AlpacaRealtimeFeed:
                 settings.ALPACA_SECRET_KEY,
                 feed=feed,
             )
+            connection_limit_seen = {"value": False}
+            original_connect = stream._connect
+            original_auth = stream._auth
+
+            async def _connect_with_limit_guard():
+                try:
+                    await original_connect()
+                except Exception as exc:
+                    if _is_alpaca_connection_limit_error(exc):
+                        connection_limit_seen["value"] = True
+                        raise ValueError("insufficient subscription: connection limit exceeded")
+                    raise
+
+            async def _auth_with_limit_guard():
+                try:
+                    await original_auth()
+                except Exception as exc:
+                    if _is_alpaca_connection_limit_error(exc):
+                        connection_limit_seen["value"] = True
+                        raise ValueError("insufficient subscription: connection limit exceeded")
+                    raise
+
+            stream._connect = _connect_with_limit_guard
+            stream._auth = _auth_with_limit_guard
 
             async def _on_trade(trade):
                 sym = str(getattr(trade, "symbol", "")).upper().strip()
@@ -374,6 +407,14 @@ class AlpacaRealtimeFeed:
             stream.subscribe_trades(_on_trade, *symbols)
             stream.subscribe_quotes(_on_quote, *symbols)
             stream.run()
+            if connection_limit_seen["value"]:
+                print("Alpaca stream connection limit exceeded - falling back to REST polling")
+                data_integrity_guard.record_provider_event(
+                    provider="alpaca_stream",
+                    mode="fallback",
+                    detail="stream_connection_limit_exceeded",
+                )
+            self._started = False
 
         except Exception as exc:
             print(f"Alpaca stream error: {exc} - falling back to REST polling")

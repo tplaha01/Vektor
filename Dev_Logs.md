@@ -337,6 +337,50 @@ files:
 validation: in_progress
 notes: Automated session start on server boot
 
+[2026-05-24T00:33:38.6082876Z] [START]
+entry_id: devlog-20260524-openclaw-alpaca-hygiene
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260524-openclaw-alpaca-hygiene
+git_branch: tmp-deploy-main
+git_commit_start: 9121fab39500a5ff556f3199cc8dfba20574759a
+git_commit_end:
+scope: Stabilize local service bring-up by sanitizing OpenClaw runtime config and suppressing Alpaca websocket connection-limit reconnect noise.
+active_phase: phase_alpha_backend_core
+files:
+- scripts/vektor-services.ps1
+- backend/app/config.py
+- backend/app/data_pipeline/service.py
+- backend/app/data/market_data.py
+- backend/tests/test_data_pipeline.py
+- backend/tests/test_market_data_stream.py
+validation: in_progress
+notes: Started compliance pass to verify clean `vektor-services.ps1 up`, confirm `/data-pipeline/status` guard state, and re-run focused tests.
+
+[2026-05-24T00:35:49.1185165Z] [END]
+entry_id: devlog-20260524-openclaw-alpaca-hygiene
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260524-openclaw-alpaca-hygiene
+git_branch: tmp-deploy-main
+git_commit_start: 9121fab39500a5ff556f3199cc8dfba20574759a
+git_commit_end: 9121fab39500a5ff556f3199cc8dfba20574759a
+scope: Stabilize local service bring-up by sanitizing OpenClaw runtime config and suppressing Alpaca websocket connection-limit reconnect noise.
+active_phase: phase_alpha_backend_core
+files:
+- scripts/vektor-services.ps1
+- backend/app/config.py
+- backend/app/data_pipeline/service.py
+- backend/app/data/market_data.py
+- backend/tests/test_data_pipeline.py
+- backend/tests/test_market_data_stream.py
+validation: `..\scripts\vektor-services.ps1 up` healthy (backend/ollama/openclaw), `/data-pipeline/status` confirms `news_stream.disable_reason=parallel_alpaca_ws_disabled`, focused tests `9 passed` (`tests/test_data_pipeline.py`, `tests/test_market_data_stream.py`), and KB start event ingested as `kge-00001859`.
+notes: OpenClaw now starts via sanitized runtime config even when global config has unsupported `mcpServers`; Alpaca stream now fails fast on connection-limit conditions instead of reconnect storming, with only isolated guarded failures observed post-restart.
+
 [2026-04-17T19:28:36.510389Z] [END]
 entry_id: devlog-20260417-f246bc12
 actor_name: github_copilot
@@ -7871,3 +7915,671 @@ files:
 - Dev_Logs.md
 validation: in_progress
 notes: Using the new Vektor core-engine docs as the UI contract and verifying the operator surface in Playwright during implementation.
+[2026-05-23T20:00:57.5662653Z] [END]
+entry_id: devlog-20260523-frontend-core-engine-ui-surface
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-frontend-core-engine-ui-surface
+git_branch: tmp-deploy-main
+git_commit_start: cbf67b18119ad9724561bd78fdb7217b6fd84c6d
+git_commit_end: cbf67b18119ad9724561bd78fdb7217b6fd84c6d
+scope: Rework the frontend admin UX around the deterministic ML-native core engine while preserving the AI support layer and improving degraded/offline operator states.
+files:
+- frontend/src/api/adminAPI.js
+- frontend/src/components/admin/CoreEnginePanel.jsx
+- frontend/src/pages/Admin.jsx
+- frontend/src/styles/admin.css
+- codex-progress.txt
+- Dev_Logs.md
+validation: npm run build (pass); Playwright desktop screenshots=frontend/output/playwright/admin-audit/.playwright-cli/page-2026-05-23T19-58-45-104Z.png, frontend/output/playwright/admin-audit/.playwright-cli/page-2026-05-23T19-59-06-742Z.png; Playwright mobile screenshot=frontend/output/playwright/admin-audit/.playwright-cli/page-2026-05-23T19-59-57-581Z.png; local KB ingest verified with development.devlog.start/end; scripts/index-repo.ps1 status=indexed nodes=9211 edges=15244
+notes: Added a primary Core Engine tab backed by deterministic pipeline, model, risk, sentiment, and ML-effectiveness endpoints; renamed AI runtime copy to support-layer language; slowed offline polling to reduce dead-backend noise while keeping manual refresh available; and wrote matching START/END events into the repo knowledge graph because the backend KB API was unavailable.
+
+[2026-05-23T20:03:46.0000000Z] [START]
+entry_id: devlog-20260523-core-engine-scoring-bridge
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-core-engine-scoring-bridge
+git_branch: tmp-deploy-main
+git_commit_start: 9121fab39500a5ff556f3199cc8dfba20574759a
+git_commit_end:
+scope: Bridge deterministic core-engine meta-intent diagnostics into execution decision scoring and policy-gate enforcement.
+active_phase: phase_alpha_backend_core
+files:
+- backend/app/fund/core_engine_scoring.py
+- backend/app/fund/orchestrator.py
+- backend/app/fund/policy_gate.py
+- backend/tests/test_fund_policy_gate.py
+- codex-progress.txt
+- Dev_Logs.md
+validation: in_progress
+notes: Session bootstrap and backend init completed; implementing the next deterministic core-engine seam by replacing ad hoc scoring with a reusable scoring bridge.
+
+[2026-05-23T20:16:01.4018114Z] [END]
+entry_id: devlog-20260523-core-engine-scoring-bridge
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-core-engine-scoring-bridge
+git_branch: tmp-deploy-main
+git_commit_start: 9121fab39500a5ff556f3199cc8dfba20574759a
+git_commit_end: 9121fab39500a5ff556f3199cc8dfba20574759a
+scope: Bridge deterministic core-engine meta-intent diagnostics into execution decision scoring and policy-gate enforcement.
+active_phase: phase_alpha_backend_core
+files:
+- backend/app/fund/core_engine_scoring.py
+- backend/app/fund/orchestrator.py
+- backend/app/fund/policy_gate.py
+- backend/tests/test_fund_policy_gate.py
+- codex-progress.txt
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: pytest tests/test_fund_policy_gate.py -q (11 passed); pytest tests/test_core_engine.py -q (6 passed); pytest tests/test_fund_pipeline.py::test_research_to_execution_pipeline_and_inspection_endpoints -q (1 skipped); scripts/index-repo.ps1 status=indexed nodes=9245 edges=15271
+notes: Added a reusable deterministic scoring bridge sourced from core-engine meta-intent/policy diagnostics, replaced orchestrator inline heuristics with the bridge, and enabled policy-gate fallback derivation from deterministic signal payloads when scoring metadata is incomplete.
+
+[2026-05-23T20:04:12.0000000Z] [START]
+entry_id: devlog-20260523-frontend-desktop-core-engine-surface
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-frontend-desktop-core-engine-surface
+git_branch: tmp-deploy-main
+git_commit_start: 9121fab39500a5ff556f3199cc8dfba20574759a
+git_commit_end:
+scope: Refine the desktop-first admin surface so the deterministic core engine is immediately visible and legible on the primary operator viewport.
+files:
+- frontend/src/pages/Admin.jsx
+- frontend/src/styles/admin.css
+- frontend/output/playwright/admin-audit/admin-visibility.spec.mjs
+- codex-progress.txt
+- Dev_Logs.md
+validation: in_progress
+notes: User clarified the admin should be treated as a desktop-first app, so validation narrowed to a desktop Playwright audit and first-fold hierarchy/contrast improvements.
+
+[2026-05-23T20:20:57.7737529Z] [END]
+entry_id: devlog-20260523-frontend-desktop-core-engine-surface
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-frontend-desktop-core-engine-surface
+git_branch: tmp-deploy-main
+git_commit_start: 9121fab39500a5ff556f3199cc8dfba20574759a
+git_commit_end: 9121fab39500a5ff556f3199cc8dfba20574759a
+scope: Refine the desktop-first admin surface so the deterministic core engine is immediately visible and legible on the primary operator viewport.
+files:
+- frontend/src/pages/Admin.jsx
+- frontend/src/styles/admin.css
+- frontend/output/playwright/admin-audit/admin-visibility.spec.mjs
+- codex-progress.txt
+- Dev_Logs.md
+validation: npm run build (pass); npx playwright test output/playwright/admin-audit/admin-visibility.spec.mjs --reporter=list (pass)
+notes: Kept the deterministic ML-native surface as the default desktop landing state, tightened the first fold into a command-center layout with a right-side status rail, increased panel contrast, and verified the desktop screenshot at frontend/output/playwright/admin-audit/admin-core-desktop-fixed.png.
+
+[2026-05-23T20:22:42.6560351Z] [START]
+entry_id: devlog-20260523-manual-order-core-policy-contract
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-manual-order-core-policy-contract
+git_branch: tmp-deploy-main
+git_commit_start: 9121fab39500a5ff556f3199cc8dfba20574759a
+git_commit_end:
+scope: Replace manual /paper/order legacy risk-engine identifiers with deterministic core-engine policy naming and contract-driven gating metadata.
+active_phase: phase_alpha_backend_core
+files:
+- backend/app/main.py
+- backend/tests/test_manual_order_policy.py
+- codex-progress.txt
+- Dev_Logs.md
+validation: in_progress
+notes: Wired manual order flow to derive decision scoring from core-engine signal, evaluated through policy-gate contracts, and preserved legacy risk breaker as secondary guard.
+
+[2026-05-23T20:23:51.6042696Z] [END]
+entry_id: devlog-20260523-manual-order-core-policy-contract
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-manual-order-core-policy-contract
+git_branch: tmp-deploy-main
+git_commit_start: 9121fab39500a5ff556f3199cc8dfba20574759a
+git_commit_end: 9121fab39500a5ff556f3199cc8dfba20574759a
+scope: Replace manual /paper/order legacy risk-engine identifiers with deterministic core-engine policy naming and contract-driven gating metadata.
+active_phase: phase_alpha_backend_core
+files:
+- backend/app/main.py
+- backend/tests/test_manual_order_policy.py
+- codex-progress.txt
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: pytest tests/test_manual_order_policy.py tests/test_fund_policy_gate.py tests/test_core_engine.py -q (19 passed); scripts/index-repo.ps1 status=indexed nodes=9292 edges=15427
+notes: Manual order flow now uses core-engine scoring and policy version metadata (core_engine_policy + model-registry policy id), policy-gate contract evaluation, and preserved risk-engine breaker checks as secondary safeguards.
+
+[2026-05-23T20:25:00.0000000Z] [START]
+entry_id: devlog-20260523-frontend-manual-order-ui-contract
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-frontend-manual-order-ui-contract
+git_branch: tmp-deploy-main
+git_commit_start: 9121fab39500a5ff556f3199cc8dfba20574759a
+git_commit_end:
+scope: Adapt the frontend manual order surface to the current backend core-policy contract for /paper/order responses.
+files:
+- frontend/src/api.js
+- frontend/src/components/OrderPanel.jsx
+- frontend/src/pages/AlfredDashboard.jsx
+- frontend/output/playwright/admin-audit/legacy-order-panel.spec.mjs
+- codex-progress.txt
+- Dev_Logs.md
+validation: in_progress
+notes: Frontend work targets the live /legacy quick-order panel so manual orders surface approved/blocked/backend-unreachable states and deterministic IDs instead of a generic success toast.
+
+[2026-05-23T20:58:46.5623788Z] [END]
+entry_id: devlog-20260523-frontend-manual-order-ui-contract
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-frontend-manual-order-ui-contract
+git_branch: tmp-deploy-main
+git_commit_start: 9121fab39500a5ff556f3199cc8dfba20574759a
+git_commit_end: 9121fab39500a5ff556f3199cc8dfba20574759a
+scope: Adapt the frontend manual order surface to the current backend core-policy contract for /paper/order responses.
+files:
+- frontend/src/api.js
+- frontend/src/components/OrderPanel.jsx
+- frontend/src/pages/AlfredDashboard.jsx
+- frontend/output/playwright/admin-audit/legacy-order-panel.spec.mjs
+- codex-progress.txt
+- Dev_Logs.md
+validation: npm run build (pass); npx playwright screenshot --wait-for-selector 'text=Quick Order' --viewport-size=1440,1200 http://127.0.0.1:9000/legacy output/playwright/admin-audit/legacy-order-panel-current-backend.png (pass); npx playwright test output/playwright/admin-audit/legacy-order-panel.spec.mjs --reporter=list (pass)
+notes: The legacy dashboard quick-order panel now reflects current /paper/order responses, showing deterministic approval/block/backend-unreachable states, block reasons, and decision/run/risk/intent identifiers instead of always reporting success.
+
+[2026-05-23T21:09:19.0366729Z] [START]
+entry_id: devlog-20260523-manual-order-orchestrator-delegation
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-manual-order-orchestrator-delegation
+git_branch: tmp-deploy-main
+git_commit_start: 9121fab39500a5ff556f3199cc8dfba20574759a
+git_commit_end:
+scope: Consolidate manual /paper/order execution onto the shared fund orchestrator path while preserving endpoint compatibility and deterministic core-policy contracts.
+active_phase: phase_alpha_backend_core
+files:
+- backend/app/main.py
+- backend/app/fund/orchestrator.py
+- backend/tests/test_manual_order_policy.py
+- backend/tests/test_orchestrator_manual_order.py
+- codex-progress.txt
+- Dev_Logs.md
+validation: in_progress
+notes: Moved manual order policy/evaluation/execution internals to FirmOrchestrator, kept secondary risk breaker injection, and retained manual endpoint response compatibility.
+
+[2026-05-23T21:13:54.3578872Z] [END]
+entry_id: devlog-20260523-manual-order-orchestrator-delegation
+actor_name: codex
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-manual-order-orchestrator-delegation
+git_branch: tmp-deploy-main
+git_commit_start: 9121fab39500a5ff556f3199cc8dfba20574759a
+git_commit_end: 9121fab39500a5ff556f3199cc8dfba20574759a
+scope: Consolidate manual /paper/order execution onto the shared fund orchestrator path while preserving endpoint compatibility and deterministic core-policy contracts.
+active_phase: phase_alpha_backend_core
+files:
+- backend/app/main.py
+- backend/app/fund/orchestrator.py
+- backend/tests/test_manual_order_policy.py
+- backend/tests/test_orchestrator_manual_order.py
+- codex-progress.txt
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: pytest tests/test_manual_order_policy.py tests/test_orchestrator_manual_order.py tests/test_fund_policy_gate.py tests/test_core_engine.py -q (21 passed); KB ingest verified for entry_id via kge-00001845/kge-00001846; scripts/index-repo.ps1 status=ready nodes=9298 edges=15494
+notes: Manual /paper/order now delegates policy and execution internals to orchestrator, preserving API payload shape while unifying core-policy gating, audit metadata, and shared execution adapter behavior.
+
+[2026-05-23T21:08:49.313418Z] [START]
+entry_id: devlog-20260523-7144eb89
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-f44337a31a7b
+git_branch: tmp-deploy-main
+git_commit_start: 9121fab39500a5ff556f3199cc8dfba20574759a
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-05-23T21:09:11.715039Z] [START]
+entry_id: devlog-20260523-c4c89292
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-415729166618
+git_branch: tmp-deploy-main
+git_commit_start: 9121fab39500a5ff556f3199cc8dfba20574759a
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-05-23T21:09:11.715039Z] [END]
+entry_id: devlog-20260523-c4c89292
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-415729166618
+git_branch: tmp-deploy-main
+git_commit_start: 9121fab39500a5ff556f3199cc8dfba20574759a
+git_commit_end: 9121fab39500a5ff556f3199cc8dfba20574759a
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: completed
+notes: Server shutdown - session ended normally
+
+[2026-05-23T21:09:51.017333Z] [START]
+entry_id: devlog-20260523-80a80776
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-f0fa8d6073c1
+git_branch: tmp-deploy-main
+git_commit_start: 9121fab39500a5ff556f3199cc8dfba20574759a
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-05-23T21:09:51.017333Z] [END]
+entry_id: devlog-20260523-80a80776
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-f0fa8d6073c1
+git_branch: tmp-deploy-main
+git_commit_start: 9121fab39500a5ff556f3199cc8dfba20574759a
+git_commit_end: 9121fab39500a5ff556f3199cc8dfba20574759a
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: completed
+notes: Server shutdown - session ended normally
+
+[2026-05-23T22:39:17.617930Z] [START]
+entry_id: devlog-20260523-011b85bb
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-30bfc9861c3c
+git_branch: tmp-deploy-main
+git_commit_start: 9121fab39500a5ff556f3199cc8dfba20574759a
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-05-23T22:45:58.690271Z] [START]
+entry_id: devlog-20260523-c4cded6c
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-476364ab00b6
+git_branch: tmp-deploy-main
+git_commit_start: 9121fab39500a5ff556f3199cc8dfba20574759a
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-05-23T22:51:51.891935Z] [START]
+entry_id: devlog-20260523-74dc77ae
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-5a18d8d18ca0
+git_branch: tmp-deploy-main
+git_commit_start: 9121fab39500a5ff556f3199cc8dfba20574759a
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-05-23T21:03:50.2649041-07:00] [START]
+entry_id: devlog-20260523-frontend-backend-ui-adapt
+actor_name: codex
+actor_platform: openai_codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-frontend-backend-ui-adapt
+git_branch: codex/frontend-backend-ui-adapt
+git_commit_start: 9121fab39500a5ff556f3199cc8dfba20574759a
+git_commit_end:
+scope: Frontend desktop operator-surface adaptation to the current deterministic backend contract.
+files:
+- frontend/src/components/SignalCard.jsx
+- frontend/src/components/OrderPanel.jsx
+- frontend/src/components/admin/CoreEnginePanel.jsx
+- frontend/src/pages/Admin.jsx
+- frontend/src/pages/AlfredDashboard.jsx
+- frontend/src/index.css
+- TradingBot/codex-progress.txt
+validation: in_progress
+notes: Rebased the admin and legacy desktop surfaces onto live backend telemetry, reduced policy/internal UI noise, and verified the routes against the local backend with Playwright.
+
+[2026-05-23T21:07:26.4980167-07:00] [END]
+entry_id: devlog-20260523-frontend-backend-ui-adapt
+actor_name: codex
+actor_platform: openai_codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260523-frontend-backend-ui-adapt
+git_branch: codex/frontend-backend-ui-adapt
+git_commit_start: 9121fab39500a5ff556f3199cc8dfba20574759a
+git_commit_end: 376c54d8d25e0f32f5d9cbb9d10425bfa2cbcb6b
+scope: Frontend desktop operator-surface adaptation to the current deterministic backend contract.
+files:
+- frontend/src/components/SignalCard.jsx
+- frontend/src/components/OrderPanel.jsx
+- frontend/src/components/admin/CoreEnginePanel.jsx
+- frontend/src/pages/Admin.jsx
+- frontend/src/pages/AlfredDashboard.jsx
+- frontend/src/index.css
+- TradingBot/codex-progress.txt
+validation: completed
+notes: Verified `npm run build`, Playwright screenshots for `/admin` and `/legacy`, and aligned desktop surfaces with live scheduler/profile/provider telemetry while keeping the AI layer present but off the trade path.
+
+[2026-05-24T09:12:33.1579062Z] [START]
+entry_id: devlog-20260524-feature-001
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260524-feature-001
+git_branch: tmp-deploy-main
+git_commit_start: 9121fab39500a5ff556f3199cc8dfba20574759a
+git_commit_end:
+scope: Execute highest-priority pending feature validation #1 end-to-end in backend long-running harness (bootstrap/init/API evidence/policy-gate verification).
+files:
+- feature_list.json
+- codex-progress.txt
+- Dev_Logs.md
+validation: in_progress
+notes: Active phase advanced: Phase Alpha (Backend Core). Capturing compliance evidence for bootstrap/init/health/data-pipeline/signal checks before marking pass.
+
+[2026-05-24T09:14:22.8117464Z] [END]
+entry_id: devlog-20260524-feature-001
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260524-feature-001
+git_branch: tmp-deploy-main
+git_commit_start: 9121fab39500a5ff556f3199cc8dfba20574759a
+git_commit_end: 9121fab39500a5ff556f3199cc8dfba20574759a
+scope: Completed highest-priority pending feature validation #1 with full bootstrap/init/API evidence and updated progress artifacts.
+files:
+- feature_list.json
+- codex-progress.txt
+- Dev_Logs.md
+validation: session-bootstrap complete; root/backend init scripts complete; /health + /data-pipeline/status + /signals/generate validated; focused pytest passed (3 passed). Broader check had 1 failing pre-existing test (`tests/test_admin_runtime_controls.py::test_kick_autopilot_endpoint_accepts`, expected 200 got 400).
+notes: Active phase advanced: Phase Alpha (Backend Core). Feature #1 marked passes=true; next pending feature is #2. START/END entries were graphified into development KB.
+
+[2026-05-24T09:28:43.1629315Z] [START]
+entry_id: devlog-20260524-feature-002
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260524-feature-002
+git_branch: codex/frontend-backend-ui-adapt
+git_commit_start: 376c54d8d25e0f32f5d9cbb9d10425bfa2cbcb6b
+git_commit_end:
+scope: Execute highest-priority pending feature validation #2 end-to-end in backend long-running harness (bootstrap/init/API evidence/policy-gate verification).
+files:
+- feature_list.json
+- codex-progress.txt
+- Dev_Logs.md
+validation: in_progress
+notes: Capturing compliance evidence for feature #2 with root/bootstrap/init checks, live backend endpoints, deterministic signal diagnostics, and explicit policy-gate outcomes.
+
+[2026-05-24T09:29:54.5612824Z] [END]
+entry_id: devlog-20260524-feature-002
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260524-feature-002
+git_branch: codex/frontend-backend-ui-adapt
+git_commit_start: 376c54d8d25e0f32f5d9cbb9d10425bfa2cbcb6b
+git_commit_end: 376c54d8d25e0f32f5d9cbb9d10425bfa2cbcb6b
+scope: Completed highest-priority pending feature validation #2 with full bootstrap/init/API evidence, focused signal regression, knowledge-graph ingestion, and index refresh.
+files:
+- feature_list.json
+- codex-progress.txt
+- Dev_Logs.md
+validation: session-bootstrap complete; root/backend init scripts complete; /health + /data-pipeline/status + /signals/generate validated; diagnostics include technical/fundamental/sentiment/meta_intent; policy rejections explicit; focused pytest passed (1 passed).
+notes: Active phase advanced: Phase Alpha (Backend Core). Feature #2 marked passes=true; next pending feature is #3. Devlog start/end ingested to `/fund/knowledge/development/log`; `scripts/index-repo.ps1` reported indexed status.
+
+[2026-05-24T11:08:09.5498651Z] [START]
+entry_id: devlog-20260524-feature-003
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260524-feature-003
+git_branch: codex/frontend-backend-ui-adapt
+git_commit_start: 376c54d8d25e0f32f5d9cbb9d10425bfa2cbcb6b
+git_commit_end:
+scope: Execute highest-priority pending feature validation #3 end-to-end in backend long-running harness (bootstrap/init/API evidence/policy-gate verification).
+files:
+- feature_list.json
+- codex-progress.txt
+- Dev_Logs.md
+validation: in_progress
+notes: Capturing compliance evidence for feature #3 with root/bootstrap/init checks, live backend endpoints, deterministic signal diagnostics, and explicit policy-gate outcomes.
+
+[2026-05-24T11:08:53.1004098Z] [END]
+entry_id: devlog-20260524-feature-003
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260524-feature-003
+git_branch: codex/frontend-backend-ui-adapt
+git_commit_start: 376c54d8d25e0f32f5d9cbb9d10425bfa2cbcb6b
+git_commit_end: 376c54d8d25e0f32f5d9cbb9d10425bfa2cbcb6b
+scope: Completed highest-priority pending feature validation #3 with full bootstrap/init/API evidence, focused signal regression, knowledge-graph ingestion, and index refresh.
+files:
+- feature_list.json
+- codex-progress.txt
+- Dev_Logs.md
+validation: session-bootstrap complete; root/backend init scripts complete; /health + /data-pipeline/status + /signals/generate validated; diagnostics include technical/fundamental/sentiment/meta_intent; policy rejections explicit; focused pytest passed (1 passed).
+notes: Active phase advanced: Phase Alpha (Backend Core). Feature #3 marked passes=true; next pending feature is #4. Devlog start/end ingested to `/fund/knowledge/development/log`; `scripts/index-repo.ps1` reported indexed status.
+
+[2026-05-24T23:06:11Z] [START]
+entry_id: devlog-20260524-feature-004
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260524-feature-004
+git_branch: codex/frontend-backend-ui-adapt
+git_commit_start: be93537726397bd54e6279127902fd8383015870
+git_commit_end:
+scope: Execute highest-priority pending feature validation #4 end-to-end in backend long-running harness (bootstrap/init/API evidence/policy-gate verification).
+files:
+- feature_list.json
+- codex-progress.txt
+- Dev_Logs.md
+validation: in_progress
+notes: Capturing compliance evidence for feature #4 with root/bootstrap/init checks, live backend endpoints, deterministic signal diagnostics, explicit policy-gate outcomes, KB ingestion, and index refresh.
+
+[2026-05-24T23:06:50.2895948Z] [END]
+entry_id: devlog-20260524-feature-004
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260524-feature-004
+git_branch: codex/frontend-backend-ui-adapt
+git_commit_start: be93537726397bd54e6279127902fd8383015870
+git_commit_end: be93537726397bd54e6279127902fd8383015870
+scope: Completed highest-priority pending feature validation #4 with full bootstrap/init/API evidence, deterministic-ML recovery validation, and focused backend regressions.
+files:
+- feature_list.json
+- codex-progress.txt
+- Dev_Logs.md
+validation: session-bootstrap complete; root/backend init scripts complete; `scripts/vektor-services.ps1 up` healthy; `/fund/knowledge/stats` + `/fund/knowledge/events` + `/fund/agents/workers/status` + `/health` + `/data-pipeline/status` + `/signals/generate` validated; deterministic-ML recover route validated; focused pytest passed (2 passed).
+notes: Active phase advanced: Phase Alpha (Backend Core). Feature #4 marked passes=true; next pending feature is #5.
+
+[2026-05-24T23:03:32.100240Z] [START]
+entry_id: devlog-20260524-805e6f03
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-5acb2823f4f8
+git_branch: codex/frontend-backend-ui-adapt
+git_commit_start: be93537726397bd54e6279127902fd8383015870
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-05-24T23:23:48.2643924Z] [START]
+entry_id: devlog-20260524-codex-main-handoff
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260524-codex-main-handoff
+git_branch: codex/main
+git_commit_start: be93537726397bd54e6279127902fd8383015870
+git_commit_end:
+scope: Normalize the long-running Codex harness around `codex/main`, add an explicit session handoff script, and collapse repo handoff onto `origin/main`.
+active_phase: foundation
+files:
+- .codex/prompts/initializer_prompt.md
+- .codex/prompts/coding_agent_prompt.md
+- .gitignore
+- AGENTS.md
+- DevViktor.md
+- backend/AGENTS.md
+- frontend/AGENTS.md
+- docs/LONG_RUNNING_AGENT_WORKFLOW.md
+- scripts/session-bootstrap.ps1
+- scripts/session-handoff.ps1
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+- codex-progress.txt
+validation: in_progress
+notes: Preserving the validated working tree while replacing the stale branch model with a clean `codex/main` -> `origin/main` handoff contract for subsequent agents.
+
+[2026-05-24T23:24:48.2643924Z] [END]
+entry_id: devlog-20260524-codex-main-handoff
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260524-codex-main-handoff
+git_branch: codex/main
+git_commit_start: be93537726397bd54e6279127902fd8383015870
+git_commit_end: be93537726397bd54e6279127902fd8383015870
+scope: Normalize the long-running Codex harness around `codex/main`, add an explicit session handoff script, and collapse repo handoff onto `origin/main`.
+active_phase: foundation
+files:
+- .codex/prompts/initializer_prompt.md
+- .codex/prompts/coding_agent_prompt.md
+- .gitignore
+- AGENTS.md
+- DevViktor.md
+- backend/AGENTS.md
+- frontend/AGENTS.md
+- docs/LONG_RUNNING_AGENT_WORKFLOW.md
+- scripts/session-bootstrap.ps1
+- scripts/session-handoff.ps1
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+- codex-progress.txt
+validation: backend pytest passed (24 passed); frontend build passed; updated session bootstrap ran successfully; session-handoff PowerShell parsed without errors.
+notes: The harness now enforces a canonical local branch (`codex/main`), a canonical remote handoff target (`origin/main`), and an explicit clean-tree/push verification step before the next agent resumes work.
