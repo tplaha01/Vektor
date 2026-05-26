@@ -8885,3 +8885,51 @@ files:
 - knowledge_graph/events.jsonl
 validation: py -3 -m pytest backend/tests/test_admin_research_ideas_endpoints.py -q (2 passed); npm run build (frontend) succeeded.
 notes: Added admin research ideas API (`/api/admin/research/ideas`, `/api/admin/research/ideas/{idea_id}`, `/api/admin/theses`) and new `ResearchDiscoveryPanel` with filters, inspect, archive, and thesis conversion actions wired into Admin navigation.
+
+[2026-05-26T10:16:25.7506545Z] [START]
+entry_id: devlog-20260526-vektor-admin-risk-policy-panel4
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260526-vektor-admin-risk-policy-panel4
+git_branch: codex/main
+git_commit_start: 86b2d8a42ef37cef2f49d1f3fe8102b06907578f
+git_commit_end:
+scope: Build Vektor Admin Control Center Panel 4 (Risk & Policy) with dedicated admin risk metrics, policy summaries, and editable approval thresholds.
+active_phase: phase_alpha_backend_ops
+files:
+- backend/app/admin_research_routes.py
+- backend/tests/test_admin_risk_policy_endpoints.py
+- frontend/src/api/adminAPI.js
+- frontend/src/components/admin/RiskPolicyPanel.jsx
+- frontend/src/pages/Admin.jsx
+- Dev_Logs.md
+- codex-progress.txt
+- knowledge_graph/events.jsonl
+validation: in_progress
+notes: Replacing the legacy risk-gauge tab with a dedicated panel wired to explicit admin endpoints for VaR, CVaR, drawdown, leverage, sharpe, sector concentration, policy thresholds, and breach history.
+
+[2026-05-26T10:16:25.7506545Z] [END]
+entry_id: devlog-20260526-vektor-admin-risk-policy-panel4
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260526-vektor-admin-risk-policy-panel4
+git_branch: codex/main
+git_commit_start: 86b2d8a42ef37cef2f49d1f3fe8102b06907578f
+git_commit_end: pending_session_handoff_commit
+scope: Build Vektor Admin Control Center Panel 4 (Risk & Policy) with dedicated admin risk metrics, policy summaries, and editable approval thresholds.
+active_phase: phase_alpha_backend_ops
+files:
+- backend/app/admin_research_routes.py
+- backend/tests/test_admin_risk_policy_endpoints.py
+- frontend/src/api/adminAPI.js
+- frontend/src/components/admin/RiskPolicyPanel.jsx
+- frontend/src/pages/Admin.jsx
+- Dev_Logs.md
+- codex-progress.txt
+- knowledge_graph/events.jsonl
+validation: py -3 -m pytest backend/tests/test_admin_risk_policy_endpoints.py -q (2 passed); py -3 -m pytest backend/tests/test_admin_theses_positions_endpoints.py -q (2 passed); npm run build (frontend) succeeded.
+notes: Added admin risk routes (`/api/admin/risk/var`, `/api/admin/risk/cvar`, `/api/admin/risk/drawdown`, `/api/admin/risk/leverage`, `/api/admin/risk/sharpe`, `/api/admin/risk/breach-history`) plus policy routes for sector limits, position limits, and editable approval thresholds; wired new `RiskPolicyPanel` into the risk tab.

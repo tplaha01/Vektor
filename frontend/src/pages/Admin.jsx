@@ -40,6 +40,7 @@ import OverviewPanel from '../components/admin/OverviewPanel';
 import PositionsPanel from '../components/admin/PositionsPanel';
 import ResearchDiscoveryPanel from '../components/admin/ResearchDiscoveryPanel';
 import RiskGauges from '../components/admin/RiskGauges';
+import RiskPolicyPanel from '../components/admin/RiskPolicyPanel';
 import SystemOverview from '../components/admin/SystemOverview';
 import ThesesPositionsPanel from '../components/admin/ThesesPositionsPanel';
 import TradingViewWidget from '../components/TradingViewWidget';
@@ -3802,7 +3803,7 @@ export default function Admin() {
       case 'agents':
         return renderAgents();
       case 'risk':
-        return renderRisk();
+        return <RiskPolicyPanel />;
       case 'performance':
         return renderPerformance();
       case 'orders':

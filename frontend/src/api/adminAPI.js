@@ -165,6 +165,27 @@ export const adminAPI = {
   getAdminPositions: async () => fetchJson(`${API_BASE}/admin/positions`),
   getAdminPositionDetail: async (positionId) =>
     fetchJson(`${API_BASE}/admin/positions/${encodeURIComponent(positionId)}`),
+  getAdminRiskVar: async () => fetchJson(`${API_BASE}/admin/risk/var`),
+  getAdminRiskCvar: async () => fetchJson(`${API_BASE}/admin/risk/cvar`),
+  getAdminRiskDrawdown: async () => fetchJson(`${API_BASE}/admin/risk/drawdown`),
+  getAdminRiskLeverage: async () => fetchJson(`${API_BASE}/admin/risk/leverage`),
+  getAdminRiskSharpe: async () => fetchJson(`${API_BASE}/admin/risk/sharpe`),
+  getAdminPolicySectorLimits: async () => fetchJson(`${API_BASE}/admin/policy/sector_limits`),
+  getAdminPolicyPositionLimits: async () => fetchJson(`${API_BASE}/admin/policy/position_limits`),
+  getAdminPolicyApprovalThresholds: async () => fetchJson(`${API_BASE}/admin/policy/approval-thresholds`),
+  updateAdminPolicyApprovalThresholds: async (payload = {}) =>
+    fetchJson(`${API_BASE}/admin/policy/approval-thresholds`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        max_order_notional_usd: payload.maxOrderNotionalUsd ?? null,
+        min_cash_reserve_pct: payload.minCashReservePct ?? null,
+        max_asset_class_exposure_pct: payload.maxAssetClassExposurePct ?? null,
+        reason: payload.reason || "manual_policy_threshold_update",
+      }),
+    }),
+  getAdminRiskBreachHistory: async (limit = 12) =>
+    fetchJson(`${API_BASE}/admin/risk/breach-history?limit=${encodeURIComponent(limit)}`),
 
   getSystemStatusBadges: async () => {
     return fetchJson(`${API_BASE}/admin/system/status-badges`);

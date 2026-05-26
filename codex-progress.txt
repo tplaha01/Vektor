@@ -1,8 +1,14 @@
 # Codex Progress Log
 
-Last updated: 2026-05-26T09:53:37Z
+Last updated: 2026-05-26T10:16:25.7506545Z
 
 ## Session Summary
+- Implemented Admin Control Center Panel 3 (Theses & Positions) with thesis list/detail/update routes, linked position drill-down, and close-thesis actions.
+- Added focused regression coverage in `backend/tests/test_admin_theses_positions_endpoints.py` and revalidated with `py -3 -m pytest backend/tests/test_admin_theses_positions_endpoints.py -q` (2 passed).
+- Implemented Admin Control Center Panel 4 (Risk & Policy) with explicit admin risk metrics routes for VaR, CVaR, drawdown, leverage, sharpe, breach history, plus policy summaries and editable approval thresholds.
+- Added frontend `RiskPolicyPanel` and rewired the `risk` tab to the dedicated panel instead of the legacy gauge-only surface.
+- Added focused regression coverage in `backend/tests/test_admin_risk_policy_endpoints.py` and validated with `py -3 -m pytest backend/tests/test_admin_risk_policy_endpoints.py -q` (2 passed).
+- Revalidated frontend integration with `npm run build` in `frontend/` (Vite build succeeded).
 - Established Codex-only long-running workflow naming and required files.
 - Added `app_spec.txt` for deterministic ML-first Vektor requirements.
 - Added `feature_list.json` with 200 ordered end-to-end tests.
@@ -66,7 +72,7 @@ Last updated: 2026-05-26T09:53:37Z
 - 14/200 tests passing
 
 ## Current Focus
-- Continue highest-priority pending feature work from `feature_list.json`, now starting at `Session bootstrap, required file gate, and codex workflow compliance validation #15`.
+- Continue Admin Control Center implementation after Panel 4, with the next product slice moving to execution/order controls while keeping long-running harness validation intact.
 - Keep long-running harness validation tied to live backend endpoints and explicit deterministic policy diagnostics instead of inferred success.
 - Preserve `codex/main` -> `origin/main` handoff discipline and repo-managed service bring-up for every session.
 - Preserve desktop-first operator clarity while backend telemetry and service health remain stable under the latest runtime hardening changes.
@@ -75,4 +81,4 @@ Last updated: 2026-05-26T09:53:37Z
 ## Next Steps
 1. Run `powershell -ExecutionPolicy Bypass -File scripts/session-bootstrap.ps1 -CountRemaining`.
 2. Run `powershell -ExecutionPolicy Bypass -File scripts/select-next-feature.ps1`.
-3. Continue from local `codex/main` with `Session bootstrap, required file gate, and codex workflow compliance validation #15` as the next highest-priority pending feature.
+3. Continue from local `codex/main` with the next Admin Control Center slice, likely Panel 5 (Execution & Orders), while preserving the same bootstrap -> validate -> index -> handoff workflow.

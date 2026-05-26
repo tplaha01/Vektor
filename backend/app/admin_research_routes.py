@@ -266,6 +266,13 @@ class ThesisStatusUpdateIn(BaseModel):
     notes: Optional[str] = Field(default=None, max_length=1024)
 
 
+class ApprovalThresholdsUpdateIn(BaseModel):
+    max_order_notional_usd: Optional[float] = Field(default=None, ge=0.0)
+    min_cash_reserve_pct: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    max_asset_class_exposure_pct: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    reason: str = Field(default="manual_policy_threshold_update", min_length=1, max_length=256)
+
+
 # ====================================================================
 # Router Setup
 # ====================================================================
@@ -321,6 +328,37 @@ _ADMIN_RESEARCH_STATUS_OVERRIDES: dict[str, str] = {}
 _ADMIN_THESIS_STATUS_OVERRIDES: dict[str, str] = {}
 _ADMIN_THESIS_CONVICTION_OVERRIDES: dict[str, float] = {}
 _ADMIN_THESIS_ALLOCATION_OVERRIDES: dict[str, float] = {}
+_ADMIN_POLICY_THRESHOLD_OVERRIDES: dict[str, Any] = {}
+
+_SECTOR_HINTS: dict[str, str] = {
+    "AAPL": "Tech",
+    "MSFT": "Tech",
+    "NVDA": "Tech",
+    "AMD": "Tech",
+    "GOOGL": "Tech",
+    "META": "Tech",
+    "QQQ": "Tech",
+    "XLK": "Tech",
+    "JPM": "Finance",
+    "GS": "Finance",
+    "MS": "Finance",
+    "XLF": "Finance",
+    "TLT": "Rates",
+    "TMF": "Rates",
+    "BND": "Rates",
+    "GOVT": "Rates",
+    "IEF": "Rates",
+    "XLE": "Energy",
+    "XOM": "Energy",
+    "CVX": "Energy",
+    "GLD": "Commodities",
+    "SLV": "Commodities",
+    "USO": "Commodities",
+    "UNG": "Commodities",
+    "BTC": "Crypto",
+    "ETH": "Crypto",
+    "SOL": "Crypto",
+}
 
 
 def _infer_research_idea_type(report: dict[str, Any]) -> str:
@@ -561,6 +599,105 @@ def _list_admin_thesis_rows() -> list[dict[str, Any]]:
             }
         )
     return rows
+
+
+def _portfolio_positions() -> list[dict[str, Any]]:
+    return broker.list_positions(lambda symbol: FEED.price(symbol))
+
+
+def _portfolio_equity() -> float:
+    positions = _portfolio_positions()
+    total_equity = _safe_float(broker.get_portfolio_value(lambda symbol: FEED.price(symbol)), 0.0)
+    if total_equity > 0:
+        return total_equity
+    cash = _safe_float(getattr(broker, "get_cash", lambda: 0.0)(), 0.0)
+    exposure = sum(_safe_float(item.get("market_value"), 0.0) for item in positions)
+    return max(cash + exposure, 1.0)
+
+
+def _performance_snapshot_rows(limit: int = 60) -> list[dict[str, Any]]:
+    rows = storage_db.load_performance_snapshots(limit=limit)
+    normalized = [item for item in rows if isinstance(item, dict)]
+    normalized.sort(key=lambda item: str(item.get("recorded_at") or ""))
+    return normalized
+
+
+def _equity_returns(limit: int = 60) -> list[float]:
+    rows = _performance_snapshot_rows(limit=limit)
+    returns: list[float] = []
+    for previous, current in zip(rows, rows[1:]):
+        previous_equity = _safe_float(previous.get("equity"), 0.0)
+        current_equity = _safe_float(current.get("equity"), 0.0)
+        if previous_equity <= 0:
+            continue
+        returns.append((current_equity - previous_equity) / previous_equity)
+    return returns
+
+
+def _percentile(values: list[float], percentile: float) -> float:
+    if not values:
+        return 0.0
+    ordered = sorted(values)
+    index = int(max(0, min(len(ordered) - 1, round((len(ordered) - 1) * percentile))))
+    return ordered[index]
+
+
+def _tail_average(values: list[float], threshold: float) -> float:
+    tail = [item for item in values if item <= threshold]
+    if not tail:
+        return 0.0
+    return sum(tail) / len(tail)
+
+
+def _infer_sector(symbol: str, asset_class: str | None = None, metadata: dict[str, Any] | None = None) -> str:
+    normalized_symbol = str(symbol or "").strip().upper()
+    if not normalized_symbol:
+        return "Other"
+    if normalized_symbol in _SECTOR_HINTS:
+        return _SECTOR_HINTS[normalized_symbol]
+    asset = str(asset_class or "").strip().lower()
+    meta = metadata if isinstance(metadata, dict) else {}
+    explicit = str(meta.get("sector") or meta.get("theme") or "").strip()
+    if explicit:
+        return explicit.title()
+    if asset == "crypto" or normalized_symbol.endswith("-USD"):
+        return "Crypto"
+    if asset == "forex":
+        return "FX"
+    if normalized_symbol.startswith("X"):
+        return "ETF"
+    return "Other"
+
+
+def _current_policy_thresholds() -> dict[str, Any]:
+    settings = get_settings()
+    allocation = firm_orchestrator.allocation_policy_status()
+    policy = allocation.get("policy") if isinstance(allocation.get("policy"), dict) else {}
+    constraints = policy.get("constraints") if isinstance(policy.get("constraints"), dict) else {}
+    limits = _ADMIN_POLICY_THRESHOLD_OVERRIDES
+    return {
+        "max_order_notional_usd": round(
+            _safe_float(limits.get("max_order_notional_usd"), 0.0)
+            or _safe_float(getattr(settings, "DECISION_GATE_APPROVAL_NOTIONAL_USD", 0.0), 0.0)
+            or 100000.0,
+            2,
+        ),
+        "min_cash_reserve_pct": round(
+            _safe_float(limits.get("min_cash_reserve_pct"), 0.0)
+            or _safe_float(constraints.get("min_cash_reserve_pct"), 0.10),
+            4,
+        ),
+        "max_asset_class_exposure_pct": round(
+            _safe_float(limits.get("max_asset_class_exposure_pct"), 0.0)
+            or _safe_float(constraints.get("max_asset_class_exposure_pct"), 0.60),
+            4,
+        ),
+        "approval_logic": [
+            "Trades above the notional threshold require manual approval.",
+            "Illiquid assets and explicit policy overrides are always reviewed.",
+            "Lower-risk sells that reduce exposure can still pass automatically.",
+        ],
+    }
 
 
 def _infer_agent_role(agent_id: str, fallback: str = "researcher") -> str:
@@ -1622,6 +1759,214 @@ async def get_overview_pending_alerts():
         "alerts": items,
         "updated_at": _utc_now().isoformat(),
     }
+
+
+@router.get("/risk/var", response_model=dict)
+async def get_admin_risk_var():
+    equity = max(_portfolio_equity(), 1.0)
+    returns = _equity_returns(limit=90)
+    var_pct = abs(_percentile(returns, 0.05)) if returns else 0.0
+    avg_pct = (sum(abs(item) for item in returns) / len(returns)) if returns else 0.0
+    max_allowed_pct = _safe_float(getattr(getattr(risk, "var_guard", None), "max_var_pct", 0.05), 0.05)
+    return {
+        "current_var_usd": round(equity * var_pct, 2),
+        "current_var_pct": round(var_pct * 100.0, 2),
+        "historical_avg_var_usd": round(equity * avg_pct, 2),
+        "historical_avg_var_pct": round(avg_pct * 100.0, 2),
+        "max_allowed_usd": round(equity * max_allowed_pct, 2),
+        "max_allowed_pct": round(max_allowed_pct * 100.0, 2),
+        "margin_usd": round(max(0.0, equity * (max_allowed_pct - var_pct)), 2),
+        "updated_at": _utc_now().isoformat(),
+    }
+
+
+@router.get("/risk/cvar", response_model=dict)
+async def get_admin_risk_cvar():
+    equity = max(_portfolio_equity(), 1.0)
+    returns = _equity_returns(limit=90)
+    tail_cutoff = _percentile(returns, 0.05) if returns else 0.0
+    cvar_pct = abs(_tail_average(returns, tail_cutoff)) if returns else 0.0
+    max_allowed_pct = max(_safe_float(getattr(getattr(risk, "var_guard", None), "max_var_pct", 0.05), 0.05) * 1.6, 0.01)
+    return {
+        "current_cvar_usd": round(equity * cvar_pct, 2),
+        "current_cvar_pct": round(cvar_pct * 100.0, 2),
+        "max_allowed_usd": round(equity * max_allowed_pct, 2),
+        "max_allowed_pct": round(max_allowed_pct * 100.0, 2),
+        "interpretation": f"Worst 5% of sessions imply about {round(cvar_pct * 100.0, 2)}% average downside.",
+        "updated_at": _utc_now().isoformat(),
+    }
+
+
+@router.get("/risk/drawdown", response_model=dict)
+async def get_admin_risk_drawdown():
+    risk_state = risk.status()
+    breaker = risk_state.get("drawdown_breaker") if isinstance(risk_state.get("drawdown_breaker"), dict) else {}
+    snapshots = _performance_snapshot_rows(limit=120)
+    current_nav = _safe_float(risk_state.get("equity"), _portfolio_equity())
+    hwm_equity = current_nav
+    hwm_date = None
+    for row in snapshots:
+        equity = _safe_float(row.get("equity"), 0.0)
+        if equity >= hwm_equity:
+            hwm_equity = equity
+            hwm_date = row.get("recorded_at")
+    current_drawdown_pct = _safe_float(breaker.get("current_drawdown"), 0.0) * 100.0
+    return {
+        "current_drawdown_pct": round(current_drawdown_pct, 2),
+        "max_allowed_pct": round(_safe_float(breaker.get("max_drawdown_threshold"), 0.10) * 100.0, 2),
+        "margin_pct": round(max(0.0, (_safe_float(breaker.get("max_drawdown_threshold"), 0.10) * 100.0) - current_drawdown_pct), 2),
+        "high_water_mark_usd": round(hwm_equity, 2),
+        "high_water_mark_date": hwm_date,
+        "current_nav_usd": round(current_nav, 2),
+        "halted": bool(breaker.get("halted")),
+        "updated_at": _utc_now().isoformat(),
+    }
+
+
+@router.get("/risk/leverage", response_model=dict)
+async def get_admin_risk_leverage():
+    positions = _portfolio_positions()
+    equity = max(_portfolio_equity(), 1.0)
+    long_gross = 0.0
+    short_gross = 0.0
+    for item in positions:
+        quantity = _safe_float(item.get("qty") or item.get("quantity"), 0.0)
+        value = abs(_safe_float(item.get("market_value"), 0.0))
+        if quantity >= 0:
+            long_gross += value
+        else:
+            short_gross += value
+    gross_leverage = (long_gross + short_gross) / equity
+    return {
+        "current_gross_leverage": round(gross_leverage, 3),
+        "max_allowed_leverage": 1.5,
+        "margin_to_limit": round(max(0.0, 1.5 - gross_leverage), 3),
+        "long_gross": round(long_gross / equity, 3),
+        "short_gross": round(short_gross / equity, 3),
+        "updated_at": _utc_now().isoformat(),
+    }
+
+
+@router.get("/risk/sharpe", response_model=dict)
+async def get_admin_risk_sharpe():
+    summary = performance_tracker.summary()
+    track = summary.get("track_record") if isinstance(summary.get("track_record"), dict) else {}
+    rolling = _safe_float(track.get("sharpe_ratio"), 0.0)
+    returns = _equity_returns(limit=40)
+    monthly_return_pct = 0.0
+    if returns:
+        cumulative = 1.0
+        for item in returns[-30:]:
+            cumulative *= 1.0 + item
+        monthly_return_pct = (cumulative - 1.0) * 100.0
+    volatility_pct = 0.0
+    if returns:
+        mean = sum(returns) / len(returns)
+        variance = sum((item - mean) ** 2 for item in returns) / len(returns)
+        volatility_pct = math.sqrt(max(variance, 0.0)) * math.sqrt(252.0) * 100.0
+    return {
+        "rolling_30d": round(rolling, 2),
+        "target": 1.0,
+        "return_30d_pct": round(monthly_return_pct, 2),
+        "volatility_30d_pct": round(volatility_pct, 2),
+        "status": "healthy" if rolling >= 1.0 else "watch",
+        "updated_at": _utc_now().isoformat(),
+    }
+
+
+@router.get("/policy/sector_limits", response_model=dict)
+async def get_admin_policy_sector_limits():
+    positions = _portfolio_positions()
+    equity = max(_portfolio_equity(), 1.0)
+    max_pct = 40.0
+    buckets: dict[str, float] = {}
+    for item in positions:
+        symbol = str(item.get("symbol") or "").strip().upper()
+        sector = _infer_sector(symbol, item.get("asset_class"), item.get("metadata"))
+        buckets[sector] = buckets.get(sector, 0.0) + _safe_float(item.get("market_value"), 0.0)
+    rows = []
+    for sector, market_value in sorted(buckets.items(), key=lambda entry: entry[1], reverse=True):
+        allocation_pct = (market_value / equity) * 100.0 if equity > 0 else 0.0
+        rows.append(
+            {
+                "sector": sector,
+                "allocation_pct": round(allocation_pct, 2),
+                "max_pct": max_pct,
+                "margin_pct": round(max_pct - allocation_pct, 2),
+                "status": "breach" if allocation_pct > max_pct else "ok",
+            }
+        )
+    return {"rows": rows[:10], "updated_at": _utc_now().isoformat()}
+
+
+@router.get("/policy/position_limits", response_model=dict)
+async def get_admin_policy_position_limits():
+    positions = _portfolio_positions()
+    equity = max(_portfolio_equity(), 1.0)
+    largest_notional = 0.0
+    smallest_notional = 0.0
+    for item in positions:
+        market_value = abs(_safe_float(item.get("market_value"), 0.0))
+        if market_value <= 0:
+            continue
+        if largest_notional <= 0 or market_value > largest_notional:
+            largest_notional = market_value
+        if smallest_notional <= 0 or market_value < smallest_notional:
+            smallest_notional = market_value
+    return {
+        "max_single_position_pct": 8.0,
+        "current_max_position_pct": round((largest_notional / equity) * 100.0 if equity > 0 else 0.0, 2),
+        "min_trade_notional_usd": 10000.0,
+        "current_min_position_usd": round(smallest_notional, 2),
+        "updated_at": _utc_now().isoformat(),
+    }
+
+
+@router.get("/policy/approval-thresholds", response_model=dict)
+async def get_admin_policy_approval_thresholds():
+    thresholds = _current_policy_thresholds()
+    return {
+        **thresholds,
+        "updated_at": _utc_now().isoformat(),
+    }
+
+
+@router.put("/policy/approval-thresholds", response_model=dict)
+async def update_admin_policy_approval_thresholds(body: ApprovalThresholdsUpdateIn):
+    if body.max_order_notional_usd is not None:
+        _ADMIN_POLICY_THRESHOLD_OVERRIDES["max_order_notional_usd"] = round(body.max_order_notional_usd, 2)
+    if body.min_cash_reserve_pct is not None:
+        _ADMIN_POLICY_THRESHOLD_OVERRIDES["min_cash_reserve_pct"] = round(body.min_cash_reserve_pct, 4)
+    if body.max_asset_class_exposure_pct is not None:
+        _ADMIN_POLICY_THRESHOLD_OVERRIDES["max_asset_class_exposure_pct"] = round(body.max_asset_class_exposure_pct, 4)
+    _record_runtime_control_event(
+        action="policy_thresholds_update",
+        status="updated",
+        reason=body.reason,
+        payload=dict(_ADMIN_POLICY_THRESHOLD_OVERRIDES),
+    )
+    return {
+        "ok": True,
+        **_current_policy_thresholds(),
+    }
+
+
+@router.get("/risk/breach-history", response_model=dict)
+async def get_admin_risk_breach_history(limit: int = Query(default=12, ge=1, le=100)):
+    rows = firm_orchestrator.list_blocked_trades(limit=limit)
+    items = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        items.append(
+            {
+                "timestamp": row.get("ts") or row.get("created_at") or _utc_now().isoformat(),
+                "symbol": row.get("symbol") or row.get("details", {}).get("symbol") if isinstance(row.get("details"), dict) else row.get("symbol"),
+                "reason": row.get("reason") or row.get("details", {}).get("reason") if isinstance(row.get("details"), dict) else row.get("reason"),
+                "status": row.get("status") or "blocked",
+            }
+        )
+    return {"items": items, "updated_at": _utc_now().isoformat()}
 
 
 @router.get("/system/status-badges", response_model=dict)
