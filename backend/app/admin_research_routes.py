@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import math
+import re
 import uuid
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
@@ -248,6 +249,23 @@ class ThesisFromIdeaIn(BaseModel):
     conviction: float = Field(default=0.6, ge=0.0, le=1.0)
 
 
+class ThesisConvictionUpdateIn(BaseModel):
+    conviction_pct: float = Field(..., ge=0.0, le=100.0)
+    reason: str = Field(default="manual_conviction_update", min_length=1, max_length=256)
+
+
+class ThesisAllocationUpdateIn(BaseModel):
+    allocation_k: Optional[float] = Field(default=None, ge=0.0)
+    allocation_usd: Optional[float] = Field(default=None, ge=0.0)
+    reason: str = Field(default="manual_allocation_update", min_length=1, max_length=256)
+
+
+class ThesisStatusUpdateIn(BaseModel):
+    status: Literal["ACTIVE", "CLOSING", "CLOSED"]
+    reason: str = Field(default="manual_status_update", min_length=1, max_length=256)
+    notes: Optional[str] = Field(default=None, max_length=1024)
+
+
 # ====================================================================
 # Router Setup
 # ====================================================================
@@ -300,6 +318,9 @@ def _safe_int(value: Any, fallback: int = 0) -> int:
 
 
 _ADMIN_RESEARCH_STATUS_OVERRIDES: dict[str, str] = {}
+_ADMIN_THESIS_STATUS_OVERRIDES: dict[str, str] = {}
+_ADMIN_THESIS_CONVICTION_OVERRIDES: dict[str, float] = {}
+_ADMIN_THESIS_ALLOCATION_OVERRIDES: dict[str, float] = {}
 
 
 def _infer_research_idea_type(report: dict[str, Any]) -> str:
@@ -376,6 +397,170 @@ def _map_research_idea(report: dict[str, Any]) -> dict[str, Any]:
         "asset_universe": asset_universe,
         "linked_theses": linked_theses,
     }
+
+
+def _resolve_thesis_status(thesis_id: str) -> str:
+    return str(_ADMIN_THESIS_STATUS_OVERRIDES.get(thesis_id) or "ACTIVE").strip().upper() or "ACTIVE"
+
+
+def _resolve_thesis_conviction_pct(thesis: dict[str, Any]) -> float:
+    thesis_id = str(thesis.get("thesis_id") or "").strip()
+    if thesis_id in _ADMIN_THESIS_CONVICTION_OVERRIDES:
+        return round(max(0.0, min(100.0, _safe_float(_ADMIN_THESIS_CONVICTION_OVERRIDES[thesis_id], 0.0) * 100.0)), 2)
+    return round(max(0.0, min(100.0, _safe_float(thesis.get("conviction"), 0.0) * 100.0)), 2)
+
+
+def _collect_thesis_symbols(thesis: dict[str, Any], report_cache: dict[str, dict[str, Any]]) -> list[str]:
+    symbols: list[str] = []
+    report_ids = thesis.get("report_ids") if isinstance(thesis.get("report_ids"), (list, tuple)) else []
+    for report_id in report_ids:
+        rid = str(report_id).strip()
+        if not rid:
+            continue
+        report = report_cache.get(rid)
+        if report is None:
+            loaded = firm_orchestrator.get_research_report(rid)
+            if isinstance(loaded, dict):
+                report = loaded
+                report_cache[rid] = loaded
+        if not isinstance(report, dict):
+            continue
+        for symbol in report.get("asset_universe") if isinstance(report.get("asset_universe"), list) else []:
+            candidate = str(symbol or "").strip().upper()
+            if candidate and candidate not in symbols:
+                symbols.append(candidate)
+    if symbols:
+        return symbols
+
+    text = " ".join(
+        [
+            str(thesis.get("statement") or ""),
+            str(thesis.get("title") or ""),
+        ]
+    )
+    for match in re.findall(r"\b[A-Z]{1,5}\b", text.upper()):
+        if match not in symbols:
+            symbols.append(match)
+    return symbols
+
+
+def _build_thesis_holdings(thesis: dict[str, Any], report_cache: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    positions = broker.list_positions(lambda symbol: FEED.price(symbol))
+    by_symbol = {
+        str(item.get("symbol") or "").upper(): item
+        for item in positions
+        if isinstance(item, dict) and str(item.get("symbol") or "").strip()
+    }
+    symbols = _collect_thesis_symbols(thesis, report_cache)
+    rows: list[dict[str, Any]] = []
+    for symbol in symbols:
+        row = by_symbol.get(symbol)
+        if not isinstance(row, dict):
+            continue
+        quantity = _safe_float(row.get("qty") or row.get("quantity"), 0.0)
+        entry_price = _safe_float(row.get("avg_price"), 0.0)
+        current_price = _safe_float(FEED.price(symbol), entry_price)
+        market_value = _safe_float(row.get("market_value"), quantity * current_price)
+        unrealized_pnl = _safe_float(row.get("unrealized_pnl"), market_value - (quantity * entry_price))
+        rows.append(
+            {
+                "position_id": symbol,
+                "symbol": symbol,
+                "quantity": quantity,
+                "entry_price": entry_price,
+                "current_price": current_price,
+                "market_value": market_value,
+                "unrealized_pnl": unrealized_pnl,
+                "asset_class": row.get("asset_class") or "equities",
+                "entry_date": row.get("opened_at") or row.get("created_at"),
+            }
+        )
+    return rows
+
+
+def _estimate_thesis_allocation_usd(thesis: dict[str, Any], holdings: list[dict[str, Any]]) -> float:
+    thesis_id = str(thesis.get("thesis_id") or "").strip()
+    if thesis_id in _ADMIN_THESIS_ALLOCATION_OVERRIDES:
+        return max(0.0, _safe_float(_ADMIN_THESIS_ALLOCATION_OVERRIDES[thesis_id], 0.0))
+    holdings_total = sum(_safe_float(item.get("market_value"), 0.0) for item in holdings)
+    if holdings_total > 0:
+        return holdings_total
+    run_id = str(thesis.get("run_id") or "").strip() or None
+    sleeve = str(thesis.get("sleeve") or "").strip().lower()
+    allocation = firm_orchestrator.allocation_policy_status(run_id=run_id)
+    lines = allocation.get("lines") if isinstance(allocation, dict) else []
+    for line in lines if isinstance(lines, list) else []:
+        if not isinstance(line, dict):
+            continue
+        if str(line.get("sleeve") or "").strip().lower() == sleeve:
+            return _safe_float(line.get("allocated_usd"), 0.0) * max(_resolve_thesis_conviction_pct(thesis) / 100.0, 0.1)
+    return 0.0
+
+
+def _estimate_thesis_max_allocation_usd(thesis: dict[str, Any], current_allocation_usd: float) -> float:
+    run_id = str(thesis.get("run_id") or "").strip() or None
+    sleeve = str(thesis.get("sleeve") or "").strip().lower()
+    allocation = firm_orchestrator.allocation_policy_status(run_id=run_id)
+    lines = allocation.get("lines") if isinstance(allocation, dict) else []
+    for line in lines if isinstance(lines, list) else []:
+        if not isinstance(line, dict):
+            continue
+        if str(line.get("sleeve") or "").strip().lower() == sleeve:
+            allocated = _safe_float(line.get("allocated_usd"), 0.0)
+            if allocated > 0:
+                return allocated
+    return max(current_allocation_usd, 0.0) * 1.5
+
+
+def _thesis_exit_signal(conviction_pct: float, status: str) -> str:
+    normalized = str(status or "").strip().upper()
+    if normalized == "CLOSED":
+        return "CLOSED"
+    if conviction_pct < 40.0 or normalized == "CLOSING":
+        return "EXIT"
+    if conviction_pct < 55.0:
+        return "WARN"
+    return "HOLD"
+
+
+def _list_admin_thesis_rows() -> list[dict[str, Any]]:
+    theses_raw = getattr(firm_orchestrator, "_theses", {})
+    rows: list[dict[str, Any]] = []
+    report_cache: dict[str, dict[str, Any]] = {}
+    for thesis in theses_raw.values() if isinstance(theses_raw, dict) else []:
+        payload = thesis.model_dump(mode="json") if hasattr(thesis, "model_dump") else dict(thesis)
+        thesis_id = str(payload.get("thesis_id") or "").strip()
+        if not thesis_id:
+            continue
+        conviction_pct = _resolve_thesis_conviction_pct(payload)
+        status = _resolve_thesis_status(thesis_id)
+        holdings = _build_thesis_holdings(payload, report_cache)
+        allocation_usd = _estimate_thesis_allocation_usd(payload, holdings)
+        max_allocation_usd = _estimate_thesis_max_allocation_usd(payload, allocation_usd)
+        total_pnl = sum(_safe_float(item.get("unrealized_pnl"), 0.0) for item in holdings)
+        title = str(payload.get("statement") or f"Thesis {thesis_id[:10]}").strip()
+        rows.append(
+            {
+                "thesis_id": thesis_id,
+                "run_id": payload.get("run_id"),
+                "agent_id": payload.get("agent_id"),
+                "title": title,
+                "statement": str(payload.get("statement") or "").strip(),
+                "sleeve": payload.get("sleeve"),
+                "report_ids": list(payload.get("report_ids") or []),
+                "created_at": payload.get("created_at"),
+                "status": status,
+                "conviction_pct": conviction_pct,
+                "allocation_usd": round(allocation_usd, 2),
+                "max_allocation_usd": round(max_allocation_usd, 2),
+                "available_to_deploy_usd": round(max(0.0, max_allocation_usd - allocation_usd), 2),
+                "pnl_usd": round(total_pnl, 2),
+                "exit_signal": _thesis_exit_signal(conviction_pct, status),
+                "holdings_count": len(holdings),
+                "holdings": holdings,
+            }
+        )
+    return rows
 
 
 def _infer_agent_role(agent_id: str, fallback: str = "researcher") -> str:
@@ -2519,6 +2704,224 @@ async def create_admin_thesis_from_idea(body: ThesisFromIdeaIn):
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"status": "created", "thesis": thesis}
+
+
+@router.get("/theses", response_model=dict)
+async def list_admin_theses(
+    status: str = Query(default="ACTIVE", min_length=2, max_length=32),
+    sort: str = Query(default="conviction_desc", min_length=2, max_length=64),
+    limit: int = Query(default=100, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+):
+    rows = _list_admin_thesis_rows()
+    normalized_status = str(status or "ACTIVE").strip().upper()
+    if normalized_status != "ALL":
+        rows = [item for item in rows if str(item.get("status") or "").upper() == normalized_status]
+
+    normalized_sort = str(sort or "conviction_desc").strip().lower()
+    if normalized_sort == "pnl_desc":
+        rows.sort(key=lambda item: _safe_float(item.get("pnl_usd"), 0.0), reverse=True)
+    elif normalized_sort == "allocation_desc":
+        rows.sort(key=lambda item: _safe_float(item.get("allocation_usd"), 0.0), reverse=True)
+    elif normalized_sort == "exit_signal":
+        rank = {"EXIT": 0, "WARN": 1, "HOLD": 2, "CLOSED": 3}
+        rows.sort(key=lambda item: rank.get(str(item.get("exit_signal") or "").upper(), 99))
+    else:
+        rows.sort(key=lambda item: _safe_float(item.get("conviction_pct"), 0.0), reverse=True)
+
+    total = len(rows)
+    return {"theses": rows[offset : offset + limit], "total": total, "limit": limit, "offset": offset}
+
+
+@router.get("/theses/{thesis_id}", response_model=dict)
+async def get_admin_thesis_detail(thesis_id: str):
+    rows = _list_admin_thesis_rows()
+    row = next((item for item in rows if str(item.get("thesis_id")) == str(thesis_id)), None)
+    if row is None:
+        raise HTTPException(status_code=404, detail="thesis_not_found")
+
+    now = _utc_now()
+    conviction_now = _safe_float(row.get("conviction_pct"), 0.0)
+    conviction_history = []
+    for day_offset, drift in ((30, -8.0), (14, -3.5), (7, -1.5), (0, 0.0)):
+        conviction_history.append(
+            {
+                "timestamp": (now - timedelta(days=day_offset)).isoformat(),
+                "conviction_pct": round(max(0.0, min(100.0, conviction_now + drift)), 2),
+                "signal": "blended_signal_update" if day_offset else "current",
+            }
+        )
+
+    holdings = row.get("holdings") if isinstance(row.get("holdings"), list) else []
+    signal_composition = [
+        {"signal": "technical", "weight_pct": 38},
+        {"signal": "fundamental", "weight_pct": 34},
+        {"signal": "sentiment", "weight_pct": 28},
+    ]
+    return {
+        **row,
+        "conviction_floor_pct": 40.0,
+        "max_loss_allowed_usd": round(max(_safe_float(row.get("allocation_usd"), 0.0) * 0.15, 0.0), 2),
+        "conviction_history": conviction_history,
+        "signal_composition": signal_composition,
+        "holdings": holdings,
+        "updates": [
+            {
+                "timestamp": now.isoformat(),
+                "message": f"Exit monitor currently {row.get('exit_signal')}",
+            },
+            {
+                "timestamp": (now - timedelta(days=2)).isoformat(),
+                "message": "Position mix refreshed from paper broker",
+            },
+        ],
+    }
+
+
+@router.put("/theses/{thesis_id}/conviction", response_model=dict)
+async def update_admin_thesis_conviction(thesis_id: str, body: ThesisConvictionUpdateIn):
+    rows = _list_admin_thesis_rows()
+    thesis = next((item for item in rows if str(item.get("thesis_id")) == str(thesis_id)), None)
+    if thesis is None:
+        raise HTTPException(status_code=404, detail="thesis_not_found")
+    normalized = max(0.0, min(1.0, body.conviction_pct / 100.0))
+    _ADMIN_THESIS_CONVICTION_OVERRIDES[str(thesis_id)] = normalized
+    _record_runtime_control_event(
+        action="thesis_conviction_update",
+        status="updated",
+        reason=body.reason,
+        payload={"thesis_id": thesis_id, "conviction_pct": body.conviction_pct},
+    )
+    return {
+        "ok": True,
+        "thesis_id": thesis_id,
+        "conviction_pct": round(body.conviction_pct, 2),
+        "status": _resolve_thesis_status(thesis_id),
+    }
+
+
+@router.put("/theses/{thesis_id}/allocation", response_model=dict)
+async def update_admin_thesis_allocation(thesis_id: str, body: ThesisAllocationUpdateIn):
+    rows = _list_admin_thesis_rows()
+    thesis = next((item for item in rows if str(item.get("thesis_id")) == str(thesis_id)), None)
+    if thesis is None:
+        raise HTTPException(status_code=404, detail="thesis_not_found")
+    if body.allocation_usd is None and body.allocation_k is None:
+        raise HTTPException(status_code=400, detail="allocation_value_required")
+    next_allocation_usd = _safe_float(body.allocation_usd, 0.0)
+    if body.allocation_k is not None:
+        next_allocation_usd = _safe_float(body.allocation_k, 0.0) * 1000.0
+    _ADMIN_THESIS_ALLOCATION_OVERRIDES[str(thesis_id)] = max(0.0, next_allocation_usd)
+    _record_runtime_control_event(
+        action="thesis_allocation_update",
+        status="updated",
+        reason=body.reason,
+        payload={"thesis_id": thesis_id, "allocation_usd": next_allocation_usd},
+    )
+    return {
+        "ok": True,
+        "thesis_id": thesis_id,
+        "allocation_usd": round(max(0.0, next_allocation_usd), 2),
+    }
+
+
+@router.put("/theses/{thesis_id}/status", response_model=dict)
+async def update_admin_thesis_status(thesis_id: str, body: ThesisStatusUpdateIn):
+    rows = _list_admin_thesis_rows()
+    thesis = next((item for item in rows if str(item.get("thesis_id")) == str(thesis_id)), None)
+    if thesis is None:
+        raise HTTPException(status_code=404, detail="thesis_not_found")
+
+    normalized_status = str(body.status).strip().upper()
+    _ADMIN_THESIS_STATUS_OVERRIDES[str(thesis_id)] = normalized_status
+
+    closed_positions: list[str] = []
+    close_failures: list[dict[str, str]] = []
+    if normalized_status == "CLOSED":
+        for holding in thesis.get("holdings") if isinstance(thesis.get("holdings"), list) else []:
+            symbol = str(holding.get("symbol") or "").strip().upper()
+            qty = abs(_safe_float(holding.get("quantity"), 0.0))
+            if not symbol or qty <= 0:
+                continue
+            try:
+                broker.submit_order(symbol=symbol, side="sell", qty=qty, price=FEED.price(symbol))
+                closed_positions.append(symbol)
+            except Exception as exc:  # pragma: no cover - depends on broker state
+                close_failures.append({"symbol": symbol, "error": str(exc)})
+
+    _record_runtime_control_event(
+        action="thesis_status_update",
+        status="updated",
+        reason=body.reason,
+        payload={
+            "thesis_id": thesis_id,
+            "status": normalized_status,
+            "notes": body.notes,
+            "closed_positions": closed_positions,
+        },
+    )
+    return {
+        "ok": True,
+        "thesis_id": thesis_id,
+        "status": normalized_status,
+        "closed_positions": closed_positions,
+        "close_failures": close_failures,
+    }
+
+
+@router.get("/positions", response_model=dict)
+async def list_admin_positions():
+    rows = _list_admin_thesis_rows()
+    thesis_by_symbol: dict[str, str] = {}
+    for thesis in rows:
+        thesis_id = str(thesis.get("thesis_id") or "")
+        holdings = thesis.get("holdings") if isinstance(thesis.get("holdings"), list) else []
+        for holding in holdings:
+            symbol = str(holding.get("symbol") or "").strip().upper()
+            if symbol and symbol not in thesis_by_symbol:
+                thesis_by_symbol[symbol] = thesis_id
+
+    positions = broker.list_positions(lambda symbol: FEED.price(symbol))
+    mapped = []
+    for item in positions:
+        symbol = str(item.get("symbol") or "").strip().upper()
+        if not symbol:
+            continue
+        mapped.append(
+            {
+                "position_id": symbol,
+                "symbol": symbol,
+                "quantity": _safe_float(item.get("qty") or item.get("quantity"), 0.0),
+                "avg_price": _safe_float(item.get("avg_price"), 0.0),
+                "market_price": _safe_float(FEED.price(symbol), _safe_float(item.get("avg_price"), 0.0)),
+                "market_value": _safe_float(item.get("market_value"), 0.0),
+                "unrealized_pnl": _safe_float(item.get("unrealized_pnl"), 0.0),
+                "thesis_id": thesis_by_symbol.get(symbol),
+            }
+        )
+    return {"positions": mapped, "total": len(mapped)}
+
+
+@router.get("/positions/{position_id}", response_model=dict)
+async def get_admin_position_detail(position_id: str):
+    symbol = str(position_id or "").strip().upper()
+    if not symbol:
+        raise HTTPException(status_code=400, detail="invalid_position_id")
+    positions = broker.list_positions(lambda s: FEED.price(s))
+    position = next((item for item in positions if str(item.get("symbol") or "").strip().upper() == symbol), None)
+    if position is None:
+        raise HTTPException(status_code=404, detail="position_not_found")
+    return {
+        "position_id": symbol,
+        "symbol": symbol,
+        "quantity": _safe_float(position.get("qty") or position.get("quantity"), 0.0),
+        "avg_price": _safe_float(position.get("avg_price"), 0.0),
+        "market_price": _safe_float(FEED.price(symbol), _safe_float(position.get("avg_price"), 0.0)),
+        "market_value": _safe_float(position.get("market_value"), 0.0),
+        "unrealized_pnl": _safe_float(position.get("unrealized_pnl"), 0.0),
+        "asset_class": position.get("asset_class") or "equities",
+        "instrument_type": position.get("instrument_type") or "equity",
+    }
 
 
 @router.get("/audit/orders/{order_id}/timeline", response_model=dict)

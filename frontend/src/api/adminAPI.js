@@ -119,6 +119,52 @@ export const adminAPI = {
       body: JSON.stringify(payload),
     });
   },
+  getAdminTheses: async ({ status = "ACTIVE", sort = "conviction_desc", limit = 100, offset = 0 } = {}) => {
+    const params = new URLSearchParams();
+    params.set("status", status);
+    params.set("sort", sort);
+    params.set("limit", String(limit));
+    params.set("offset", String(offset));
+    return fetchJson(`${API_BASE}/admin/theses?${params.toString()}`);
+  },
+  getAdminThesisDetail: async (thesisId) => {
+    return fetchJson(`${API_BASE}/admin/theses/${encodeURIComponent(thesisId)}`);
+  },
+  updateAdminThesisConviction: async (thesisId, payload = {}) => {
+    return fetchJson(`${API_BASE}/admin/theses/${encodeURIComponent(thesisId)}/conviction`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        conviction_pct: payload.convictionPct ?? 50,
+        reason: payload.reason || "manual_conviction_update",
+      }),
+    });
+  },
+  updateAdminThesisAllocation: async (thesisId, payload = {}) => {
+    return fetchJson(`${API_BASE}/admin/theses/${encodeURIComponent(thesisId)}/allocation`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        allocation_k: payload.allocationK ?? null,
+        allocation_usd: payload.allocationUsd ?? null,
+        reason: payload.reason || "manual_allocation_update",
+      }),
+    });
+  },
+  updateAdminThesisStatus: async (thesisId, payload = {}) => {
+    return fetchJson(`${API_BASE}/admin/theses/${encodeURIComponent(thesisId)}/status`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        status: payload.status || "ACTIVE",
+        reason: payload.reason || "manual_status_update",
+        notes: payload.notes || null,
+      }),
+    });
+  },
+  getAdminPositions: async () => fetchJson(`${API_BASE}/admin/positions`),
+  getAdminPositionDetail: async (positionId) =>
+    fetchJson(`${API_BASE}/admin/positions/${encodeURIComponent(positionId)}`),
 
   getSystemStatusBadges: async () => {
     return fetchJson(`${API_BASE}/admin/system/status-badges`);

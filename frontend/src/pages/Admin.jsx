@@ -41,6 +41,7 @@ import PositionsPanel from '../components/admin/PositionsPanel';
 import ResearchDiscoveryPanel from '../components/admin/ResearchDiscoveryPanel';
 import RiskGauges from '../components/admin/RiskGauges';
 import SystemOverview from '../components/admin/SystemOverview';
+import ThesesPositionsPanel from '../components/admin/ThesesPositionsPanel';
 import TradingViewWidget from '../components/TradingViewWidget';
 
 const backendTarget = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
@@ -3795,7 +3796,7 @@ export default function Admin() {
       case 'research':
         return renderResearchDesk();
       case 'positions':
-        return renderPositions();
+        return <ThesesPositionsPanel onNavigate={setActiveTab} />;
       case 'market':
         return renderMarketWatch();
       case 'agents':
