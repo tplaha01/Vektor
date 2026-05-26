@@ -23,7 +23,7 @@ from app.fund.agent_runtime import fund_agent_runtime
 from app.fund.audit_log import audit_log
 from app.fund.blog_service import blog_service
 from app.fund.ceo_service import vektor_ceo_service
-from app.fund.contracts import ProvenanceRef, ResearchReport as ContractResearchReport
+from app.fund.contracts import ProvenanceRef, ResearchReport as ContractResearchReport, Sleeve
 from app.fund.decision_ledger import decision_ledger
 from app.fund.knowledge_graph import knowledge_graph
 from app.fund.orchestrator import firm_orchestrator
@@ -234,6 +234,20 @@ class FunctionalVerifyIn(BaseModel):
     timeout_seconds: int = Field(default=45, ge=5, le=180)
 
 
+class ResearchIdeaUpdateIn(BaseModel):
+    status: Literal["ACTIVE", "ARCHIVED", "REJECTED"]
+    reason: str = Field(default="manual_update", min_length=1, max_length=256)
+
+
+class ThesisFromIdeaIn(BaseModel):
+    report_id: str = Field(..., min_length=3, max_length=256)
+    run_id: Optional[str] = Field(default=None, min_length=3, max_length=128)
+    agent_id: str = Field(default="ceo", min_length=2, max_length=128)
+    sleeve: Literal["long_term", "recurring", "tactical"] = "tactical"
+    statement: str = Field(..., min_length=5, max_length=2000)
+    conviction: float = Field(default=0.6, ge=0.0, le=1.0)
+
+
 # ====================================================================
 # Router Setup
 # ====================================================================
@@ -283,6 +297,85 @@ def _safe_int(value: Any, fallback: int = 0) -> int:
         return int(value)
     except Exception:
         return fallback
+
+
+_ADMIN_RESEARCH_STATUS_OVERRIDES: dict[str, str] = {}
+
+
+def _infer_research_idea_type(report: dict[str, Any]) -> str:
+    text = " ".join(
+        [
+            str(report.get("title") or ""),
+            str(report.get("summary") or ""),
+            " ".join(str(item) for item in (report.get("findings") or [])),
+        ]
+    ).lower()
+    if any(token in text for token in ("fed", "macro", "inflation", "rates", "policy")):
+        return "MACRO"
+    if any(token in text for token in ("sector", "industry", "rotation")):
+        return "SECTOR"
+    if any(token in text for token in ("balance sheet", "earnings", "valuation", "fundamental")):
+        return "FUNDAMENTAL"
+    if any(token in text for token in ("momentum", "breakout", "rsi", "technical", "chart")):
+        return "TECHNICAL"
+    if any(token in text for token in ("event", "catalyst", "announcement")):
+        return "EVENT"
+    return "FUNDAMENTAL"
+
+
+def _infer_research_idea_source(report: dict[str, Any]) -> str:
+    agent_role = str(report.get("agent_role") or report.get("agent_id") or "").lower()
+    if "ceo" in agent_role:
+        return "CEO_INPUT"
+    if "scan" in agent_role or "market" in agent_role:
+        return "MARKET_SCAN"
+    return "AGENT_DISCOVERY"
+
+
+def _research_idea_status(report: dict[str, Any]) -> str:
+    report_id = str(report.get("report_id") or "").strip()
+    overridden = _ADMIN_RESEARCH_STATUS_OVERRIDES.get(report_id)
+    if overridden:
+        return overridden
+    return "ACTIVE"
+
+
+def _map_research_idea(report: dict[str, Any]) -> dict[str, Any]:
+    report_id = str(report.get("report_id") or "").strip()
+    created_at = _to_datetime(report.get("created_at"))
+    days_live = max(int((_utc_now() - created_at).total_seconds() // 86400), 0)
+    conviction = round(_safe_float(report.get("confidence"), 0.0) * 100.0, 2)
+    findings = report.get("findings") if isinstance(report.get("findings"), list) else []
+    asset_universe = report.get("asset_universe") if isinstance(report.get("asset_universe"), list) else []
+    title = str(report.get("title") or report.get("summary") or report_id or "Untitled idea").strip()
+    status = _research_idea_status(report)
+    idea_type = _infer_research_idea_type(report)
+    source = _infer_research_idea_source(report)
+    linked_theses = [
+        str(ref.get("source_id"))
+        for ref in (report.get("provenance") if isinstance(report.get("provenance"), list) else [])
+        if isinstance(ref, dict) and str(ref.get("source_type") or "").lower() == "thesis"
+    ]
+
+    return {
+        "idea_id": report_id,
+        "report_id": report_id,
+        "run_id": report.get("run_id"),
+        "title": title,
+        "summary": str(report.get("summary") or "").strip(),
+        "type": idea_type,
+        "source": source,
+        "status": status,
+        "conviction": conviction,
+        "days_live": days_live,
+        "agent_id": report.get("agent_id"),
+        "agent_role": report.get("agent_role"),
+        "created_at": created_at.isoformat(),
+        "updated_at": created_at.isoformat(),
+        "signals": findings[:12],
+        "asset_universe": asset_universe,
+        "linked_theses": linked_theses,
+    }
 
 
 def _infer_agent_role(agent_id: str, fallback: str = "researcher") -> str:
@@ -2331,6 +2424,101 @@ async def get_operator_crm(
             "blocked": firm_orchestrator.list_blocked_trades(limit=task_limit),
         },
     }
+
+
+@router.get("/research/ideas", response_model=dict)
+async def get_admin_research_ideas(
+    status: str | None = Query(default=None, min_length=2, max_length=64),
+    idea_type: str | None = Query(default=None, min_length=2, max_length=64, alias="type"),
+    conviction_band: str | None = Query(default=None, min_length=2, max_length=32),
+    source: str | None = Query(default=None, min_length=2, max_length=64),
+    search: str | None = Query(default=None, min_length=1, max_length=128),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+):
+    raw = firm_orchestrator.list_recent_research_reports(limit=max(limit + offset, limit))
+    task_history_cache: dict[str, list[dict[str, Any]]] = {}
+    ideas = [_map_research_idea(_map_live_report(item, task_history_cache=task_history_cache).model_dump(mode="json")) for item in raw]
+
+    if status:
+        status_upper = status.strip().upper()
+        ideas = [item for item in ideas if str(item.get("status") or "").upper() == status_upper]
+    if idea_type:
+        type_upper = idea_type.strip().upper()
+        ideas = [item for item in ideas if str(item.get("type") or "").upper() == type_upper]
+    if source:
+        source_upper = source.strip().upper()
+        ideas = [item for item in ideas if str(item.get("source") or "").upper() == source_upper]
+    if conviction_band:
+        band = conviction_band.strip().upper()
+        if band == "HIGH":
+            ideas = [item for item in ideas if _safe_float(item.get("conviction"), 0.0) >= 60.0]
+        elif band == "MEDIUM":
+            ideas = [item for item in ideas if 40.0 <= _safe_float(item.get("conviction"), 0.0) < 60.0]
+        elif band == "LOW":
+            ideas = [item for item in ideas if _safe_float(item.get("conviction"), 0.0) < 40.0]
+    if search:
+        needle = search.strip().lower()
+        ideas = [
+            item
+            for item in ideas
+            if needle in str(item.get("title") or "").lower() or needle in str(item.get("summary") or "").lower()
+        ]
+
+    ideas.sort(key=lambda row: str(row.get("created_at") or ""), reverse=True)
+    total = len(ideas)
+    paged = ideas[offset : offset + limit]
+    return {"ideas": paged, "total": total, "limit": limit, "offset": offset}
+
+
+@router.get("/research/ideas/{idea_id}", response_model=dict)
+async def get_admin_research_idea_detail(idea_id: str):
+    report = firm_orchestrator.get_research_report(idea_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail="research_idea_not_found")
+    mapped = _map_research_idea(_map_live_report(report).model_dump(mode="json"))
+    return {
+        **mapped,
+        "lineage_path": f"/api/admin/lineage/run/{mapped.get('run_id')}" if mapped.get("run_id") else None,
+        "detail_path": f"/api/research/reports/{mapped.get('report_id')}",
+    }
+
+
+@router.put("/research/ideas/{idea_id}", response_model=dict)
+async def update_admin_research_idea(idea_id: str, body: ResearchIdeaUpdateIn):
+    report = firm_orchestrator.get_research_report(idea_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail="research_idea_not_found")
+    normalized_status = body.status.strip().upper()
+    _ADMIN_RESEARCH_STATUS_OVERRIDES[str(idea_id)] = normalized_status
+    _record_runtime_control_event(
+        action="research_idea_update",
+        status="updated",
+        reason=body.reason,
+        payload={"idea_id": idea_id, "status": normalized_status},
+    )
+    return {"ok": True, "idea_id": idea_id, "status": normalized_status}
+
+
+@router.post("/theses", response_model=dict)
+async def create_admin_thesis_from_idea(body: ThesisFromIdeaIn):
+    report = firm_orchestrator.get_research_report(body.report_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail="research_report_not_found")
+
+    run_id = body.run_id or str(report.get("run_id") or f"run-admin-thesis-{uuid.uuid4().hex[:10]}")
+    try:
+        thesis = firm_orchestrator.create_thesis(
+            run_id=run_id,
+            agent_id=body.agent_id,
+            sleeve=Sleeve(body.sleeve),
+            report_ids=[body.report_id],
+            statement=body.statement,
+            conviction=Decimal(str(body.conviction)),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"status": "created", "thesis": thesis}
 
 
 @router.get("/audit/orders/{order_id}/timeline", response_model=dict)

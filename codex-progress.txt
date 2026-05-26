@@ -1,6 +1,6 @@
 # Codex Progress Log
 
-Last updated: 2026-05-25T23:24:26Z
+Last updated: 2026-05-26T09:53:37Z
 
 ## Session Summary
 - Established Codex-only long-running workflow naming and required files.
@@ -52,6 +52,15 @@ Last updated: 2026-05-25T23:24:26Z
 - Added `frontend/src/components/admin/OverviewPanel.jsx` and wired it into the `control` tab to surface KPI tiles, runtime/portfolio/risk summaries, active alerts, and quick navigation actions.
 - Added focused backend regression coverage in `backend/tests/test_admin_overview_endpoints.py` and validated with `py -3 -m pytest backend/tests/test_admin_overview_endpoints.py -q` (2 passed).
 - Verified frontend integration with `npm run build` in `frontend/` (Vite build succeeded).
+- Implemented Admin Control Center Panel 2 (Research & Discovery) as the next component slice.
+- Added admin research endpoints for ideas queue/detail/update and thesis conversion:
+  - `GET /api/admin/research/ideas`
+  - `GET /api/admin/research/ideas/{idea_id}`
+  - `PUT /api/admin/research/ideas/{idea_id}`
+  - `POST /api/admin/theses`
+- Added frontend `ResearchDiscoveryPanel` and wired a new `Research` nav tab in `Admin.jsx` for filter/search, inspect, archive, and create-thesis actions.
+- Added focused backend regression `backend/tests/test_admin_research_ideas_endpoints.py` and validated with `py -3 -m pytest backend/tests/test_admin_research_ideas_endpoints.py -q` (2 passed).
+- Revalidated frontend build after integration with `npm run build` in `frontend/` (Vite build succeeded).
 
 ## Completed Tests
 - 14/200 tests passing

@@ -38,6 +38,7 @@ import KnowledgeTraceGraph from '../components/admin/KnowledgeTraceGraph';
 import LineagePanel from '../components/admin/LineagePanel';
 import OverviewPanel from '../components/admin/OverviewPanel';
 import PositionsPanel from '../components/admin/PositionsPanel';
+import ResearchDiscoveryPanel from '../components/admin/ResearchDiscoveryPanel';
 import RiskGauges from '../components/admin/RiskGauges';
 import SystemOverview from '../components/admin/SystemOverview';
 import TradingViewWidget from '../components/TradingViewWidget';
@@ -54,6 +55,12 @@ const navigationItems = [
     label: 'Control',
     icon: Sigma,
     description: 'Executive command deck',
+  },
+  {
+    id: 'research',
+    label: 'Research',
+    icon: FileText,
+    description: 'Discovery ideas and thesis intake',
   },
   {
     id: 'positions',
@@ -2490,6 +2497,8 @@ export default function Admin() {
 
   const renderWarRoom = () => renderOverview();
 
+  const renderResearchDesk = () => <ResearchDiscoveryPanel onNavigate={setActiveTab} />;
+
   const renderAgents = () => (
     <>
       <div className="ops-grid ops-grid-overview">
@@ -3783,6 +3792,8 @@ export default function Admin() {
     switch (activeTab) {
       case 'control':
         return renderControlCenter();
+      case 'research':
+        return renderResearchDesk();
       case 'positions':
         return renderPositions();
       case 'market':

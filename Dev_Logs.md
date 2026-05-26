@@ -8835,3 +8835,53 @@ files:
 - knowledge_graph/events.jsonl
 validation: py -3 -m pytest backend/tests/test_admin_overview_endpoints.py -q (2 passed); npm run build (frontend) succeeded.
 notes: Added 8 Overview API endpoints (/fund/nav, /fund/monthly-pnl, /fund/sharpe, /fund/drawdown, /runtime/status, /portfolio/exposure, /risk/status, /alerts/pending) plus React Overview panel with KPI/status/alerts/quick actions wired into Control tab.
+
+[2026-05-26T09:53:15.2100161Z] [START]
+entry_id: devlog-20260526-vektor-admin-research-panel2
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260526-vektor-admin-research-panel2
+git_branch: codex/main
+git_commit_start: 113387e05a11e9b361e9d7fea820412ba3e5804e
+git_commit_end:
+scope: Build Vektor Admin Control Center Panel 2 (Research & Discovery) with admin ideas endpoints and operator surface.
+active_phase: phase_alpha_backend_ops
+files:
+- backend/app/admin_research_routes.py
+- backend/tests/test_admin_research_ideas_endpoints.py
+- frontend/src/api/adminAPI.js
+- frontend/src/components/admin/ResearchDiscoveryPanel.jsx
+- frontend/src/pages/Admin.jsx
+- frontend/src/styles/admin-portal.css
+- Dev_Logs.md
+- codex-progress.txt
+- knowledge_graph/events.jsonl
+validation: in_progress
+notes: Implementing filterable research ideas queue, detail drill-down, archive action, and thesis creation action from admin.
+
+[2026-05-26T09:53:37.5002807Z] [END]
+entry_id: devlog-20260526-vektor-admin-research-panel2
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260526-vektor-admin-research-panel2
+git_branch: codex/main
+git_commit_start: 113387e05a11e9b361e9d7fea820412ba3e5804e
+git_commit_end: pending_session_handoff_commit
+scope: Build Vektor Admin Control Center Panel 2 (Research & Discovery) with admin ideas endpoints and operator surface.
+active_phase: phase_alpha_backend_ops
+files:
+- backend/app/admin_research_routes.py
+- backend/tests/test_admin_research_ideas_endpoints.py
+- frontend/src/api/adminAPI.js
+- frontend/src/components/admin/ResearchDiscoveryPanel.jsx
+- frontend/src/pages/Admin.jsx
+- frontend/src/styles/admin-portal.css
+- Dev_Logs.md
+- codex-progress.txt
+- knowledge_graph/events.jsonl
+validation: py -3 -m pytest backend/tests/test_admin_research_ideas_endpoints.py -q (2 passed); npm run build (frontend) succeeded.
+notes: Added admin research ideas API (`/api/admin/research/ideas`, `/api/admin/research/ideas/{idea_id}`, `/api/admin/theses`) and new `ResearchDiscoveryPanel` with filters, inspect, archive, and thesis conversion actions wired into Admin navigation.

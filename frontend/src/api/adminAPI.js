@@ -80,6 +80,45 @@ export const adminAPI = {
   getOverviewPendingAlerts: async () => {
     return fetchJson(`${API_BASE}/admin/alerts/pending`);
   },
+  getAdminResearchIdeas: async ({
+    status = "",
+    type = "",
+    convictionBand = "",
+    source = "",
+    search = "",
+    limit = 50,
+    offset = 0,
+  } = {}) => {
+    const params = new URLSearchParams();
+    params.set("limit", String(limit));
+    params.set("offset", String(offset));
+    if (status) params.set("status", status);
+    if (type) params.set("type", type);
+    if (convictionBand) params.set("conviction_band", convictionBand);
+    if (source) params.set("source", source);
+    if (search) params.set("search", search);
+    return fetchJson(`${API_BASE}/admin/research/ideas?${params.toString()}`);
+  },
+  getAdminResearchIdeaDetail: async (ideaId) => {
+    return fetchJson(`${API_BASE}/admin/research/ideas/${encodeURIComponent(ideaId)}`);
+  },
+  updateAdminResearchIdea: async (ideaId, payload = {}) => {
+    return fetchJson(`${API_BASE}/admin/research/ideas/${encodeURIComponent(ideaId)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        status: payload.status || "ACTIVE",
+        reason: payload.reason || "manual_update",
+      }),
+    });
+  },
+  createAdminThesis: async (payload = {}) => {
+    return fetchJson(`${API_BASE}/admin/theses`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  },
 
   getSystemStatusBadges: async () => {
     return fetchJson(`${API_BASE}/admin/system/status-badges`);
