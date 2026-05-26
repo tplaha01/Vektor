@@ -117,7 +117,7 @@ const LineagePanel = ({ limit = 20 }) => {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => {
+            {rows.map((row, index) => {
               const blocked = Array.isArray(row.blocked_reasons) ? row.blocked_reasons : [];
               const blogPosts = Array.isArray(row.blog_post_ids) ? row.blog_post_ids : [];
               const analystCompleted = Number(row.analyst_completed || 0);
@@ -125,7 +125,7 @@ const LineagePanel = ({ limit = 20 }) => {
               const analystPct = analystExpected > 0 ? Math.round((analystCompleted / analystExpected) * 100) : 0;
 
               return (
-                <tr key={row.run_id}>
+                <tr key={`${row.run_id || 'run'}-${row.updated_at || 'na'}-${index}`}>
                   <td className="lineage-id" title={row.run_id}>
                     {shortId(row.run_id, 20)}
                   </td>
@@ -234,8 +234,8 @@ const LineagePanel = ({ limit = 20 }) => {
               <section className="lineage-detail-card lineage-detail-wide">
                 <h5>Audit Timeline</h5>
                 <div className="lineage-event-list">
-                  {(detail.audit_timeline || []).slice(-20).map((evt) => (
-                    <div key={`${evt.event_id}-${evt.timestamp}`} className="lineage-event-row">
+                  {(detail.audit_timeline || []).slice(-20).map((evt, index) => (
+                    <div key={`${evt.event_id || evt.event_type || 'audit'}-${evt.timestamp || 'na'}-${index}`} className="lineage-event-row">
                       <code>{evt.event_type || 'event'}</code>
                       <span>{evt.timestamp ? new Date(evt.timestamp).toLocaleString() : 'n/a'}</span>
                     </div>
@@ -249,8 +249,8 @@ const LineagePanel = ({ limit = 20 }) => {
               <section className="lineage-detail-card lineage-detail-wide">
                 <h5>Task Events</h5>
                 <div className="lineage-event-list">
-                  {(detail.task_events || []).slice(0, 40).map((evt) => (
-                    <div key={`${evt.task_id}-${evt.timestamp}-${evt.event}`} className="lineage-event-row">
+                  {(detail.task_events || []).slice(0, 40).map((evt, index) => (
+                    <div key={`${evt.task_id || evt.run_id || evt.role || 'task'}-${evt.timestamp || 'na'}-${evt.event || 'event'}-${index}`} className="lineage-event-row">
                       <span>{evt.role} · {evt.status}</span>
                       <span>{evt.event}</span>
                       <span>{evt.timestamp ? new Date(evt.timestamp).toLocaleString() : 'n/a'}</span>

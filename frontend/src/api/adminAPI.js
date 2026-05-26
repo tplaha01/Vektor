@@ -56,6 +56,30 @@ export const adminAPI = {
   getMetricsSummary: async () => {
     return fetchJson(`${API_BASE}/admin/metrics/summary`);
   },
+  getOverviewNav: async () => {
+    return fetchJson(`${API_BASE}/admin/fund/nav`);
+  },
+  getOverviewMonthlyPnl: async () => {
+    return fetchJson(`${API_BASE}/admin/fund/monthly-pnl`);
+  },
+  getOverviewSharpe: async () => {
+    return fetchJson(`${API_BASE}/admin/fund/sharpe`);
+  },
+  getOverviewDrawdown: async () => {
+    return fetchJson(`${API_BASE}/admin/fund/drawdown`);
+  },
+  getOverviewRuntimeStatus: async () => {
+    return fetchJson(`${API_BASE}/admin/runtime/status`);
+  },
+  getOverviewPortfolioExposure: async () => {
+    return fetchJson(`${API_BASE}/admin/portfolio/exposure`);
+  },
+  getOverviewRiskStatus: async () => {
+    return fetchJson(`${API_BASE}/admin/risk/status`);
+  },
+  getOverviewPendingAlerts: async () => {
+    return fetchJson(`${API_BASE}/admin/alerts/pending`);
+  },
 
   getSystemStatusBadges: async () => {
     return fetchJson(`${API_BASE}/admin/system/status-badges`);
@@ -117,6 +141,19 @@ export const adminAPI = {
       body: JSON.stringify({
         starting_cash_usd: payload.startingCashUsd ?? 100000,
         reason: payload.reason || "clean_inception_reset",
+      }),
+    });
+  },
+  updatePaperBrokerCapital: async (payload = {}) => {
+    return fetchJson(`${API_BASE}/admin/system/paper-broker/capital`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        amount_usd: payload.amountUsd ?? null,
+        target_cash_usd: payload.targetCashUsd ?? null,
+        clear_positions: payload.clearPositions ?? false,
+        clear_orders: payload.clearOrders ?? false,
+        reason: payload.reason || "manual_paper_capital_update",
       }),
     });
   },

@@ -2,9 +2,8 @@
 
 approval_policy = "on-request"
 sandbox_mode = "workspace-write"
-web_search = "live"
 
-persistent_instructions = "Operate as a paper-first AI-native hedge fund builder. Use docs/AI_NATIVE_HEDGE_FUND_AUDIT_AND_ROADMAP.md as source of truth. Use planner for low-cost planning, executor for higher-cost implementation, and refresh the codebase-memory index after each completed run."
+persistent_instructions = "Operate as a paper-first AI-native hedge fund builder. Use docs/AI_NATIVE_HEDGE_FUND_AUDIT_AND_ROADMAP.md as source of truth. Use planner for low-cost planning, executor for higher-cost implementation Respond concisely and avoid narrating internal planning unless explicitly requested."
 
 [session_bootstrap]
 required_command = "powershell -ExecutionPolicy Bypass -File scripts/session-bootstrap.ps1 -CountRemaining"
@@ -17,8 +16,8 @@ required_files = ["app_spec.txt", "feature_list.json", "codex-progress.txt"]
 multi_agent = true
 
 [agents]
-max_threads = 8
-max_depth = 2
+max_threads = 1
+max_depth = 1
 
 [agents.explorer]
 description = "Read-only codebase mapping and execution-path tracing."

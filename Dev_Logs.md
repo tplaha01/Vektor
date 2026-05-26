@@ -8667,3 +8667,171 @@ files:
 - knowledge_graph/events.jsonl
 validation: required file gate passed; `/health` returned `status=ok`; `/data-pipeline/status` returned `enabled=true` and `running=true`; `/signals/generate` for `AAPL` returned technical, fundamental, sentiment, ML, meta-intent, and explicit policy diagnostics; focused backend pytest passed (2 passed).
 notes: Closed the duplicated compliance batch `#5` through `#14` together after the live signal response produced an explicit `hold` with policy rejections (`confidence_below_threshold`, `expected_utility_below_threshold`, `fundamentals_timestamp_missing`, `stale_market_data`) and no silent fallback path.
+
+[2026-05-24T23:59:08.0000000Z] [START]
+entry_id: devlog-20260524-frontend-admin-shell-repair
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260524-frontend-admin-shell-repair
+git_branch: codex/main
+git_commit_start: da73c6ba10a68d0e3044a10f41302695dc61b8a8
+git_commit_end:
+scope: Repair the `/admin` operator shell so scrolling works again and the live sidebar can collapse in the current `ops-*` layout.
+active_phase: phase_alpha_frontend_ops
+files:
+- frontend/src/pages/Admin.jsx
+- frontend/src/styles/admin-portal.css
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: in_progress
+notes: Reproducing the broken admin shell with Playwright first, then fixing the live `ops-*` layout instead of the stale legacy sidebar CSS.
+
+[2026-05-25T00:05:56.3834316Z] [END]
+entry_id: devlog-20260524-frontend-admin-shell-repair
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260524-frontend-admin-shell-repair
+git_branch: codex/main
+git_commit_start: da73c6ba10a68d0e3044a10f41302695dc61b8a8
+git_commit_end: da73c6ba10a68d0e3044a10f41302695dc61b8a8
+scope: Repair the `/admin` operator shell so scrolling works again and the live sidebar can collapse in the current `ops-*` layout.
+active_phase: phase_alpha_frontend_ops
+files:
+- frontend/src/pages/Admin.jsx
+- frontend/src/styles/admin-portal.css
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: frontend `npm run build` passed; Playwright verified the `/admin` sidebar collapse toggle and confirmed the admin shell scrolls after wheel input.
+notes: The admin surface now owns its own scroll containers, the desktop sidebar collapse state persists across reloads, and the fix was validated against the live local frontend at `http://127.0.0.1:9000/admin`.
+
+[2026-05-25T09:20:00.0000000Z] [START]
+entry_id: devlog-20260525-vektor-repo-capability-audit
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260525-vektor-repo-capability-audit
+git_branch: codex/main
+git_commit_start: da73c6ba10a68d0e3044a10f41302695dc61b8a8
+git_commit_end:
+scope: Audit the TradingBot repository and assess what Vektor can already do versus its stated AI-native hedge fund mission.
+active_phase: phase_alpha_backend_ops
+files:
+- Vektor.md
+- README.md
+- docs/VEKTOR_PHASED_EXECUTION_PLAN.md
+- docs/VEKTOR_OFFICIAL_PROGRAM_DOCUMENT.md
+- docs/VEKTOR_TECHNICAL_HANDBOOK.md
+- backend/app/fund/agent_runtime.py
+- backend/app/fund/orchestrator.py
+- backend/app/fund/policy_gate.py
+- backend/app/fund/ai_role_adapter.py
+- backend/app/fund/approval_center.py
+- backend/app/fund/performance_tracker.py
+- backend/app/data_pipeline/service.py
+- backend/tests/test_fund_pipeline.py
+- backend/tests/test_fund_agent_runtime.py
+- backend/tests/test_fund_policy_gate.py
+- backend/tests/test_fund_allocator.py
+- backend/tests/test_ai_role_adapter.py
+- backend/tests/test_openclaw_command_adapter.py
+- backend/tests/test_data_pipeline.py
+- backend/tests/test_execution_adapter.py
+- backend/tests/test_performance_tracker.py
+- backend/tests/test_admin_metrics_summary.py
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: in_progress
+notes: Read-only capability audit using the codebase-memory graph first, then focused backend tests to separate implemented fund-OS behavior from roadmap-only claims.
+
+[2026-05-25T09:32:44.7302579Z] [END]
+entry_id: devlog-20260525-vektor-repo-capability-audit
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260525-vektor-repo-capability-audit
+git_branch: codex/main
+git_commit_start: da73c6ba10a68d0e3044a10f41302695dc61b8a8
+git_commit_end: da73c6ba10a68d0e3044a10f41302695dc61b8a8
+scope: Audit the TradingBot repository and assess what Vektor can already do versus its stated AI-native hedge fund mission.
+active_phase: phase_alpha_backend_ops
+files:
+- Vektor.md
+- README.md
+- docs/VEKTOR_PHASED_EXECUTION_PLAN.md
+- docs/VEKTOR_OFFICIAL_PROGRAM_DOCUMENT.md
+- docs/VEKTOR_TECHNICAL_HANDBOOK.md
+- backend/app/fund/agent_runtime.py
+- backend/app/fund/orchestrator.py
+- backend/app/fund/policy_gate.py
+- backend/app/fund/ai_role_adapter.py
+- backend/app/fund/approval_center.py
+- backend/app/fund/performance_tracker.py
+- backend/app/data_pipeline/service.py
+- backend/tests/test_fund_pipeline.py
+- backend/tests/test_fund_agent_runtime.py
+- backend/tests/test_fund_policy_gate.py
+- backend/tests/test_fund_allocator.py
+- backend/tests/test_ai_role_adapter.py
+- backend/tests/test_openclaw_command_adapter.py
+- backend/tests/test_data_pipeline.py
+- backend/tests/test_execution_adapter.py
+- backend/tests/test_performance_tracker.py
+- backend/tests/test_admin_metrics_summary.py
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: backend pytest passed for 73 tests total across fund pipeline/runtime/policy gate/allocator/AI routing/OpenClaw/data pipeline/execution adapter/performance tracker/admin metrics; audit remained read-only.
+notes: The code now credibly supports a paper-first fund operating stack with research-to-thesis-to-risk-to-paper-execution lineage, hosted multi-vendor role routing, OpenClaw CEO command orchestration, discovery/no-trade handling, and performance/knowledge tracking, but the repo’s own Phase Alpha docs still mark the system incomplete pending soak validation, stronger discovery/world scanning, ML feedback loops, deeper post-trade risk behavior, and hardened long-running deployment.
+
+[2026-05-25T23:23:37.3404865Z] [START]
+entry_id: devlog-20260525-vektor-admin-overview-panel1
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260525-vektor-admin-overview-panel1
+git_branch: codex/main
+git_commit_start: da73c6ba10a68d0e3044a10f41302695dc61b8a8
+git_commit_end:
+scope: Build Vektor Admin Control Center Panel 1 (Overview) with FastAPI endpoints and React operator surface wiring.
+active_phase: phase_alpha_backend_ops
+files:
+- backend/app/admin_research_routes.py
+- backend/tests/test_admin_overview_endpoints.py
+- frontend/src/api/adminAPI.js
+- frontend/src/components/admin/OverviewPanel.jsx
+- frontend/src/pages/Admin.jsx
+- frontend/src/styles/admin-portal.css
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: in_progress
+notes: Implementing the first long-running harness task slice for the admin control center spec: overview KPI/status/alerts endpoints plus frontend panel integration and quick-action routing.
+
+[2026-05-25T23:24:26.6547403Z] [END]
+entry_id: devlog-20260525-vektor-admin-overview-panel1
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260525-vektor-admin-overview-panel1
+git_branch: codex/main
+git_commit_start: da73c6ba10a68d0e3044a10f41302695dc61b8a8
+git_commit_end: pending_session_handoff_commit
+scope: Build Vektor Admin Control Center Panel 1 (Overview) with FastAPI endpoints and React operator surface wiring.
+active_phase: phase_alpha_backend_ops
+files:
+- backend/app/admin_research_routes.py
+- backend/tests/test_admin_overview_endpoints.py
+- frontend/src/api/adminAPI.js
+- frontend/src/components/admin/OverviewPanel.jsx
+- frontend/src/pages/Admin.jsx
+- frontend/src/styles/admin-portal.css
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: py -3 -m pytest backend/tests/test_admin_overview_endpoints.py -q (2 passed); npm run build (frontend) succeeded.
+notes: Added 8 Overview API endpoints (/fund/nav, /fund/monthly-pnl, /fund/sharpe, /fund/drawdown, /runtime/status, /portfolio/exposure, /risk/status, /alerts/pending) plus React Overview panel with KPI/status/alerts/quick actions wired into Control tab.

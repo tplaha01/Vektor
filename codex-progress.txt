@@ -1,6 +1,6 @@
 # Codex Progress Log
 
-Last updated: 2026-05-24T23:47:22Z
+Last updated: 2026-05-25T23:24:26Z
 
 ## Session Summary
 - Established Codex-only long-running workflow naming and required files.
@@ -47,6 +47,11 @@ Last updated: 2026-05-24T23:47:22Z
 - Completed `feature_list.json` compliance validation batch `#5` through `#14` using one fresh long-running-harness evidence set because the ten entries share the same acceptance contract.
 - Revalidated required file presence plus live backend `/health`, `/data-pipeline/status`, and `/signals/generate` evidence; the deterministic signal response for `AAPL` returned technical, fundamental, sentiment, ML, meta-intent, and explicit policy-gate diagnostics with no silent fallback path.
 - Re-ran focused backend regressions `tests/test_signals.py` and `tests/test_admin_runtime_controls.py -k "test_signal_runs or deterministic_ml_recover_disables_strict_mode_and_clears_halt"` (2 passed).
+- Started Vektor Admin Control Center implementation with Panel 1 (Overview) as the first component slice under the long-running harness.
+- Added eight new backend overview endpoints: `/api/admin/fund/nav`, `/api/admin/fund/monthly-pnl`, `/api/admin/fund/sharpe`, `/api/admin/fund/drawdown`, `/api/admin/runtime/status`, `/api/admin/portfolio/exposure`, `/api/admin/risk/status`, and `/api/admin/alerts/pending`.
+- Added `frontend/src/components/admin/OverviewPanel.jsx` and wired it into the `control` tab to surface KPI tiles, runtime/portfolio/risk summaries, active alerts, and quick navigation actions.
+- Added focused backend regression coverage in `backend/tests/test_admin_overview_endpoints.py` and validated with `py -3 -m pytest backend/tests/test_admin_overview_endpoints.py -q` (2 passed).
+- Verified frontend integration with `npm run build` in `frontend/` (Vite build succeeded).
 
 ## Completed Tests
 - 14/200 tests passing

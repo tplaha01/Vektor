@@ -47,3 +47,5 @@ landing-next/output/
 .run/
 knowledge_graph/entities/
 knowledge_graph/events/*.md
+# Local playwright-cli artifacts
+frontend/.playwright-cli/

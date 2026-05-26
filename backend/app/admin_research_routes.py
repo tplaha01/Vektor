@@ -365,6 +365,77 @@ def _metrics_summary_from_performance() -> MetricsSummary | None:
     )
 
 
+def _performance_summary_payload() -> dict[str, Any]:
+    performance = performance_tracker.summary()
+    return performance if isinstance(performance, dict) else {}
+
+
+def _monthly_window_start_equity() -> float | None:
+    snapshots = storage_db.load_performance_snapshots(limit=500)
+    if not isinstance(snapshots, list) or not snapshots:
+        return None
+
+    now = _utc_now()
+    month_start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+    month_rows: list[dict[str, Any]] = []
+    for row in snapshots:
+        if not isinstance(row, dict):
+            continue
+        recorded_at = _to_datetime(row.get("recorded_at"))
+        if recorded_at >= month_start:
+            month_rows.append(row)
+    if not month_rows:
+        return None
+
+    month_rows.sort(key=lambda item: str(item.get("recorded_at") or ""))
+    return _safe_float(month_rows[0].get("equity"), 0.0) or None
+
+
+def _portfolio_exposure_snapshot() -> dict[str, Any]:
+    positions = broker.list_positions(lambda s: FEED.price(s))
+    cash = _safe_float(getattr(broker, "get_cash", lambda: 0.0)(), 0.0)
+
+    equities_value = 0.0
+    shorts_value = 0.0
+    gross_value = 0.0
+    symbol_notional: dict[str, float] = {}
+
+    for position in positions:
+        market_value = _safe_float(position.get("market_value"), 0.0)
+        symbol = str(position.get("symbol") or "").strip().upper() or "UNKNOWN"
+        symbol_notional[symbol] = symbol_notional.get(symbol, 0.0) + abs(market_value)
+        gross_value += abs(market_value)
+        if market_value >= 0:
+            equities_value += market_value
+        else:
+            shorts_value += abs(market_value)
+
+    nav = cash + equities_value - shorts_value
+    if nav <= 0:
+        nav = cash + equities_value
+    deployable_base = max(nav, 1.0)
+    exposure_pct = min(max(((equities_value + shorts_value) / deployable_base) * 100.0, 0.0), 1000.0)
+    cash_pct = (cash / deployable_base) * 100.0
+    long_short_ratio = equities_value / shorts_value if shorts_value > 0 else 0.0
+    gross_leverage = gross_value / deployable_base
+    concentration_pct = 0.0
+    if gross_value > 0:
+        concentration_pct = (max(symbol_notional.values()) / gross_value) * 100.0
+
+    return {
+        "positions_count": len(positions),
+        "nav": round(nav, 2),
+        "equities_usd": round(equities_value, 2),
+        "cash_usd": round(cash, 2),
+        "shorts_usd": round(shorts_value, 2),
+        "deployed_pct": round(exposure_pct, 2),
+        "cash_pct": round(cash_pct, 2),
+        "long_short_ratio": round(long_short_ratio, 2),
+        "gross_leverage": round(gross_leverage, 3),
+        "largest_symbol_concentration_pct": round(concentration_pct, 2),
+    }
+
+
 def _normalize_provenance(raw_provenance: Any) -> dict:
     refs = raw_provenance if isinstance(raw_provenance, list) else []
     data_sources: list[str] = []
@@ -1116,6 +1187,163 @@ async def get_metrics_summary():
         sharpe_ratio=round(sharpe_ratio, 2),
         sharpe_change=0.0,
     )
+
+
+@router.get("/fund/nav", response_model=dict)
+async def get_overview_nav():
+    metrics = await get_metrics_summary()
+    nav_current = _safe_float(getattr(metrics, "total_equity", 0.0), 0.0)
+    nav_baseline = _safe_float(getattr(metrics, "baseline_equity", nav_current), nav_current)
+    nav_change_pct = ((nav_current - nav_baseline) / nav_baseline) * 100.0 if nav_baseline > 0 else 0.0
+    return {
+        "nav_current": round(nav_current, 2),
+        "nav_previous": round(nav_baseline, 2),
+        "nav_inception": round(nav_baseline, 2),
+        "nav_change_pct": round(nav_change_pct, 2),
+        "updated_at": _utc_now().isoformat(),
+    }
+
+
+@router.get("/fund/monthly-pnl", response_model=dict)
+async def get_overview_monthly_pnl():
+    performance = _performance_summary_payload()
+    latest = performance.get("latest_snapshot") if isinstance(performance.get("latest_snapshot"), dict) else {}
+    latest_equity = _safe_float(latest.get("equity"), 0.0)
+    month_start_equity = _monthly_window_start_equity()
+    if month_start_equity is None:
+        inception = performance.get("inception_snapshot") if isinstance(performance.get("inception_snapshot"), dict) else {}
+        month_start_equity = _safe_float(inception.get("equity"), latest_equity)
+    monthly_pnl_usd = latest_equity - _safe_float(month_start_equity, latest_equity)
+    monthly_pnl_pct = (monthly_pnl_usd / month_start_equity) * 100.0 if month_start_equity and month_start_equity > 0 else 0.0
+    track = performance.get("track_record") if isinstance(performance.get("track_record"), dict) else {}
+    benchmark_return_pct = _safe_float(track.get("primary_benchmark_return_pct"), 0.0)
+    benchmark_usd = _safe_float(month_start_equity, 0.0) * (benchmark_return_pct / 100.0)
+    return {
+        "monthly_pnl_usd": round(monthly_pnl_usd, 2),
+        "monthly_pnl_pct": round(monthly_pnl_pct, 2),
+        "benchmark_pnl_usd": round(benchmark_usd, 2),
+        "benchmark_pnl_pct": round(benchmark_return_pct, 2),
+        "vs_benchmark_pct": round(monthly_pnl_pct - benchmark_return_pct, 2),
+        "updated_at": _utc_now().isoformat(),
+    }
+
+
+@router.get("/fund/sharpe", response_model=dict)
+async def get_overview_sharpe():
+    performance = _performance_summary_payload()
+    track = performance.get("track_record") if isinstance(performance.get("track_record"), dict) else {}
+    sharpe = _safe_float(track.get("sharpe_ratio"), 0.0)
+    return {
+        "rolling_30d": round(sharpe, 3),
+        "rolling_90d": round(sharpe, 3),
+        "ytd": round(sharpe, 3),
+        "target": 1.0,
+        "status": "healthy" if sharpe >= 1.0 else "caution" if sharpe >= 0.5 else "risk",
+        "updated_at": _utc_now().isoformat(),
+    }
+
+
+@router.get("/fund/drawdown", response_model=dict)
+async def get_overview_drawdown():
+    risk_state = risk.status()
+    breaker = risk_state.get("drawdown_breaker") if isinstance(risk_state.get("drawdown_breaker"), dict) else {}
+    performance = _performance_summary_payload()
+    track = performance.get("track_record") if isinstance(performance.get("track_record"), dict) else {}
+    current_dd_pct = _safe_float(breaker.get("current_drawdown"), 0.0) * 100.0
+    max_dd_pct = _safe_float(track.get("max_drawdown_pct"), current_dd_pct)
+    limit_pct = _safe_float(breaker.get("max_drawdown_threshold"), 0.10) * 100.0
+    return {
+        "current_drawdown_pct": round(current_dd_pct, 2),
+        "max_drawdown_pct": round(max_dd_pct, 2),
+        "limit_pct": round(limit_pct, 2),
+        "margin_to_limit_pct": round(limit_pct - abs(current_dd_pct), 2),
+        "halted": bool(breaker.get("halted")),
+        "updated_at": _utc_now().isoformat(),
+    }
+
+
+@router.get("/runtime/status", response_model=dict)
+async def get_overview_runtime_status():
+    status_badges = await get_system_status_badges()
+    runtime_control = await get_runtime_control_status()
+    workers_status = await get_agents_status()
+    workers = workers_status.get("workers") if isinstance(workers_status.get("workers"), list) else []
+    running_count = len([worker for worker in workers if str(worker.get("status") or "").lower() == "running"])
+    data_pipeline_status = "healthy"
+    data_source = status_badges.get("data_source") if isinstance(status_badges.get("data_source"), dict) else {}
+    if str(data_source.get("status") or "").lower() in {"fallback", "degraded"}:
+        data_pipeline_status = "degraded"
+    runtime_label = "healthy"
+    if not bool(runtime_control.get("runtime_started")):
+        runtime_label = "paused"
+    if bool(runtime_control.get("halted")):
+        runtime_label = "halted"
+    return {
+        "runtime_status": runtime_label,
+        "orchestrator": status_badges.get("orchestration", {}),
+        "data_pipeline": {"status": data_pipeline_status, "providers": data_source.get("providers", [])},
+        "ml_models": status_badges.get("llm_agent_health", {}),
+        "broker": status_badges.get("execution_mode", {}),
+        "agents_active": running_count,
+        "agents_total": len(workers),
+        "pending_tasks": _safe_int(runtime_control.get("active_task_count"), 0),
+        "last_heartbeat": _utc_now().isoformat(),
+    }
+
+
+@router.get("/portfolio/exposure", response_model=dict)
+async def get_overview_portfolio_exposure():
+    snapshot = _portfolio_exposure_snapshot()
+    return {
+        **snapshot,
+        "gross_leverage_limit": 1.5,
+        "updated_at": _utc_now().isoformat(),
+    }
+
+
+@router.get("/risk/status", response_model=dict)
+async def get_overview_risk_status():
+    risk_state = risk.status()
+    breaker = risk_state.get("drawdown_breaker") if isinstance(risk_state.get("drawdown_breaker"), dict) else {}
+    exposure = _portfolio_exposure_snapshot()
+    nav = max(_safe_float(exposure.get("nav"), 0.0), 1.0)
+    drawdown_pct = _safe_float(breaker.get("current_drawdown"), 0.0) * 100.0
+    var_95_1d_pct = abs(drawdown_pct) * 0.33
+    return {
+        "status": "within_limits" if not bool(breaker.get("halted")) else "breach",
+        "var_95_1d_usd": round(nav * (var_95_1d_pct / 100.0), 2),
+        "var_95_1d_pct": round(var_95_1d_pct, 2),
+        "max_drawdown_pct": round(drawdown_pct, 2),
+        "max_drawdown_limit_pct": round(_safe_float(breaker.get("max_drawdown_threshold"), 0.10) * 100.0, 2),
+        "sector_concentration_pct": round(_safe_float(exposure.get("largest_symbol_concentration_pct"), 0.0), 2),
+        "sector_concentration_limit_pct": 40.0,
+        "halted": bool(breaker.get("halted")),
+        "updated_at": _utc_now().isoformat(),
+    }
+
+
+@router.get("/alerts/pending", response_model=dict)
+async def get_overview_pending_alerts():
+    risk_alerts = vektor_ceo_service.risk_alerts()
+    alerts = risk_alerts.get("alerts") if isinstance(risk_alerts.get("alerts"), list) else []
+    pending = vektor_ceo_service.pending_approvals()
+    pending_count = _safe_int(pending.get("count"), 0) if isinstance(pending, dict) else 0
+    items = list(alerts[:8])
+    if pending_count > 0:
+        items.insert(
+            0,
+            {
+                "severity": "medium",
+                "type": "pending_approvals",
+                "message": f"{pending_count} approval requests are waiting for review.",
+            },
+        )
+    return {
+        "pending_count": len(items),
+        "approval_count": pending_count,
+        "alerts": items,
+        "updated_at": _utc_now().isoformat(),
+    }
 
 
 @router.get("/system/status-badges", response_model=dict)

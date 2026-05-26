@@ -3,6 +3,8 @@ import {
   Activity,
   AlertCircle,
   Bot,
+  ChevronLeft,
+  ChevronRight,
   Database,
   FileText,
   Globe,
@@ -27,13 +29,14 @@ import {
 } from 'recharts';
 import '../styles/admin.css';
 import '../styles/admin-portal.css';
-import { adminAPI, blogAPI, researchAPI } from '../api/adminAPI';
+import { adminAPI } from '../api/adminAPI';
 import { useToast } from '../components/common/Toast';
 import ToastContainer from '../components/common/Toast';
 import AgentMonitor from '../components/admin/AgentMonitor';
 import DecisionQueue from '../components/admin/DecisionQueue';
 import KnowledgeTraceGraph from '../components/admin/KnowledgeTraceGraph';
 import LineagePanel from '../components/admin/LineagePanel';
+import OverviewPanel from '../components/admin/OverviewPanel';
 import PositionsPanel from '../components/admin/PositionsPanel';
 import RiskGauges from '../components/admin/RiskGauges';
 import SystemOverview from '../components/admin/SystemOverview';
@@ -42,67 +45,75 @@ import TradingViewWidget from '../components/TradingViewWidget';
 const backendTarget = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 const POLL_INTERVAL_MS = 20000;
 const RETRY_INTERVAL_MS = 60000;
+const SIDEBAR_STORAGE_KEY = 'vektor.admin.sidebarCollapsed';
+const DESKTOP_MEDIA_QUERY = '(min-width: 1281px)';
 
 const navigationItems = [
   {
-    id: 'core',
-    label: 'Core Engine',
+    id: 'control',
+    label: 'Control',
     icon: Sigma,
-    description: 'Deterministic model contract, pipeline health, and candidate quality',
-  },
-  {
-    id: 'warroom',
-    label: 'War Room',
-    icon: Workflow,
-    description: 'Immediate operator priorities, quick actions, and runtime truth',
-  },
-  {
-    id: 'agents',
-    label: 'Agents',
-    icon: Bot,
-    description: 'Hierarchy, workers, swarm runtime, and operator CRM',
-  },
-  {
-    id: 'performance',
-    label: 'Performance',
-    icon: LineChart,
-    description: 'Track record, equity curve, alpha, and post-trade context',
-  },
-  {
-    id: 'deliverables',
-    label: 'KB',
-    icon: FileText,
-    description: 'Knowledge documents, outputs, and lineage trace',
-  },
-  {
-    id: 'decisions',
-    label: 'Decisions',
-    icon: TrendingUp,
-    description: 'Pending approvals, blocked items, and command context',
-  },
-  {
-    id: 'risk',
-    label: 'Risk',
-    icon: Shield,
-    description: 'Limits, alerts, allocation pressure, and drawdown posture',
+    description: 'Executive command deck',
   },
   {
     id: 'positions',
     label: 'Positions',
     icon: Activity,
-    description: 'Holdings, allocation usage, and position-level intelligence',
+    description: 'Portfolio and book detail',
   },
   {
-    id: 'marketwatch',
-    label: 'Market Watch',
+    id: 'market',
+    label: 'Market',
     icon: Globe,
-    description: 'Focus charts, news flow, and monitored universe',
+    description: 'Focus charts and market feed',
+  },
+  {
+    id: 'agents',
+    label: 'Agents',
+    icon: Bot,
+    description: 'Workers, hierarchy, and task flow',
+  },
+  {
+    id: 'risk',
+    label: 'Risk',
+    icon: Shield,
+    description: 'Alerts, drawdown, and capital pressure',
+  },
+  {
+    id: 'performance',
+    label: 'Performance',
+    icon: FileText,
+    description: 'Track record and review trail',
+  },
+  {
+    id: 'orders',
+    label: 'Orders',
+    icon: LineChart,
+    description: 'Manual execution and book snapshot',
+  },
+  {
+    id: 'decisions',
+    label: 'Decisions',
+    icon: TrendingUp,
+    description: 'Approvals and blocked flow',
+  },
+  {
+    id: 'runtime',
+    label: 'Runtime',
+    icon: Workflow,
+    description: 'Workers, providers, and control logs',
+  },
+  {
+    id: 'knowledge',
+    label: 'Knowledge',
+    icon: Database,
+    description: 'Store state and run lineage',
   },
   {
     id: 'settings',
     label: 'Settings',
     icon: Settings,
-    description: 'Runtime controls, recovery, and knowledge-store posture',
+    description: 'Backend config and model routing',
   },
 ];
 
@@ -156,6 +167,14 @@ const summarize = (value, max = 180) => {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
   if (!text) return 'No live detail published yet.';
   return text.length > max ? `${text.slice(0, max)}...` : text;
+};
+
+const makeListKey = (parts, index) => {
+  const key = parts
+    .filter((part) => part !== null && part !== undefined && String(part).trim() !== '')
+    .map((part) => String(part).trim())
+    .join('-');
+  return key ? `${key}-${index}` : `row-${index}`;
 };
 
 const formatDateTime = (value) => {
@@ -216,7 +235,7 @@ function Panel({ eyebrow, title, description, actions, className = '', children 
   );
 }
 
-function NavItem({ active, item, onSelect }) {
+function NavItem({ active, collapsed, item, onSelect }) {
   const Icon = item.icon;
 
   return (
@@ -224,13 +243,15 @@ function NavItem({ active, item, onSelect }) {
       type="button"
       className={`ops-nav-item ${active ? 'is-active' : ''}`}
       onClick={() => onSelect(item.id)}
+      aria-label={item.label}
+      title={collapsed ? item.label : undefined}
     >
       <span className="ops-nav-icon">
         <Icon size={16} />
       </span>
       <span className="ops-nav-copy">
         <strong>{item.label}</strong>
-        <small>{item.description}</small>
+        {item.description ? <small>{item.description}</small> : null}
       </span>
     </button>
   );
@@ -259,8 +280,33 @@ function MetricTile({ icon: Icon, label, value, detail, tone = 'neutral' }) {
 
 export default function Admin() {
   const { success, error: showError } = useToast();
-  const [activeTab, setActiveTab] = useState('core');
+  const [isDesktopViewport, setIsDesktopViewport] = useState(() =>
+    typeof window === 'undefined' ? true : window.matchMedia(DESKTOP_MEDIA_QUERY).matches
+  );
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+
+    try {
+      return (
+        window.matchMedia(DESKTOP_MEDIA_QUERY).matches &&
+        window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === 'true'
+      );
+    } catch {
+      return false;
+    }
+  });
+  const [activeTab, setActiveTab] = useState('control');
   const [metrics, setMetrics] = useState(null);
+  const [overviewData, setOverviewData] = useState({
+    nav: null,
+    monthlyPnl: null,
+    sharpe: null,
+    drawdown: null,
+    runtime: null,
+    exposure: null,
+    risk: null,
+    alerts: null,
+  });
   const [systemStatus, setSystemStatus] = useState(null);
   const [pipelineStatus, setPipelineStatus] = useState(null);
   const [mlStatus, setMlStatus] = useState(null);
@@ -275,13 +321,15 @@ export default function Admin() {
   const [performanceBreakdown, setPerformanceBreakdown] = useState(null);
   const [mlEffectiveness, setMlEffectiveness] = useState(null);
   const [riskAlerts, setRiskAlerts] = useState([]);
-  const [operatorCrm, setOperatorCrm] = useState(null);
+  const [operatorCrm] = useState(null);
   const [controlHistory, setControlHistory] = useState([]);
+  const [taskHistory, setTaskHistory] = useState([]);
+  const [blockedTrades, setBlockedTrades] = useState([]);
   const [postTradeReviews, setPostTradeReviews] = useState([]);
-  const [reportDeliverables, setReportDeliverables] = useState([]);
-  const [blogDeliverables, setBlogDeliverables] = useState([]);
-  const [lineageRows, setLineageRows] = useState([]);
-  const [commandHelp, setCommandHelp] = useState(null);
+  const [reportDeliverables] = useState([]);
+  const [blogDeliverables] = useState([]);
+  const [lineageRows] = useState([]);
+  const [commandHelp] = useState(null);
   const [selectedSymbol, setSelectedSymbol] = useState('');
   const [positionBrief, setPositionBrief] = useState(null);
   const [positionBriefLoading, setPositionBriefLoading] = useState(false);
@@ -291,8 +339,75 @@ export default function Admin() {
   const [connectionStatus, setConnectionStatus] = useState('connecting');
   const [lastUpdate, setLastUpdate] = useState(null);
   const [busyAction, setBusyAction] = useState('');
+  const [orderForm, setOrderForm] = useState({
+    symbol: 'AAPL',
+    side: 'buy',
+    quantity: '10',
+  });
+  const [capitalForm, setCapitalForm] = useState({
+    amountUsd: '',
+    targetCashUsd: '',
+    clearPositions: false,
+    clearOrders: false,
+  });
+  const [policyForm, setPolicyForm] = useState({
+    totalCapitalUsd: '',
+    reserveCashUsd: '',
+    minCashReservePct: '',
+    maxAssetClassExposurePct: '',
+    maxSingleTradeNotionalPct: '',
+    weekendTradingEnabled: false,
+    allowedAssetClasses: '',
+  });
+  const [knowledgeForm, setKnowledgeForm] = useState({
+    runId: '',
+    agentId: 'ceo',
+    seedEvent: true,
+  });
+  const [busyMutation, setBusyMutation] = useState('');
   const fetchInProgress = useRef(false);
   const isMounted = useRef(true);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const mediaQuery = window.matchMedia(DESKTOP_MEDIA_QUERY);
+    const syncViewportState = (event) => {
+      const matches = event.matches;
+      setIsDesktopViewport(matches);
+
+      if (!matches) {
+        setIsSidebarCollapsed(false);
+        return;
+      }
+
+      try {
+        setIsSidebarCollapsed(window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === 'true');
+      } catch {
+        setIsSidebarCollapsed(false);
+      }
+    };
+
+    syncViewportState(mediaQuery);
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', syncViewportState);
+      return () => mediaQuery.removeEventListener('change', syncViewportState);
+    }
+
+    mediaQuery.addListener(syncViewportState);
+    return () => mediaQuery.removeListener(syncViewportState);
+  }, []);
+
+  useEffect(() => {
+    if (!isDesktopViewport || typeof window === 'undefined') return;
+
+    try {
+      window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(isSidebarCollapsed));
+    } catch {
+      // Ignore localStorage failures; the UI still works without persistence.
+    }
+  }, [isDesktopViewport, isSidebarCollapsed]);
 
   const fetchAdminState = useCallback(
     async ({ manual = false } = {}) => {
@@ -305,6 +420,14 @@ export default function Admin() {
 
         const results = await Promise.allSettled([
           adminAPI.getMetricsSummary(),
+          adminAPI.getOverviewNav(),
+          adminAPI.getOverviewMonthlyPnl(),
+          adminAPI.getOverviewSharpe(),
+          adminAPI.getOverviewDrawdown(),
+          adminAPI.getOverviewRuntimeStatus(),
+          adminAPI.getOverviewPortfolioExposure(),
+          adminAPI.getOverviewRiskStatus(),
+          adminAPI.getOverviewPendingAlerts(),
           adminAPI.getSystemStatusBadges(),
           adminAPI.getDataPipelineStatus(),
           adminAPI.getMlStatus(),
@@ -320,23 +443,29 @@ export default function Admin() {
           adminAPI.getCeoPerformanceBreakdown(),
           adminAPI.getCeoMlEffectiveness(),
           adminAPI.getRuntimeControlHistory(10),
-          adminAPI.getOperatorCrm({ taskLimit: 12, opportunityLimit: 6 }),
+          adminAPI.getFundTaskHistory(12),
+          adminAPI.getFundBlockedTrades(12),
           adminAPI.getCeoPositions(),
           adminAPI.getLatestPostTradeReviews(8),
-          researchAPI.getReports({ surface: 'kb', limit: 12 }),
-          blogAPI.getPosts({ limit: 12, status: 'published' }),
-          adminAPI.getRecentLineage(24),
         ]);
 
         if (!isMounted.current) return;
 
-        const coreResults = [results[0], results[1], results[2], results[7], results[9], results[10]];
+        const coreResults = [results[0], results[9], results[10], results[15], results[17], results[18]];
         if (coreResults.every((result) => result.status === 'rejected')) {
           throw new Error(String(coreResults[0]?.reason?.message || 'backend_unreachable'));
         }
 
         const [
           metricsResult,
+          overviewNavResult,
+          overviewMonthlyPnlResult,
+          overviewSharpeResult,
+          overviewDrawdownResult,
+          overviewRuntimeResult,
+          overviewExposureResult,
+          overviewRiskResult,
+          overviewAlertsResult,
           systemStatusResult,
           pipelineStatusResult,
           mlStatusResult,
@@ -352,15 +481,24 @@ export default function Admin() {
           performanceBreakdownResult,
           mlEffectivenessResult,
           controlHistoryResult,
-          operatorCrmResult,
+          taskHistoryResult,
+          blockedTradesResult,
           ceoPositionsResult,
           postTradeReviewsResult,
-          reportsResult,
-          blogPostsResult,
-          lineageResult,
         ] = results;
 
         if (metricsResult.status === 'fulfilled') setMetrics(metricsResult.value);
+        setOverviewData((previous) => ({
+          ...previous,
+          nav: overviewNavResult.status === 'fulfilled' ? overviewNavResult.value : previous.nav,
+          monthlyPnl: overviewMonthlyPnlResult.status === 'fulfilled' ? overviewMonthlyPnlResult.value : previous.monthlyPnl,
+          sharpe: overviewSharpeResult.status === 'fulfilled' ? overviewSharpeResult.value : previous.sharpe,
+          drawdown: overviewDrawdownResult.status === 'fulfilled' ? overviewDrawdownResult.value : previous.drawdown,
+          runtime: overviewRuntimeResult.status === 'fulfilled' ? overviewRuntimeResult.value : previous.runtime,
+          exposure: overviewExposureResult.status === 'fulfilled' ? overviewExposureResult.value : previous.exposure,
+          risk: overviewRiskResult.status === 'fulfilled' ? overviewRiskResult.value : previous.risk,
+          alerts: overviewAlertsResult.status === 'fulfilled' ? overviewAlertsResult.value : previous.alerts,
+        }));
         if (systemStatusResult.status === 'fulfilled') setSystemStatus(systemStatusResult.value);
         if (pipelineStatusResult.status === 'fulfilled') setPipelineStatus(pipelineStatusResult.value);
         if (mlStatusResult.status === 'fulfilled') setMlStatus(mlStatusResult.value);
@@ -388,23 +526,17 @@ export default function Admin() {
         if (controlHistoryResult.status === 'fulfilled') {
           setControlHistory(adminAPI.normalizeArray(controlHistoryResult.value, 'rows'));
         }
-        if (operatorCrmResult.status === 'fulfilled') {
-          setOperatorCrm(operatorCrmResult.value);
+        if (taskHistoryResult.status === 'fulfilled') {
+          setTaskHistory(adminAPI.normalizeArray(taskHistoryResult.value, 'rows'));
+        }
+        if (blockedTradesResult.status === 'fulfilled') {
+          setBlockedTrades(adminAPI.normalizeArray(blockedTradesResult.value, 'rows'));
         }
         if (ceoPositionsResult.status === 'fulfilled') {
           setCeoPositionsSummary(ceoPositionsResult.value);
         }
         if (postTradeReviewsResult.status === 'fulfilled') {
           setPostTradeReviews(adminAPI.normalizeArray(postTradeReviewsResult.value, 'items'));
-        }
-        if (reportsResult.status === 'fulfilled') {
-          setReportDeliverables(adminAPI.normalizeArray(reportsResult.value, 'reports'));
-        }
-        if (blogPostsResult.status === 'fulfilled') {
-          setBlogDeliverables(adminAPI.normalizeArray(blogPostsResult.value, 'posts'));
-        }
-        if (lineageResult.status === 'fulfilled') {
-          setLineageRows(adminAPI.normalizeArray(lineageResult.value, 'rows'));
         }
 
         setConnectionStatus('connected');
@@ -440,22 +572,14 @@ export default function Admin() {
     };
   }, [connectionStatus, fetchAdminState]);
 
-  useEffect(() => {
-    let active = true;
+  const activeProfile = useMemo(() => {
+    const profiles = safeArray(mlStatus?.core_engine?.available_profiles);
+    return profiles.find((profile) => profile?.name === mlStatus?.core_engine?.active_profile) || null;
+  }, [mlStatus]);
 
-    adminAPI
-      .getCeoCommandHelp()
-      .then((value) => {
-        if (active) setCommandHelp(value);
-      })
-      .catch((err) => {
-        console.error('Failed to load CEO command help:', err);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, []);
+  const packWeights = activeProfile?.stack_weights || {};
+  const latestRun = pipelineStatus?.last_run || null;
+  const latestSnapshot = performanceSummary?.latest_snapshot || null;
 
   const handleRuntimeAction = useCallback(
     async (actionKey) => {
@@ -503,6 +627,155 @@ export default function Admin() {
     [fetchAdminState, showError, success]
   );
 
+  const handleOrderSubmit = useCallback(
+    async (event) => {
+      event.preventDefault();
+      const symbol = String(orderForm.symbol || '').trim().toUpperCase();
+      const quantity = Number(orderForm.quantity || 0);
+
+      if (!symbol || quantity <= 0) {
+        showError('Enter a symbol and quantity.');
+        return;
+      }
+
+      try {
+        setBusyMutation('order');
+        const result = await adminAPI.placePaperOrder({
+          symbol,
+          side: orderForm.side,
+          quantity,
+        });
+
+        if (result?.approved === false) {
+          showError(`${symbol} blocked: ${safeArray(result?.reasons).join(', ') || result?.error || 'policy_gate_blocked'}`);
+        } else {
+          success(`${symbol} ${String(orderForm.side).toUpperCase()} submitted`);
+        }
+
+        fetchAdminState();
+      } catch (err) {
+        showError(`Order failed: ${err.message}`);
+      } finally {
+        setBusyMutation('');
+      }
+    },
+    [fetchAdminState, orderForm, showError, success]
+  );
+
+  const handleCapitalSubmit = useCallback(
+    async (event) => {
+      event.preventDefault();
+
+      try {
+        setBusyMutation('capital');
+        await adminAPI.updatePaperBrokerCapital({
+          amountUsd: capitalForm.amountUsd === '' ? null : Number(capitalForm.amountUsd),
+          targetCashUsd: capitalForm.targetCashUsd === '' ? null : Number(capitalForm.targetCashUsd),
+          clearPositions: capitalForm.clearPositions,
+          clearOrders: capitalForm.clearOrders,
+          reason: 'admin_control_center_capital_update',
+        });
+        success('Paper broker capital updated');
+        fetchAdminState();
+      } catch (err) {
+        showError(`Capital update failed: ${err.message}`);
+      } finally {
+        setBusyMutation('');
+      }
+    },
+    [capitalForm, fetchAdminState, showError, success]
+  );
+
+  const handlePolicySubmit = useCallback(
+    async (event) => {
+      event.preventDefault();
+      const currentPolicy = systemStatus?.allocation_policy?.policy || {};
+      const currentConstraints = currentPolicy?.constraints || {};
+
+      try {
+        setBusyMutation('policy');
+        await adminAPI.updateAllocationPolicy({
+          run_id: currentPolicy?.run_id || latestRun?.run_id || 'admin-live',
+          agent_id: currentPolicy?.agent_id || 'ceo',
+          total_capital_usd: Number(policyForm.totalCapitalUsd || currentPolicy?.total_capital_usd || 0),
+          reserve_cash_usd: Number(policyForm.reserveCashUsd || currentPolicy?.reserve_cash_usd || 0),
+          asset_weights: currentPolicy?.asset_weights || {},
+          sleeve_weights: currentPolicy?.sleeve_weights || {},
+          constraints: {
+            ...currentConstraints,
+            min_cash_reserve_pct: Number(policyForm.minCashReservePct || currentConstraints?.min_cash_reserve_pct || 0),
+            max_asset_class_exposure_pct: Number(
+              policyForm.maxAssetClassExposurePct || currentConstraints?.max_asset_class_exposure_pct || 0
+            ),
+            max_single_trade_notional_pct: Number(
+              policyForm.maxSingleTradeNotionalPct || currentConstraints?.max_single_trade_notional_pct || 0
+            ),
+            weekend_trading_enabled: Boolean(policyForm.weekendTradingEnabled),
+            allowed_asset_classes: policyForm.allowedAssetClasses
+              .split(',')
+              .map((value) => value.trim().toLowerCase())
+              .filter(Boolean),
+          },
+          metadata: {
+            ...(currentPolicy?.metadata || {}),
+            updated_from: 'admin_control_center',
+          },
+        });
+        success('Allocation policy updated');
+        fetchAdminState();
+      } catch (err) {
+        showError(`Policy update failed: ${err.message}`);
+      } finally {
+        setBusyMutation('');
+      }
+    },
+    [fetchAdminState, latestRun, policyForm, showError, success, systemStatus]
+  );
+
+  const handleKnowledgeSubmit = useCallback(
+    async (action) => {
+      try {
+        setBusyMutation(action);
+        const payload = {
+          run_id: knowledgeForm.runId || null,
+          agent_id: knowledgeForm.agentId || 'ceo',
+          seed_event: knowledgeForm.seedEvent,
+        };
+
+        if (action === 'knowledge-reset') {
+          await adminAPI.resetKnowledgeBase(payload);
+          success('Knowledge store reset');
+        } else {
+          await adminAPI.rebuildKnowledgeProjection(payload);
+          success('Knowledge projection rebuild requested');
+        }
+
+        fetchAdminState();
+      } catch (err) {
+        showError(`Knowledge action failed: ${err.message}`);
+      } finally {
+        setBusyMutation('');
+      }
+    },
+    [fetchAdminState, knowledgeForm, showError, success]
+  );
+
+  const handleInceptionReset = useCallback(async () => {
+    try {
+      setBusyMutation('inception-reset');
+      await adminAPI.resetCleanInception({
+        startingCashUsd: Number(policyForm.totalCapitalUsd || 100000),
+        reason: 'admin_control_center_clean_reset',
+      });
+      success('Clean inception reset requested');
+      fetchAdminState();
+    } catch (err) {
+      showError(`Reset failed: ${err.message}`);
+    } finally {
+      setBusyMutation('');
+    }
+  }, [fetchAdminState, policyForm.totalCapitalUsd, showError, success]);
+
   const copyCommand = useCallback(
     async (value) => {
       try {
@@ -515,14 +788,41 @@ export default function Admin() {
     [showError, success]
   );
 
-  const activeProfile = useMemo(() => {
-    const profiles = safeArray(mlStatus?.core_engine?.available_profiles);
-    return profiles.find((profile) => profile?.name === mlStatus?.core_engine?.active_profile) || null;
-  }, [mlStatus]);
+  useEffect(() => {
+    const policy = systemStatus?.allocation_policy?.policy;
+    const constraints = policy?.constraints || {};
+    if (!policy) return;
 
-  const packWeights = activeProfile?.stack_weights || {};
-  const latestRun = pipelineStatus?.last_run || null;
-  const latestSnapshot = performanceSummary?.latest_snapshot || null;
+    setPolicyForm({
+      totalCapitalUsd: policy?.total_capital_usd != null ? String(policy.total_capital_usd) : '',
+      reserveCashUsd: policy?.reserve_cash_usd != null ? String(policy.reserve_cash_usd) : '',
+      minCashReservePct: constraints?.min_cash_reserve_pct != null ? String(constraints.min_cash_reserve_pct) : '',
+      maxAssetClassExposurePct:
+        constraints?.max_asset_class_exposure_pct != null ? String(constraints.max_asset_class_exposure_pct) : '',
+      maxSingleTradeNotionalPct:
+        constraints?.max_single_trade_notional_pct != null ? String(constraints.max_single_trade_notional_pct) : '',
+      weekendTradingEnabled: Boolean(constraints?.weekend_trading_enabled),
+      allowedAssetClasses: safeArray(constraints?.allowed_asset_classes).join(', '),
+    });
+  }, [systemStatus]);
+
+  useEffect(() => {
+    setCapitalForm((previous) => ({
+      ...previous,
+      targetCashUsd:
+        previous.targetCashUsd || latestSnapshot?.cash == null
+          ? previous.targetCashUsd
+          : String(latestSnapshot.cash),
+    }));
+  }, [latestSnapshot]);
+
+  useEffect(() => {
+    setKnowledgeForm((previous) => ({
+      ...previous,
+      runId: previous.runId || latestRun?.run_id || '',
+    }));
+  }, [latestRun]);
+
   const ceoPositionMap = useMemo(
     () =>
       safeArray(ceoPositionsSummary?.positions).reduce((rows, row) => {
@@ -723,9 +1023,9 @@ export default function Admin() {
         })),
     [latestRun]
   );
-  const workerRows = safeArray(operatorCrm?.swarm_snapshot?.workers);
-  const taskHistoryRows = safeArray(operatorCrm?.tasks?.history);
-  const blockedDecisionRows = safeArray(operatorCrm?.decisions?.blocked);
+  const workerRows = safeArray(workersStatus?.workers);
+  const taskHistoryRows = safeArray(taskHistory);
+  const blockedDecisionRows = safeArray(blockedTrades);
   const performanceAreaRows = safeArray(performanceBreakdown?.areas);
   const mlCoverageRows = safeArray(mlEffectiveness?.positions_with_ml_context);
   const latestControlAction = controlHistory[0] || null;
@@ -890,7 +1190,6 @@ export default function Admin() {
         .slice(0, 4),
     [pipelineStatus, positions, tradeCandidates]
   );
-  const activeNavigationItem = navigationItems.find((item) => item.id === activeTab) || navigationItems[0];
 
   const renderOverview = () => (
     <>
@@ -2122,8 +2421,8 @@ export default function Admin() {
           >
             {workerRows.length ? (
               <div className="ops-worker-grid">
-                {workerRows.map((row) => (
-                  <article key={row.role} className="ops-worker-card">
+                {workerRows.map((row, index) => (
+                  <article key={makeListKey([row.role, row.agent_id, row.started], index)} className="ops-worker-card">
                     <div className="ops-worker-head">
                       <div>
                         <strong>{titleize(row.role)}</strong>
@@ -2156,8 +2455,8 @@ export default function Admin() {
 
             {taskHistoryRows.length ? (
               <div className="ops-task-list">
-                {taskHistoryRows.slice(0, 6).map((row) => (
-                  <article key={`${row.task_id}-${row.ts}`} className="ops-task-row">
+                {taskHistoryRows.slice(0, 6).map((row, index) => (
+                  <article key={makeListKey([row.task_id, row.ts, row.event, row.run_id], index)} className="ops-task-row">
                     <div className="ops-task-head">
                       <strong>{row.details?.symbol || row.payload?.symbol || titleize(row.role)}</strong>
                       <TonePill tone={statusTone(row.status)}>{titleize(row.status)}</TonePill>
@@ -2213,14 +2512,14 @@ export default function Admin() {
 
       <div className="ops-grid ops-grid-controls-live">
         <Panel
-          eyebrow="Operator CRM"
+          eyebrow="Runtime queue"
           title="Workers and task board"
-          description="The lighter operator CRM slice the newer admin surface introduced."
+          description="Specialist worker posture and the latest fund-runtime task history."
         >
           {workerRows.length ? (
             <div className="ops-worker-grid">
-              {workerRows.map((row) => (
-                <article key={row.role} className="ops-worker-card">
+                {workerRows.map((row, index) => (
+                  <article key={makeListKey([row.role, row.agent_id, row.started], index)} className="ops-worker-card">
                   <div className="ops-worker-head">
                     <div>
                       <strong>{titleize(row.role)}</strong>
@@ -2253,8 +2552,8 @@ export default function Admin() {
 
           {taskHistoryRows.length ? (
             <div className="ops-task-list">
-              {taskHistoryRows.slice(0, 8).map((row) => (
-                <article key={`${row.task_id}-${row.ts}`} className="ops-task-row">
+              {taskHistoryRows.slice(0, 8).map((row, index) => (
+                <article key={makeListKey([row.task_id, row.ts, row.event, row.run_id], index)} className="ops-task-row">
                   <div className="ops-task-head">
                     <strong>{row.details?.symbol || row.payload?.symbol || titleize(row.role)}</strong>
                     <TonePill tone={statusTone(row.status)}>{titleize(row.status)}</TonePill>
@@ -2270,7 +2569,7 @@ export default function Admin() {
               ))}
             </div>
           ) : (
-            <div className="ops-empty">No recent task history is available from the operator CRM surface.</div>
+            <div className="ops-empty">No recent task history is available from the fund runtime.</div>
           )}
         </Panel>
 
@@ -2281,8 +2580,8 @@ export default function Admin() {
         >
           {controlHistory.length ? (
             <div className="ops-timeline-list">
-              {controlHistory.map((row) => (
-                <article key={row.event_id} className="ops-timeline-row">
+              {controlHistory.map((row, index) => (
+                <article key={makeListKey([row.event_id, row.timestamp, row.event_type], index)} className="ops-timeline-row">
                   <div className="ops-timeline-head">
                     <div>
                       <strong>{titleize(row.action || row.event_type)}</strong>
@@ -2565,7 +2864,7 @@ export default function Admin() {
         <Panel
           eyebrow="Blocked"
           title="Blocked and deferred items"
-          description="Operator CRM and risk-gate items that still need review."
+          description="Risk-gate and execution items that still need review."
         >
           {blockedDecisionRows.length ? (
             <div className="ops-headline-list">
@@ -2696,9 +2995,9 @@ export default function Admin() {
     <>
       <div className="ops-grid ops-grid-overview">
         <Panel
-          eyebrow="Legacy panel"
+          eyebrow="Portfolio"
           title="Portfolio positions"
-          description="The prior position module is back for operators who relied on the original view."
+          description="Detailed position management plus the original operator-friendly positions panel."
         >
           <PositionsPanel />
         </Panel>
@@ -2763,58 +3062,798 @@ export default function Admin() {
     </>
   );
 
-  const renderSettings = () => renderControls();
+  const activeNavigationItem = navigationItems.find((item) => item.id === activeTab) || navigationItems[0];
+  const currentPolicy = systemStatus?.allocation_policy?.policy || {};
+  const currentConstraints = currentPolicy?.constraints || {};
+  const topCandidateRows = tradeCandidates.slice(0, 10);
+  const topPositionRows = positions.slice(0, 8);
+  const providerRows = safeArray(systemStatus?.data_source?.providers);
+
+  const renderControlCenter = () => (
+    <>
+      <OverviewPanel data={overviewData} onNavigate={setActiveTab} />
+
+      <div className="ops-metric-grid ops-metric-grid-control">
+        <MetricTile
+          icon={Activity}
+          label="Total Equity"
+          value={currency(metrics?.total_equity)}
+          detail={`Baseline ${currency(metrics?.baseline_equity)} | ${signedPlainPercent(metrics?.equity_change)}`}
+          tone={Number(metrics?.equity_change || 0) >= 0 ? 'good' : 'caution'}
+        />
+        <MetricTile
+          icon={LineChart}
+          label="Live P&L"
+          value={currency(metrics?.unrealized_pnl)}
+          detail={`Market value ${currency(latestSnapshot?.market_value)} | cash ${currency(latestSnapshot?.cash)}`}
+          tone={Number(metrics?.unrealized_pnl || 0) >= 0 ? 'good' : 'bad'}
+        />
+        <MetricTile
+          icon={Workflow}
+          label="Runtime"
+          value={runtimeControl?.runtime_started ? 'Running' : 'Paused'}
+          detail={`Tasks ${number(runtimeControl?.active_task_count)} | autopilot ${runtimeControl?.autopilot?.enabled ? 'on' : 'off'}`}
+          tone={runtimeControl?.runtime_started ? 'good' : 'caution'}
+        />
+        <MetricTile
+          icon={Shield}
+          label="Risk Posture"
+          value={riskAlerts.length ? `${riskAlerts.length} alerts` : systemStatus?.halt?.halted ? 'Halted' : 'Clear'}
+          detail={riskAlerts.length ? summarize(riskAlerts[0]?.message, 80) : systemStatus?.halt?.reason || 'No active breaker conditions'}
+          tone={riskAlerts.length || systemStatus?.halt?.halted ? 'bad' : 'good'}
+        />
+        <MetricTile
+          icon={Database}
+          label="Pipeline"
+          value={systemStatus?.data_source?.status || 'Unknown'}
+          detail={`${number(safeArray(pipelineStatus?.configured_symbols).length)} symbols | ${number(pipelineFailures.length)} failures`}
+          tone={pipelineFailures.length ? 'caution' : statusTone(systemStatus?.data_source?.status)}
+        />
+        <MetricTile
+          icon={TrendingUp}
+          label="Demand Funnel"
+          value={number(topCandidateRows.length)}
+          detail={`${number(candidateBuckets.trade_candidate)} ready | ${number(blockedDecisionRows.length)} blocked`}
+          tone={topCandidateRows.length ? 'good' : 'neutral'}
+        />
+      </div>
+
+      <div className="ops-stage-grid">
+        {stageCards.map((card) => {
+          const Icon = card.icon;
+          return (
+            <article key={card.key} className="ops-stage-card">
+              <div className="ops-stage-head">
+                <span className="ops-stage-icon">
+                  <Icon size={16} />
+                </span>
+                <TonePill tone={card.tone}>{card.status}</TonePill>
+              </div>
+              <h3 className="ops-stage-title">{card.title}</h3>
+              <p className="ops-stage-detail">{card.detail}</p>
+            </article>
+          );
+        })}
+      </div>
+
+      <div className="ops-grid ops-grid-control-top">
+        <Panel
+          eyebrow="Executive Brief"
+          title="Immediate priorities"
+          description="The highest-leverage decisions and operational risks across capital, runtime, and pipeline health."
+        >
+          <div className="ops-priority-list">
+            {priorityRows.map((row) => (
+              <article key={row.key} className="ops-priority-card">
+                <div className="ops-priority-head">
+                  <div>
+                    <strong>{row.title}</strong>
+                    <small>{row.key === 'memory' ? 'Operator memory' : 'Live runtime signal'}</small>
+                  </div>
+                  <TonePill tone={row.tone}>{row.status}</TonePill>
+                </div>
+                <p>{row.detail}</p>
+              </article>
+            ))}
+          </div>
+          <div className="ops-inline-chips">
+            <span className="ops-chip">Run {latestRun?.run_id || 'n/a'}</span>
+            <span className="ops-chip">Positions {number(positions.length)}</span>
+            <span className="ops-chip">Tasks {number(taskHistoryRows.length)}</span>
+            <span className="ops-chip">Knowledge events {number(knowledgeStats?.event_count)}</span>
+          </div>
+        </Panel>
+
+        <Panel
+          eyebrow="Performance"
+          title="Equity pulse"
+          description="Short-horizon portfolio health so the operator can see drift before changing controls."
+        >
+          {performanceSeries.length ? (
+            <>
+              <div className="ops-chart-wrap">
+                <ResponsiveContainer width="100%" height={280}>
+                  <AreaChart data={performanceSeries} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="opsExecutiveEquityFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="rgba(0, 201, 167, 0.45)" />
+                        <stop offset="100%" stopColor="rgba(0, 201, 167, 0)" />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
+                    <XAxis dataKey="label" stroke="rgba(221,225,234,0.5)" tickLine={false} axisLine={false} />
+                    <YAxis
+                      stroke="rgba(221,225,234,0.5)"
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(value) => `$${Math.round(value / 1000)}k`}
+                      domain={[(dataMin) => Math.max(0, dataMin - 50), (dataMax) => dataMax + 50]}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: 12,
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        backgroundColor: '#0f141c',
+                      }}
+                      formatter={(value) => currency(value)}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="equity"
+                      stroke="#00c9a7"
+                      strokeWidth={2}
+                      fill="url(#opsExecutiveEquityFill)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="ops-kv-grid ops-kv-grid-tight">
+                <div className="ops-kv">
+                  <span className="ops-kv-label">Sharpe</span>
+                  <strong className="ops-kv-value">{Number(metrics?.sharpe_ratio || 0).toFixed(2)}</strong>
+                </div>
+                <div className="ops-kv">
+                  <span className="ops-kv-label">Track return</span>
+                  <strong className="ops-kv-value">{plainPercent(performanceSummary?.track_record?.total_return_pct, 2)}</strong>
+                </div>
+                <div className="ops-kv">
+                  <span className="ops-kv-label">Alpha vs benchmark</span>
+                  <strong className="ops-kv-value">
+                    {signedPlainPercent(performanceSummary?.track_record?.alpha_vs_primary_benchmark_pct, 2)}
+                  </strong>
+                </div>
+                <div className="ops-kv">
+                  <span className="ops-kv-label">Latest snapshot</span>
+                  <strong className="ops-kv-value">{formatDateTime(latestSnapshot?.recorded_at)}</strong>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="ops-empty">Performance snapshots have not loaded yet.</div>
+          )}
+        </Panel>
+      </div>
+
+      <div className="ops-grid ops-grid-control-top">
+        <Panel
+          eyebrow="Capital Deployment"
+          title="Portfolio leaders"
+          description="Highest-conviction winners and laggards so interventions stay tied to book reality."
+        >
+          {topPositionRows.length ? (
+            <div className="ops-mini-list">
+              {topPositionRows.slice(0, 5).map((row) => (
+                <div key={row.symbol} className="ops-mini-row">
+                  <div>
+                    <strong>{row.symbol}</strong>
+                    <div className="ops-table-subcopy">
+                      {titleize(row.assetClass)} | {titleize(row.thesisState)}
+                    </div>
+                  </div>
+                  <div className="ops-mini-value">
+                    <strong>{currency(row.marketValue)}</strong>
+                    <span className={row.unrealizedPnl >= 0 ? 'ops-positive' : 'ops-negative'}>
+                      {currency(row.unrealizedPnl)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="ops-empty">No live positions are deployed.</div>
+          )}
+          <div className="ops-inline-chips">
+            <span className="ops-chip">
+              Strongest {strongestPosition ? `${strongestPosition.symbol} ${currency(strongestPosition.unrealizedPnl)}` : 'n/a'}
+            </span>
+            <span className="ops-chip">
+              Weakest {weakestPosition ? `${weakestPosition.symbol} ${currency(weakestPosition.unrealizedPnl)}` : 'n/a'}
+            </span>
+          </div>
+        </Panel>
+
+        <Panel
+          eyebrow="Demand Funnel"
+          title="Pipeline and blocked flow"
+          description="Candidate supply, provider posture, and blocked execution demand in one place."
+        >
+          <div className="ops-inline-chips">
+            {Object.entries(candidateBuckets).map(([bucket, count]) => (
+              <span key={bucket} className="ops-chip">
+                {titleize(bucket)} {number(count)}
+              </span>
+            ))}
+          </div>
+          {topCandidateRows.length ? (
+            <div className="ops-table-wrap">
+              <table className="ops-table">
+                <thead>
+                  <tr>
+                    <th>Symbol</th>
+                    <th>Score</th>
+                    <th>Text</th>
+                    <th>Bars</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topCandidateRows.slice(0, 5).map((row) => (
+                    <tr key={row.symbol}>
+                      <td className="ops-symbol-cell">{row.symbol}</td>
+                      <td>{ratioPercent(row.score, 1)}</td>
+                      <td>{number(row.textEvents)}</td>
+                      <td>{titleize(row.barsStatus)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="ops-empty">No live trade candidates are currently ranked.</div>
+          )}
+          <div className="ops-inline-chips">
+            {providerRows.slice(0, 5).map((row, index) => (
+              <span key={makeListKey([row.provider, row.mode, row.status], index)} className="ops-chip">
+                {row.provider || row.name || 'provider'} {titleize(row.mode || row.status || 'unknown')}
+              </span>
+            ))}
+          </div>
+          {blockedDecisionRows.length ? (
+            <div className="ops-task-list">
+              {blockedDecisionRows.slice(0, 3).map((row, index) => (
+                <article key={makeListKey([row.event_id, row.symbol, row.timestamp, row.reason], index)} className="ops-task-row">
+                  <div className="ops-task-head">
+                    <strong>{row.symbol || row.asset_class || 'blocked trade'}</strong>
+                    <TonePill tone="bad">{titleize(row.status || row.event_type || 'blocked')}</TonePill>
+                  </div>
+                  <div className="ops-task-meta">
+                    <span>{row.run_id || 'n/a'}</span>
+                    <span>{summarize(row.reason || row.payload?.reason || row.payload?.message || JSON.stringify(row), 120)}</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : null}
+        </Panel>
+      </div>
+
+      <div className="ops-grid ops-grid-overview">
+        <Panel eyebrow="Runtime" title="Backend Controls">
+          <div className="ops-kv-grid">
+            <div className="ops-kv"><span className="ops-kv-label">Runtime</span><strong className="ops-kv-value">{runtimeControl?.runtime_started ? 'Running' : 'Paused'}</strong></div>
+            <div className="ops-kv"><span className="ops-kv-label">Autopilot</span><strong className="ops-kv-value">{runtimeControl?.autopilot?.enabled ? 'Enabled' : 'Disabled'}</strong></div>
+            <div className="ops-kv"><span className="ops-kv-label">Strict Data</span><strong className="ops-kv-value">{runtimeControl?.strict_real_data_only ? 'On' : 'Off'}</strong></div>
+            <div className="ops-kv"><span className="ops-kv-label">Broker</span><strong className="ops-kv-value">{systemStatus?.execution_mode?.broker || 'n/a'}</strong></div>
+            <div className="ops-kv"><span className="ops-kv-label">Profile</span><strong className="ops-kv-value">{activeProfile?.name || 'n/a'}</strong></div>
+            <div className="ops-kv"><span className="ops-kv-label">Last Sync</span><strong className="ops-kv-value">{lastUpdate ? formatRelative(lastUpdate) : 'pending'}</strong></div>
+          </div>
+
+          <div className="ops-button-row">
+            <button type="button" className="ops-button" disabled={busyAction === 'resume' || runtimeControl?.runtime_started} onClick={() => handleRuntimeAction('resume')}><Play size={15} />Resume</button>
+            <button type="button" className="ops-button secondary" disabled={busyAction === 'pause' || !runtimeControl?.runtime_started} onClick={() => handleRuntimeAction('pause')}><Pause size={15} />Pause</button>
+            <button type="button" className="ops-button secondary" disabled={busyAction === 'recover'} onClick={() => handleRuntimeAction('recover')}><Workflow size={15} />Recover ML</button>
+            <button type="button" className="ops-button secondary" disabled={busyAction === 'clear-halt' || !systemStatus?.halt?.halted} onClick={() => handleRuntimeAction('clear-halt')}><Shield size={15} />Clear Halt</button>
+            <button type="button" className="ops-button secondary" disabled={busyAction === 'kick' || !runtimeControl?.runtime_started} onClick={() => handleRuntimeAction('kick')}><Activity size={15} />Kick Autopilot</button>
+            <button type="button" className="ops-button secondary" disabled={busyAction === 'capture'} onClick={() => handleRuntimeAction('capture')}><RefreshCw size={15} />Snapshot</button>
+          </div>
+
+          {systemStatus?.halt?.halted ? (
+            <div className="ops-section-block">
+              <div className="ops-inline-chips">
+                <span className={`ops-chip ${systemStatus?.halt?.halted ? toneClassName('bad') : ''}`}>Halt {systemStatus?.halt?.halted ? 'active' : 'clear'}</span>
+                {systemStatus?.halt?.reason ? <span className="ops-chip">{systemStatus.halt.reason}</span> : null}
+              </div>
+              {recoveryChecklist.length ? (
+                <ul className="ops-list">
+                  {recoveryChecklist.map((item, index) => (
+                    <li key={`${item}-${index}`}>{item}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
+        </Panel>
+
+        <Panel eyebrow="Capital" title="Paper Broker">
+          <form className="ops-form-stack" onSubmit={handleCapitalSubmit}>
+            <div className="ops-form-grid">
+              <label className="ops-field">
+                <span>Delta USD</span>
+                <input className="ops-input" type="number" step="100" value={capitalForm.amountUsd} onChange={(event) => setCapitalForm((prev) => ({ ...prev, amountUsd: event.target.value }))} />
+              </label>
+              <label className="ops-field">
+                <span>Target Cash USD</span>
+                <input className="ops-input" type="number" step="100" value={capitalForm.targetCashUsd} onChange={(event) => setCapitalForm((prev) => ({ ...prev, targetCashUsd: event.target.value }))} />
+              </label>
+            </div>
+            <label className="ops-check">
+              <input type="checkbox" checked={capitalForm.clearPositions} onChange={(event) => setCapitalForm((prev) => ({ ...prev, clearPositions: event.target.checked }))} />
+              <span>Clear positions</span>
+            </label>
+            <label className="ops-check">
+              <input type="checkbox" checked={capitalForm.clearOrders} onChange={(event) => setCapitalForm((prev) => ({ ...prev, clearOrders: event.target.checked }))} />
+              <span>Clear order history</span>
+            </label>
+            <div className="ops-button-row compact">
+              <button type="submit" className="ops-button" disabled={busyMutation === 'capital'}>Apply Capital Update</button>
+              <button type="button" className="ops-button danger" disabled={busyMutation === 'inception-reset'} onClick={handleInceptionReset}>Clean Inception Reset</button>
+            </div>
+          </form>
+        </Panel>
+      </div>
+
+      <Panel eyebrow="Policy" title="Allocation Policy">
+        <form className="ops-form-stack" onSubmit={handlePolicySubmit}>
+          <div className="ops-form-grid ops-form-grid-wide">
+            <label className="ops-field">
+              <span>Total Capital USD</span>
+              <input className="ops-input" type="number" min="1" step="100" value={policyForm.totalCapitalUsd} onChange={(event) => setPolicyForm((prev) => ({ ...prev, totalCapitalUsd: event.target.value }))} />
+            </label>
+            <label className="ops-field">
+              <span>Reserve Cash USD</span>
+              <input className="ops-input" type="number" min="0" step="100" value={policyForm.reserveCashUsd} onChange={(event) => setPolicyForm((prev) => ({ ...prev, reserveCashUsd: event.target.value }))} />
+            </label>
+            <label className="ops-field">
+              <span>Min Cash Reserve %</span>
+              <input className="ops-input" type="number" min="0" max="1" step="0.01" value={policyForm.minCashReservePct} onChange={(event) => setPolicyForm((prev) => ({ ...prev, minCashReservePct: event.target.value }))} />
+            </label>
+            <label className="ops-field">
+              <span>Max Asset Class Exposure %</span>
+              <input className="ops-input" type="number" min="0" max="1" step="0.01" value={policyForm.maxAssetClassExposurePct} onChange={(event) => setPolicyForm((prev) => ({ ...prev, maxAssetClassExposurePct: event.target.value }))} />
+            </label>
+            <label className="ops-field">
+              <span>Max Single Trade %</span>
+              <input className="ops-input" type="number" min="0" max="1" step="0.01" value={policyForm.maxSingleTradeNotionalPct} onChange={(event) => setPolicyForm((prev) => ({ ...prev, maxSingleTradeNotionalPct: event.target.value }))} />
+            </label>
+            <label className="ops-field">
+              <span>Allowed Asset Classes</span>
+              <input className="ops-input" type="text" value={policyForm.allowedAssetClasses} onChange={(event) => setPolicyForm((prev) => ({ ...prev, allowedAssetClasses: event.target.value }))} />
+            </label>
+          </div>
+          <label className="ops-check">
+            <input type="checkbox" checked={policyForm.weekendTradingEnabled} onChange={(event) => setPolicyForm((prev) => ({ ...prev, weekendTradingEnabled: event.target.checked }))} />
+            <span>Weekend Trading Enabled</span>
+          </label>
+          <div className="ops-inline-chips">
+            {allocationRows.map((row) => (
+              <span key={row.assetClass} className="ops-chip">
+                {titleize(row.assetClass)} {ratioPercent(row.weight)} / {ratioPercent(row.utilization)}
+              </span>
+            ))}
+          </div>
+          <div className="ops-button-row compact">
+            <button type="submit" className="ops-button" disabled={busyMutation === 'policy'}>Save Policy</button>
+          </div>
+        </form>
+      </Panel>
+    </>
+  );
+
+  const renderOrdersDesk = () => (
+    <>
+      <div className="ops-grid ops-grid-overview">
+        <Panel eyebrow="Ticket" title="Manual Order">
+          <form className="ops-form-stack" onSubmit={handleOrderSubmit}>
+            <div className="ops-form-grid">
+              <label className="ops-field">
+                <span>Symbol</span>
+                <input className="ops-input ops-input-uppercase" type="text" value={orderForm.symbol} onChange={(event) => setOrderForm((prev) => ({ ...prev, symbol: event.target.value.toUpperCase() }))} />
+              </label>
+              <label className="ops-field">
+                <span>Side</span>
+                <select className="ops-input" value={orderForm.side} onChange={(event) => setOrderForm((prev) => ({ ...prev, side: event.target.value }))}>
+                  <option value="buy">Buy</option>
+                  <option value="sell">Sell</option>
+                </select>
+              </label>
+              <label className="ops-field">
+                <span>Quantity</span>
+                <input className="ops-input" type="number" min="1" step="1" value={orderForm.quantity} onChange={(event) => setOrderForm((prev) => ({ ...prev, quantity: event.target.value }))} />
+              </label>
+            </div>
+            <div className="ops-inline-chips">
+              {safeArray(pipelineStatus?.configured_symbols).slice(0, 12).map((symbol) => (
+                <button key={symbol} type="button" className="ops-command-chip" onClick={() => setOrderForm((prev) => ({ ...prev, symbol }))}>
+                  {symbol}
+                </button>
+              ))}
+            </div>
+            <div className="ops-button-row compact">
+              <button type="submit" className="ops-button" disabled={busyMutation === 'order'}>Submit Order</button>
+            </div>
+          </form>
+        </Panel>
+
+        <Panel eyebrow="Book" title="Book Snapshot">
+          <div className="ops-kv-grid">
+            <div className="ops-kv"><span className="ops-kv-label">Cash</span><strong className="ops-kv-value">{currency(latestSnapshot?.cash)}</strong></div>
+            <div className="ops-kv"><span className="ops-kv-label">Market Value</span><strong className="ops-kv-value">{currency(latestSnapshot?.market_value)}</strong></div>
+            <div className="ops-kv"><span className="ops-kv-label">Positions</span><strong className="ops-kv-value">{number(metrics?.active_positions)}</strong></div>
+            <div className="ops-kv"><span className="ops-kv-label">PnL</span><strong className="ops-kv-value">{currency(metrics?.unrealized_pnl)}</strong></div>
+          </div>
+
+          {topPositionRows.length ? (
+            <div className="ops-table-wrap">
+              <table className="ops-table">
+                <thead>
+                  <tr>
+                    <th>Symbol</th>
+                    <th>Qty</th>
+                    <th>Price</th>
+                    <th>PnL</th>
+                    <th>Alloc</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topPositionRows.map((row) => (
+                    <tr key={row.symbol}>
+                      <td className="ops-symbol-cell">{row.symbol}</td>
+                      <td>{number(row.quantity)}</td>
+                      <td>{currency(row.marketPrice)}</td>
+                      <td className={row.unrealizedPnl >= 0 ? 'ops-positive' : 'ops-negative'}>{currency(row.unrealizedPnl)}</td>
+                      <td>{plainPercent(row.allocationPct, 2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="ops-empty">No positions.</div>
+          )}
+        </Panel>
+      </div>
+
+      <Panel eyebrow="Positions" title="Open Positions">
+        <PositionsPanel />
+      </Panel>
+    </>
+  );
+
+  const renderDecisionsDesk = () => (
+    <>
+      <div className="ops-grid ops-grid-overview">
+        <Panel eyebrow="Queue" title="Pending Decisions">
+          <DecisionQueue expanded />
+        </Panel>
+
+        <Panel eyebrow="Blocked" title="Blocked Items">
+          {blockedDecisionRows.length ? (
+            <div className="ops-task-list">
+              {blockedDecisionRows.slice(0, 10).map((row, index) => (
+                <article key={`${row.decision_id || row.symbol}-${index}`} className="ops-task-row">
+                  <div className="ops-task-head">
+                    <strong>{row.symbol || row.decision_id || 'blocked'}</strong>
+                    <TonePill tone="bad">{titleize(row.status || 'blocked')}</TonePill>
+                  </div>
+                  <div className="ops-task-meta">
+                    <span>{row.run_id || 'n/a'}</span>
+                    <span>{summarize(row.reason || row.block_reason || row.message || JSON.stringify(row), 160)}</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="ops-empty">No blocked items.</div>
+          )}
+        </Panel>
+      </div>
+    </>
+  );
+
+  const renderRuntimeDesk = () => (
+    <>
+      <div className="ops-grid ops-grid-overview">
+        <Panel eyebrow="Workers" title="Worker State">
+          {workerRows.length ? (
+            <div className="ops-worker-grid">
+              {workerRows.map((row, index) => (
+                <article key={makeListKey([row.role, row.agent_id, row.started], index)} className="ops-worker-card">
+                  <div className="ops-worker-head">
+                    <div>
+                      <strong>{titleize(row.role)}</strong>
+                      <small>{row.last_error ? summarize(row.last_error, 80) : 'ok'}</small>
+                    </div>
+                    <TonePill tone={row.running ? 'good' : row.started ? 'neutral' : 'caution'}>
+                      {row.running ? 'Running' : row.started ? 'Standby' : 'Idle'}
+                    </TonePill>
+                  </div>
+                  <div className="ops-worker-stats">
+                    <div className="ops-worker-stat"><span>Done</span><strong>{number(row.completed_count)}</strong></div>
+                    <div className="ops-worker-stat"><span>Failed</span><strong>{number(row.failed_count)}</strong></div>
+                    <div className="ops-worker-stat"><span>Blocked</span><strong>{number(row.blocked_count)}</strong></div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="ops-empty">No worker state.</div>
+          )}
+        </Panel>
+
+        <Panel eyebrow="Pipeline" title="Pipeline / Providers">
+          <div className="ops-kv-grid">
+            <div className="ops-kv"><span className="ops-kv-label">Scheduler</span><strong className="ops-kv-value">{pipelineStatus?.running ? 'Running' : 'Idle'}</strong></div>
+            <div className="ops-kv"><span className="ops-kv-label">Universe</span><strong className="ops-kv-value">{number(safeArray(pipelineStatus?.configured_symbols).length)}</strong></div>
+            <div className="ops-kv"><span className="ops-kv-label">Prices</span><strong className="ops-kv-value">{number(latestRun?.counts?.prices)}</strong></div>
+            <div className="ops-kv"><span className="ops-kv-label">Text Events</span><strong className="ops-kv-value">{number(latestRun?.counts?.text_events)}</strong></div>
+          </div>
+          <div className="ops-inline-chips">
+            {providerRows.slice(0, 8).map((row, index) => (
+              <span key={`${row.provider || 'provider'}-${index}`} className="ops-chip">
+                {row.provider || row.name || 'provider'} {titleize(row.mode || row.status || 'unknown')}
+              </span>
+            ))}
+          </div>
+          {pipelineFailures.length ? (
+            <div className="ops-task-list">
+              {pipelineFailures.map((row) => (
+                <article key={row.symbol} className="ops-task-row">
+                  <div className="ops-task-head">
+                    <strong>{row.symbol}</strong>
+                    <TonePill tone="bad">Failed</TonePill>
+                  </div>
+                  <div className="ops-task-meta">
+                    <span>{summarize(row.error, 160)}</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : null}
+        </Panel>
+      </div>
+
+      <div className="ops-grid ops-grid-controls-live">
+        <Panel eyebrow="Tasks" title="Recent Task History">
+          {taskHistoryRows.length ? (
+            <div className="ops-task-list">
+              {taskHistoryRows.slice(0, 12).map((row, index) => (
+                <article key={makeListKey([row.task_id, row.ts, row.event, row.run_id], index)} className="ops-task-row">
+                  <div className="ops-task-head">
+                    <strong>{row.details?.symbol || row.payload?.symbol || titleize(row.role)}</strong>
+                    <TonePill tone={statusTone(row.status)}>{titleize(row.status)}</TonePill>
+                  </div>
+                  <div className="ops-task-meta">
+                    <span>{compactDateTime(row.ts)}</span>
+                    <span>{row.run_id || 'n/a'}</span>
+                    <span>{summarize(row.details?.reason || row.payload?.command || row.event, 120)}</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="ops-empty">No task history.</div>
+          )}
+        </Panel>
+
+        <Panel eyebrow="Controls" title="Control History">
+          {controlHistory.length ? (
+            <div className="ops-timeline-list">
+              {controlHistory.map((row, index) => (
+                <article key={makeListKey([row.event_id, row.timestamp, row.event_type], index)} className="ops-timeline-row">
+                  <div className="ops-timeline-head">
+                    <div>
+                      <strong>{titleize(row.action || row.event_type)}</strong>
+                      <small>{compactDateTime(row.timestamp)}</small>
+                    </div>
+                    <TonePill tone={statusTone(row.status)}>{titleize(row.status)}</TonePill>
+                  </div>
+                  <div className="ops-timeline-meta">
+                    <span>{row.actor || 'api.admin'}</span>
+                    <span>{summarize(row.reason || row.payload?.reason || row.event_type, 140)}</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="ops-empty">No control history.</div>
+          )}
+        </Panel>
+      </div>
+    </>
+  );
+
+  const renderKnowledgeDesk = () => (
+    <>
+      <div className="ops-grid ops-grid-overview">
+        <Panel eyebrow="Store" title="Knowledge Store">
+          <div className="ops-kv-grid">
+            <div className="ops-kv"><span className="ops-kv-label">Canonical</span><strong className="ops-kv-value">{knowledgeStats?.canonical_store || 'n/a'}</strong></div>
+            <div className="ops-kv"><span className="ops-kv-label">Projection</span><strong className="ops-kv-value">{knowledgeStats?.projection_store || 'n/a'}</strong></div>
+            <div className="ops-kv"><span className="ops-kv-label">Events</span><strong className="ops-kv-value">{number(knowledgeStats?.event_count)}</strong></div>
+            <div className="ops-kv"><span className="ops-kv-label">Graph Sync</span><strong className="ops-kv-value">{knowledgeStats?.last_graphify_sync_status || 'n/a'}</strong></div>
+          </div>
+
+          <form className="ops-form-stack" onSubmit={(event) => event.preventDefault()}>
+            <div className="ops-form-grid">
+              <label className="ops-field">
+                <span>Run ID</span>
+                <input className="ops-input" type="text" value={knowledgeForm.runId} onChange={(event) => setKnowledgeForm((prev) => ({ ...prev, runId: event.target.value }))} />
+              </label>
+              <label className="ops-field">
+                <span>Agent ID</span>
+                <input className="ops-input" type="text" value={knowledgeForm.agentId} onChange={(event) => setKnowledgeForm((prev) => ({ ...prev, agentId: event.target.value }))} />
+              </label>
+            </div>
+            <label className="ops-check">
+              <input type="checkbox" checked={knowledgeForm.seedEvent} onChange={(event) => setKnowledgeForm((prev) => ({ ...prev, seedEvent: event.target.checked }))} />
+              <span>Seed event</span>
+            </label>
+            <div className="ops-button-row compact">
+              <button type="button" className="ops-button danger" disabled={busyMutation === 'knowledge-reset'} onClick={() => handleKnowledgeSubmit('knowledge-reset')}>Reset Store</button>
+              <button type="button" className="ops-button" disabled={busyMutation === 'knowledge-rebuild'} onClick={() => handleKnowledgeSubmit('knowledge-rebuild')}>Rebuild Projection</button>
+            </div>
+          </form>
+        </Panel>
+
+        <Panel eyebrow="Namespaces" title="Namespace Load">
+          {topNamespaceRows.length ? (
+            <div className="ops-mini-list">
+              {topNamespaceRows.map((row) => (
+                <div key={row.key} className="ops-mini-row">
+                  <div><strong>{titleize(row.key)}</strong></div>
+                  <div className="ops-mini-value"><strong>{number(row.count)}</strong></div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="ops-empty">No namespace data.</div>
+          )}
+        </Panel>
+      </div>
+
+      <Panel eyebrow="Lineage" title="Run Lineage">
+        <LineagePanel limit={20} />
+      </Panel>
+    </>
+  );
+
+  const renderSettingsDesk = () => (
+    <div className="ops-grid ops-grid-overview">
+      <Panel eyebrow="System" title="Backend State">
+        <div className="ops-kv-grid">
+          <div className="ops-kv"><span className="ops-kv-label">Backend</span><strong className="ops-kv-value">{backendTarget}</strong></div>
+          <div className="ops-kv"><span className="ops-kv-label">Execution</span><strong className="ops-kv-value">{systemStatus?.execution_mode?.status || 'n/a'}</strong></div>
+          <div className="ops-kv"><span className="ops-kv-label">Default Model</span><strong className="ops-kv-value">{workersStatus?.ai_role_adapter?.default_model || 'n/a'}</strong></div>
+          <div className="ops-kv"><span className="ops-kv-label">Provider</span><strong className="ops-kv-value">{workersStatus?.ai_role_adapter?.provider || 'n/a'}</strong></div>
+          <div className="ops-kv"><span className="ops-kv-label">Profile</span><strong className="ops-kv-value">{activeProfile?.name || 'n/a'}</strong></div>
+          <div className="ops-kv"><span className="ops-kv-label">Run</span><strong className="ops-kv-value">{latestRun?.run_id || 'n/a'}</strong></div>
+        </div>
+        <div className="ops-inline-chips">
+          {supportRoleModels.map(([role, model]) => (
+            <span key={role} className="ops-chip">
+              {titleize(role)} {model}
+            </span>
+          ))}
+        </div>
+      </Panel>
+
+      <Panel eyebrow="Candidates" title="Top Candidate Board">
+        {topCandidateRows.length ? (
+          <div className="ops-table-wrap">
+            <table className="ops-table">
+              <thead>
+                <tr>
+                  <th>Symbol</th>
+                  <th>Bucket</th>
+                  <th>Score</th>
+                  <th>Bars</th>
+                  <th>Text</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topCandidateRows.map((row) => (
+                  <tr key={row.symbol}>
+                    <td className="ops-symbol-cell">{row.symbol}</td>
+                    <td>{titleize(row.category)}</td>
+                    <td>{ratioPercent(row.score, 1)}</td>
+                    <td>{number(row.priceBars)}</td>
+                    <td>{number(row.textEvents)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="ops-empty">No candidates.</div>
+        )}
+      </Panel>
+    </div>
+  );
+
+  const renderActiveTab = () => {
+    switch (activeTab) {
+      case 'control':
+        return renderControlCenter();
+      case 'positions':
+        return renderPositions();
+      case 'market':
+        return renderMarketWatch();
+      case 'agents':
+        return renderAgents();
+      case 'risk':
+        return renderRisk();
+      case 'performance':
+        return renderPerformance();
+      case 'orders':
+        return renderOrdersDesk();
+      case 'decisions':
+        return renderDecisionsDesk();
+      case 'runtime':
+        return renderRuntimeDesk();
+      case 'knowledge':
+        return renderKnowledgeDesk();
+      case 'settings':
+        return renderSettingsDesk();
+      default:
+        return renderControlCenter();
+    }
+  };
 
   return (
-    <div className="ops-shell">
-      <aside className="ops-sidebar">
+    <div className={`ops-shell ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+      <aside className={`ops-sidebar ${isSidebarCollapsed ? 'is-collapsed' : ''}`}>
         <div className="ops-sidebar-top">
-          <div className="ops-brand">
-            <div className="ops-brand-mark">
-              <Sigma size={18} />
+          <div className="ops-sidebar-header">
+            <div className="ops-brand">
+              <div className="ops-brand-mark ops-brand-mark-logo">
+                <img src="/VektorLogo.png?v=20260422b" alt="Vektor" className="ops-brand-logo" />
+              </div>
+              <div className="ops-brand-copy">
+                <strong>Vektor</strong>
+                <small>Control Center</small>
+              </div>
             </div>
-            <div className="ops-brand-copy">
-              <strong>Vektor Admin</strong>
-              <small>Deterministic fund console</small>
-            </div>
+            {isDesktopViewport ? (
+              <button
+                type="button"
+                className="ops-sidebar-toggle"
+                aria-label={isSidebarCollapsed ? 'Expand admin sidebar' : 'Collapse admin sidebar'}
+                aria-pressed={isSidebarCollapsed}
+                onClick={() => setIsSidebarCollapsed((previous) => !previous)}
+              >
+                {isSidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+              </button>
+            ) : null}
           </div>
 
           <div className="ops-sidebar-summary">
-            <div className="ops-sidebar-summary-row">
-              <span>Backend</span>
-              <strong>{backendTarget}</strong>
-            </div>
-            <div className="ops-sidebar-summary-row">
-              <span>Last sync</span>
-              <strong>{lastUpdate ? formatRelative(lastUpdate) : 'pending'}</strong>
-            </div>
-            <div className="ops-sidebar-summary-row">
-              <span>Profile</span>
-              <strong>{activeProfile?.name || 'n/a'}</strong>
-            </div>
-            <div className="ops-sidebar-summary-row">
-              <span>Universe</span>
-              <strong>{number(safeArray(pipelineStatus?.configured_symbols).length)}</strong>
-            </div>
+            <div className="ops-sidebar-summary-row"><span>Backend</span><strong>{backendTarget}</strong></div>
+            <div className="ops-sidebar-summary-row"><span>Status</span><strong>{connectionStatus === 'connected' ? 'Live' : connectionStatus === 'error' ? 'Offline' : 'Syncing'}</strong></div>
+            <div className="ops-sidebar-summary-row"><span>Runtime</span><strong>{runtimeControl?.runtime_started ? 'Running' : 'Paused'}</strong></div>
+            <div className="ops-sidebar-summary-row"><span>Halt</span><strong>{systemStatus?.halt?.halted ? 'Active' : 'Clear'}</strong></div>
           </div>
         </div>
 
         <nav className="ops-nav" aria-label="Admin sections">
           {navigationItems.map((item) => (
-            <NavItem key={item.id} item={item} active={activeTab === item.id} onSelect={setActiveTab} />
+            <NavItem key={item.id} item={item} active={activeTab === item.id} collapsed={isSidebarCollapsed} onSelect={setActiveTab} />
           ))}
         </nav>
 
         <div className="ops-sidebar-footer">
           <div className="ops-connection-row">
             <span className={`ops-connection-dot ${connectionStatus}`} />
-            <span className="ops-connection-label">
-              {connectionStatus === 'connected' ? 'Live backend' : connectionStatus === 'error' ? 'Backend unreachable' : 'Syncing'}
-            </span>
+            <span className="ops-connection-label">{connectionStatus === 'connected' ? 'Live backend' : connectionStatus === 'error' ? 'Backend unreachable' : 'Syncing'}</span>
           </div>
-          <p className="ops-sidebar-note">
-            AI is retained as a support layer only. Deterministic ML, policy gates, and paper execution are the surfaced trade path.
-          </p>
         </div>
       </aside>
 
@@ -2822,19 +3861,15 @@ export default function Admin() {
         <header className="ops-header">
           <div className="ops-header-top">
             <div className="ops-header-copy">
-              <p className="ops-header-eyebrow">Restored admin control surface</p>
+              <p className="ops-header-eyebrow">{activeNavigationItem.label}</p>
               <h1>{activeNavigationItem.label}</h1>
-              <p className="ops-header-description">{activeNavigationItem.description}</p>
             </div>
-            <button
-              type="button"
-              className="ops-button"
-              disabled={refreshing}
-              onClick={() => fetchAdminState({ manual: true })}
-            >
-              <RefreshCw size={15} className={refreshing ? 'ops-spin' : ''} />
-              Refresh
-            </button>
+            <div className="ops-button-row compact">
+              <button type="button" className="ops-button secondary" disabled={refreshing} onClick={() => fetchAdminState({ manual: true })}>
+                <RefreshCw size={15} className={refreshing ? 'ops-spin' : ''} />
+                Refresh
+              </button>
+            </div>
           </div>
 
           <div className="ops-status-row">
@@ -2845,49 +3880,17 @@ export default function Admin() {
               </div>
             ))}
           </div>
-
-          <div className="ops-command-strip">
-            <div className="ops-command-strip-copy">
-              <span>Quick actions</span>
-              <strong>{priorityRows[0]?.detail || 'Backend-aligned operator controls are ready.'}</strong>
-            </div>
-            <div className="ops-button-row compact">
-              {quickActions.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <button
-                    key={item.key}
-                    type="button"
-                    className="ops-button small"
-                    disabled={item.disabled}
-                    onClick={() => handleRuntimeAction(item.key)}
-                  >
-                    <Icon size={14} />
-                    {item.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
         </header>
 
         <div className="ops-content">
-          {initialLoading ? (
-            <Panel
-              eyebrow="Loading"
-              title="Pulling live admin snapshot"
-              description="The page will populate as soon as the backend responds."
-            >
-              <div className="ops-empty">Waiting for metrics, pipeline status, and paper-book data.</div>
-            </Panel>
-          ) : null}
+          {initialLoading ? <div className="ops-empty">Loading backend state.</div> : null}
 
           {connectionStatus === 'error' ? (
             <div className={`ops-banner ${toneClassName('bad')}`}>
               <AlertCircle size={16} />
               <div>
-                <strong>Backend connectivity issue</strong>
-                <p>The frontend is up, but the admin surface could not verify the live backend snapshot.</p>
+                <strong>Backend unreachable</strong>
+                <p>{backendTarget}</p>
               </div>
             </div>
           ) : null}
@@ -2896,25 +3899,13 @@ export default function Admin() {
             <div className={`ops-banner ${toneClassName('caution')}`}>
               <Database size={16} />
               <div>
-                <strong>Fallback provider detected</strong>
-                <p>
-                  {fallbackProvider.provider} is currently supplementing {fallbackProvider.symbol || 'the universe'} with{' '}
-                  {fallbackProvider.detail || 'fallback data'}. Keep deterministic autonomy constrained until provider posture is clean.
-                </p>
+                <strong>Fallback provider</strong>
+                <p>{fallbackProvider.provider} {fallbackProvider.symbol || ''} {fallbackProvider.detail || ''}</p>
               </div>
             </div>
           ) : null}
 
-          {activeTab === 'core' && renderCore()}
-          {activeTab === 'warroom' && renderWarRoom()}
-          {activeTab === 'agents' && renderAgents()}
-          {activeTab === 'performance' && renderPerformance()}
-          {activeTab === 'deliverables' && renderDeliverables()}
-          {activeTab === 'decisions' && renderDecisions()}
-          {activeTab === 'risk' && renderRisk()}
-          {activeTab === 'positions' && renderPositions()}
-          {activeTab === 'marketwatch' && renderMarketWatch()}
-          {activeTab === 'settings' && renderSettings()}
+          {renderActiveTab()}
         </div>
 
         <ToastContainer />
