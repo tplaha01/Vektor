@@ -9226,6 +9226,46 @@ files:
 validation: py -3 -m pytest backend\tests\test_data_pipeline.py -q -o cache_dir=C:\tmp\tradingbot-pytest-cache (11 passed); py -3 -m pytest backend\tests\test_core_engine.py -q -o cache_dir=C:\tmp\tradingbot-pytest-cache (7 passed); py -3 -m pytest backend\tests\test_websocket_stream.py -q -o cache_dir=C:\tmp\tradingbot-pytest-cache (2 passed); rg confirmed no remaining `origin/main` handoff references in AGENTS, scripts, long-running workflow docs, or Codex prompts.
 notes: Data pipeline now starts the market stream itself, reports `mode=live_stream_first`, disables scheduled REST cycles while Alpaca streaming is enabled, and only runs `fallback_polling` when streaming is disabled. Core-engine point-in-time snapshots overlay the latest stream-backed market price from the warehouse before deterministic signal evaluation. Long-running harness defaults now keep dev handoff on `origin/codex/main`; production `main` is explicitly protected from Codex handoff pushes.
 
+[2026-05-27T23:12:07.632171Z] [START]
+entry_id: devlog-20260527-vektor-handoff-report
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260527-vektor-handoff-report
+git_branch: codex/main
+git_commit_start: 274dea1f5f68656506c3404c2b041d099c21a175
+git_commit_end:
+scope: Create detailed Vektor handoff report covering current repo structure, live runtime state, completed work, subsystem responsibilities, risks, and remaining work.
+active_phase: phase_alpha_backend_ops
+files:
+- vektor_05272026.md
+- Dev_Logs.md
+- codex-progress.txt
+- knowledge_graph/events.jsonl
+validation: in_progress
+notes: Report is based on current repo files, codebase-memory graph inspection, session bootstrap, live service health, `/health`, `/data-pipeline/status`, and `/fund/agents/workers/status` after restarting repo-managed services so the stream-first code is active.
+
+[2026-05-27T23:14:03.553336Z] [END]
+entry_id: devlog-20260527-vektor-handoff-report
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260527-vektor-handoff-report
+git_branch: codex/main
+git_commit_start: 274dea1f5f68656506c3404c2b041d099c21a175
+git_commit_end: pending_session_handoff_commit
+scope: Create detailed Vektor handoff report covering current repo structure, live runtime state, completed work, subsystem responsibilities, risks, and remaining work.
+active_phase: phase_alpha_backend_ops
+files:
+- vektor_05272026.md
+- Dev_Logs.md
+- codex-progress.txt
+- knowledge_graph/events.jsonl
+validation: `.\scripts\session-bootstrap.ps1` completed; `.\scripts\vektor-services.ps1 health` returned backend/ollama/openclaw healthy; `/health` returned status ok; `/data-pipeline/status` returned `mode=live_stream_first`, `scheduled_rest_cycles_enabled=false`, `stream.subscribed=true`, `stream.started=true`; `/fund/agents/workers/status` returned strict real data enabled, not halted, agent runtime/autopilot disabled.
+notes: Added `vektor_05272026.md` as a current-state handoff document with end-to-end architecture, runtime state, subsystem responsibilities, completed work, known risks, validation evidence, and next work.
+
 [2026-05-26T21:44:33.6052680Z] [START]
 entry_id: devlog-20260526-vektor-admin-execution-orders-panel5
 actor_name: codex_executor
@@ -9280,6 +9320,27 @@ actor_provider: openai
 run_id: run-09f017c9420c
 git_branch: codex/main
 git_commit_start: ae950a023c9e5a604d92e49d5eeb2b861f081ebe
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-05-27T23:11:34.651495Z] [START]
+entry_id: devlog-20260527-0fb4b1bc
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-c90e1849e6b6
+git_branch: codex/main
+git_commit_start: 274dea1f5f68656506c3404c2b041d099c21a175
 git_commit_end: 
 scope: Backend server runtime - monitoring, API integration, and fund system operations
 files:

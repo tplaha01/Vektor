@@ -1,8 +1,10 @@
 # Codex Progress Log
 
-Last updated: 2026-05-27T23:04:27.329578Z
+Last updated: 2026-05-27T23:14:03.553336Z
 
 ## Session Summary
+- Added `vektor_05272026.md`, a detailed current-state handoff report covering repo structure, live runtime state, end-to-end data/decision/execution flow, subsystem responsibilities, completed work, known risks, validation evidence, and next work.
+- Restarted repo-managed services and verified the live backend now reflects the stream-first pipeline commit: `mode=live_stream_first`, `scheduled_rest_cycles_enabled=false`, `stream.subscribed=true`, and `stream.started=true`.
 - Made Vektor market data stream-first by starting the Alpaca market stream from the data pipeline, demoting scheduled REST cycles to disabled-stream fallback, and overlaying latest persisted stream ticks into core-engine point-in-time snapshots.
 - Added regression coverage proving data-pipeline startup owns live stream activation, stream-first loops do not run scheduled REST cycles, disabled-stream fallback uses `fallback_polling`, and core-engine snapshots prefer the latest stream price.
 - Updated the long-running harness and repo instructions so Codex handoff publishes only to `origin/codex/main`; production `main` is no longer the handoff target.
@@ -135,7 +137,7 @@ Last updated: 2026-05-27T23:04:27.329578Z
 - 14/200 tests passing
 
 ## Current Focus
-- Continue tightening realtime data semantics after making live stream data the primary freshness source for ingestion and core-engine market snapshots.
+- Use `vektor_05272026.md` as the current handoff baseline while continuing to tighten realtime data semantics and Admin Control Center execution/orders work.
 - Keep long-running harness validation tied to live backend endpoints, strict real-data status, and explicit deterministic policy diagnostics instead of inferred success.
 - Preserve `codex/main` -> `origin/codex/main` handoff discipline and repo-managed service bring-up for every session.
 - Address remaining realtime strict-mode friction around Alpaca stream connection limits without weakening the decision-engine contract.
