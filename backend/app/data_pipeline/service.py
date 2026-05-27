@@ -57,6 +57,8 @@ class QuantDataPipeline:
         self._last_stream_quote: dict[str, Any] | None = None
         self._last_history_refresh: dict[str, float] = {}
         self._last_fundamentals_refresh: dict[str, float] = {}
+        self._market_stream_started = False
+        self._pipeline_mode = "initializing"
 
     def configured_symbols(self) -> list[str]:
         universe = _parse_symbols(getattr(self._settings, "DATA_PIPELINE_SYMBOLS", None))
@@ -72,6 +74,7 @@ class QuantDataPipeline:
         if self._task and not self._task.done():
             return
         self._subscribe_to_stream()
+        self._start_market_stream()
         self._start_news_stream()
         self._running = True
         self._task = asyncio.create_task(self._run_loop(), name="quant-data-pipeline")
@@ -97,6 +100,22 @@ class QuantDataPipeline:
             self._stream_subscribed = True
         except Exception as exc:
             logger.warning("Failed to subscribe data pipeline to market stream: %s", exc)
+
+    def _start_market_stream(self) -> None:
+        if self._market_stream_started:
+            return
+        if not bool(getattr(self._settings, "ALPACA_STREAM_ENABLED", False)):
+            self._pipeline_mode = "rest_fallback"
+            return
+        try:
+            from app.data.market_data import FEED
+
+            FEED.start_stream(self.configured_symbols())
+            self._market_stream_started = True
+            self._pipeline_mode = "live_stream_first"
+        except Exception as exc:
+            self._pipeline_mode = "stream_start_failed"
+            logger.warning("Failed to start data pipeline market stream: %s", exc)
 
     def record_market_stream_event(self, symbol: str, price: float, event: dict[str, Any] | None = None) -> None:
         if (event or {}).get("event_type") == "quote":
@@ -153,11 +172,19 @@ class QuantDataPipeline:
 
     async def _run_loop(self) -> None:
         interval = max(5.0, float(getattr(self._settings, "DATA_PIPELINE_INTERVAL_SECONDS", 60.0)))
+        stream_enabled = bool(getattr(self._settings, "ALPACA_STREAM_ENABLED", False))
         while self._running:
+            if stream_enabled and self._stream_subscribed:
+                self._pipeline_mode = "live_stream_first"
+                await asyncio.sleep(interval)
+                continue
             try:
-                await asyncio.to_thread(self.run_cycle, self.configured_symbols(), "scheduled")
+                self._pipeline_mode = "rest_fallback"
+                await asyncio.to_thread(self.run_cycle, self.configured_symbols(), "fallback_polling")
             except Exception as exc:
                 logger.warning("Quant data pipeline cycle failed: %s", exc)
+            if not self._running:
+                break
             await asyncio.sleep(interval)
 
     def run_cycle(self, symbols: list[str] | None = None, run_type: str = "manual") -> dict[str, Any]:
@@ -713,8 +740,11 @@ class QuantDataPipeline:
                 "running": bool(self._task and not self._task.done()),
                 "configured_symbols": self.configured_symbols(),
                 "last_run": self._last_run,
+                "mode": self._pipeline_mode,
+                "scheduled_rest_cycles_enabled": not bool(getattr(self._settings, "ALPACA_STREAM_ENABLED", False)),
                 "stream": {
                     "subscribed": self._stream_subscribed,
+                    "started": self._market_stream_started,
                     "tick_count": self._stream_tick_count,
                     "quote_count": self._stream_quote_count,
                     "last_tick": self._last_stream_tick,

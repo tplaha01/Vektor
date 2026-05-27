@@ -7,6 +7,10 @@ import pandas as pd
 
 from app.core_engine import run_core_engine
 from app.core_engine import feature_store
+from app.config import get_settings
+from app.data_pipeline.service import QuantDataPipeline
+from app.data_pipeline.warehouse import utc_iso
+from app.storage import db as storage_db
 from app.strategies.deterministic_ml_engine import deterministic_signal
 
 
@@ -211,3 +215,57 @@ def test_core_engine_rejects_stale_sentiment_when_profile_requires_it(monkeypatc
     assert out["action"] == "hold"
     assert out["diagnostics"]["policy"]["safe_mode"] is True
     assert "stale_sentiment_data" in out["diagnostics"]["policy"]["rejections"]
+
+
+def test_core_engine_snapshot_prefers_latest_stream_price(tmp_path, monkeypatch):
+    monkeypatch.setenv("SQLITE_PATH", str(tmp_path / "core-stream.db"))
+    get_settings.cache_clear()
+    storage_db._conn = None
+    storage_db.init_db()
+
+    monkeypatch.setattr(feature_store.FEED, "history", lambda symbol, bars=320: _history_frame(min(220, bars)))
+    monkeypatch.setattr(
+        feature_store,
+        "get_fundamentals",
+        lambda symbol: {
+            "revenue_growth": 0.08,
+            "gross_margin": 0.41,
+            "oper_margin": 0.22,
+            "debt_to_equity": 0.85,
+            "pe": 21.0,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+    monkeypatch.setattr(
+        feature_store,
+        "latest_news",
+        lambda symbol, limit=24: [
+            {
+                "symbol": symbol,
+                "headline": "Latest institutional flow is constructive",
+                "source": "UnitTestNews",
+                "url": "",
+                "published_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ],
+    )
+
+    QuantDataPipeline().record_realtime_tick(
+        "AAPL",
+        199.75,
+        {
+            "symbol": "AAPL",
+            "price": 199.75,
+            "observed_at": utc_iso(),
+            "size": 25,
+            "exchange": "V",
+            "feed": "iex",
+        },
+    )
+
+    snapshot = feature_store.build_point_in_time_snapshot("AAPL", profile="balanced")
+
+    assert float(snapshot.history["close"].iloc[-1]) == 199.75
+    assert snapshot.freshness.market_age_minutes is not None
+    assert snapshot.freshness.market_age_minutes < 0.01
+    get_settings.cache_clear()

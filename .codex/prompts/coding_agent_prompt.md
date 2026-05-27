@@ -6,7 +6,7 @@ This is a FRESH context window - you have no memory of previous sessions.
 ### BRANCH AND HANDOFF RULE
 
 All long-running Codex work in this repo must land on local `codex/main`.
-Every completed session must hand off to `origin/main`.
+Every completed session must hand off to `origin/codex/main`; production `main` is not a Codex handoff target.
 Do not leave work behind on feature branches or with uncommitted changes.
 
 ### STEP 1: GET YOUR BEARINGS (MANDATORY)
@@ -168,7 +168,7 @@ Before context fills up:
 ```
 
 5. Ensure no uncommitted changes remain
-6. Ensure `origin/main` matches local `codex/main`
+6. Ensure `origin/codex/main` matches local `codex/main`
 7. Leave app in working state (no broken features)
 
 ---

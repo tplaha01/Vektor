@@ -14,6 +14,7 @@ from app.core_engine.registry.model_registry import get_active_model_versions
 from app.data.fundamentals import get_fundamentals
 from app.data.market_data import FEED
 from app.data.news import latest_news
+from app.data_pipeline.warehouse import warehouse
 
 _EPOCH_UTC = datetime(1970, 1, 1, tzinfo=timezone.utc)
 _FUNDAMENTAL_TS_KEYS = (
@@ -89,6 +90,57 @@ def _normalize_hist(df: pd.DataFrame | None) -> pd.DataFrame:
     out["ts"] = pd.to_datetime(out["ts"], utc=True, errors="coerce")
     out = out.dropna(subset=["ts", "close", "high", "low"]).sort_values("ts").reset_index(drop=True)
     return out
+
+
+def _latest_stream_price(symbol: str) -> dict[str, Any] | None:
+    try:
+        rows = warehouse.latest_rows("data_market_prices", limit=500)
+    except Exception:
+        return None
+    sym = str(symbol or "").upper().strip()
+    for row in rows:
+        if str(row.get("symbol") or "").upper().strip() != sym:
+            continue
+        if str(row.get("source_mode") or "").lower() != "stream":
+            continue
+        if _safe_float(row.get("price")) <= 0:
+            continue
+        if _to_utc_datetime(row.get("observed_at")) is None:
+            continue
+        return row
+    return None
+
+
+def _overlay_latest_stream_price(history: pd.DataFrame, symbol: str) -> pd.DataFrame:
+    row = _latest_stream_price(symbol)
+    if row is None:
+        return history
+
+    observed_at = _to_utc_datetime(row.get("observed_at"))
+    price = _safe_float(row.get("price"))
+    if observed_at is None or price <= 0:
+        return history
+
+    live_row = {
+        "ts": pd.Timestamp(observed_at),
+        "open": price,
+        "high": price,
+        "low": price,
+        "close": price,
+        "volume": 0.0,
+    }
+    if len(history) == 0:
+        return pd.DataFrame([live_row])
+
+    out = history.copy()
+    last_ts = _to_utc_datetime(out["ts"].iloc[-1])
+    if last_ts is not None and observed_at <= last_ts:
+        out.loc[out.index[-1], "close"] = price
+        out.loc[out.index[-1], "high"] = max(_safe_float(out["high"].iloc[-1]), price)
+        out.loc[out.index[-1], "low"] = min(_safe_float(out["low"].iloc[-1]), price)
+        return out
+
+    return pd.concat([out, pd.DataFrame([live_row])], ignore_index=True)
 
 
 def _normalize_news(news: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -174,7 +226,7 @@ def _hash_payload(payload: dict[str, Any]) -> str:
 
 def build_point_in_time_snapshot(symbol: str, profile: str, bars: int = 320, news_limit: int = 24) -> EngineInputSnapshot:
     sym = str(symbol or "").upper().strip()
-    history = _normalize_hist(FEED.history(sym, bars=bars))
+    history = _overlay_latest_stream_price(_normalize_hist(FEED.history(sym, bars=bars)), sym)
     fundamentals = dict(get_fundamentals(sym) or {})
     news = _normalize_news(list(latest_news(sym, limit=news_limit) or []))
 

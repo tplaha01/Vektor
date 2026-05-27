@@ -25,7 +25,7 @@ Long-running staged sessions:
 - Use `docs/LONG_RUNNING_AGENT_WORKFLOW.md` for initializer/coding-agent process.
 - Mandatory per-turn bearings script: `scripts/session-bootstrap.ps1`.
 - Mandatory end-of-session handoff script: `scripts/session-handoff.ps1`.
-- Canonical long-running branch model: local `codex/main` only, remote `origin/main` only.
+- Canonical long-running branch model: local `codex/main` only, remote `origin/codex/main` only. `main` is production and must not receive Codex handoff pushes.
 - Feature selection helper: `scripts/select-next-feature.ps1`.
 - Prompt assets:
   - `.codex/prompts/initializer_prompt.md`

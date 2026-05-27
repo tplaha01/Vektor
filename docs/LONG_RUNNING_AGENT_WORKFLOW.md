@@ -17,7 +17,7 @@ This enforces:
 4. features head read (`feature_list.json`)
 5. progress read (`codex-progress.txt`)
 6. recent git log
-7. branch + handoff status (`codex/main` vs `origin/main`, dirty tree, ahead/behind)
+7. branch + handoff status (`codex/main` vs `origin/codex/main`, dirty tree, ahead/behind)
 8. remaining test count
 
 ## Feature Selection Rule
@@ -49,7 +49,8 @@ Helper:
 ## Branching and Push Discipline
 
 - The only long-running local Codex branch is `codex/main`.
-- The only long-running remote handoff target is `origin/main`.
+- The only long-running remote handoff target is `origin/codex/main`.
+- `main` is production and must not receive Codex handoff pushes.
 - Do not leave work on feature branches between agents. If a session starts elsewhere, move the final state onto `codex/main` before ending the session.
 - Every coding session must end by running:
 
@@ -59,7 +60,7 @@ Helper:
 
 - A handoff is complete only when all of the following are true:
   - the new commit exists on local `codex/main`
-  - `origin/main` matches local `HEAD`
+  - `origin/codex/main` matches local `HEAD`
   - `git status --short` is empty
   - `codex-progress.txt`, `Dev_Logs.md`, KB ingestion, and validation evidence are current
 - The next agent always resumes from `codex/main`.

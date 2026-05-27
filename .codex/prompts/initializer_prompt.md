@@ -6,7 +6,7 @@ Your job is to set up the foundation for all future coding agents.
 ### BRANCH AND HANDOFF RULE
 
 All long-running Codex work in this repo must live on local `codex/main`.
-The handoff target for every completed session is `origin/main`.
+The handoff target for every completed session is `origin/codex/main`; production `main` is not a Codex handoff target.
 Do not create or depend on feature branches for cross-agent continuity.
 
 ### FIRST: Read the Project Specification

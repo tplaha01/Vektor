@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timedelta, timezone
 
 import pandas as pd
@@ -314,4 +315,99 @@ def test_news_stream_can_start_when_parallel_guard_is_overridden(monkeypatch):
     assert starts["count"] == 1
     assert pipeline._news_stream_started is True
     assert pipeline._news_stream_disable_reason is None
+    get_settings.cache_clear()
+
+
+def test_pipeline_start_owns_live_market_stream(monkeypatch):
+    monkeypatch.setenv("ALPACA_STREAM_ENABLED", "true")
+    monkeypatch.setenv("DATA_PIPELINE_NEWS_STREAM_ENABLED", "false")
+    get_settings.cache_clear()
+
+    starts: list[tuple[str, ...]] = []
+    subscriptions = {"count": 0}
+
+    class _StreamFeed:
+        def subscribe(self, callback):
+            subscriptions["count"] += 1
+
+        def start_stream(self, symbols):
+            starts.append(tuple(symbols))
+
+    import app.data.market_data as market_data
+
+    monkeypatch.setattr(market_data, "FEED", _StreamFeed())
+
+    async def _run():
+        pipeline = QuantDataPipeline()
+        await pipeline.start()
+        try:
+            status = pipeline.status()
+            assert starts == [tuple(pipeline.configured_symbols())]
+            assert subscriptions["count"] == 1
+            assert status["mode"] == "live_stream_first"
+            assert status["scheduled_rest_cycles_enabled"] is False
+            assert status["stream"]["started"] is True
+        finally:
+            await pipeline.stop()
+
+    asyncio.run(_run())
+    get_settings.cache_clear()
+
+
+def test_stream_first_loop_does_not_run_scheduled_rest_cycle(monkeypatch):
+    monkeypatch.setenv("ALPACA_STREAM_ENABLED", "true")
+    get_settings.cache_clear()
+
+    async def _run():
+        pipeline = QuantDataPipeline()
+        pipeline._running = True
+        pipeline._stream_subscribed = True
+        calls = {"count": 0}
+
+        def _unexpected_cycle(*_args, **_kwargs):
+            calls["count"] += 1
+
+        monkeypatch.setattr(pipeline, "run_cycle", _unexpected_cycle)
+        task = asyncio.create_task(pipeline._run_loop())
+        await asyncio.sleep(0.05)
+        pipeline._running = False
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+        assert calls["count"] == 0
+        assert pipeline.status()["mode"] == "live_stream_first"
+
+    asyncio.run(_run())
+    get_settings.cache_clear()
+
+
+def test_rest_polling_loop_is_only_disabled_stream_fallback(monkeypatch):
+    monkeypatch.setenv("ALPACA_STREAM_ENABLED", "false")
+    monkeypatch.setenv("DATA_PIPELINE_INTERVAL_SECONDS", "5")
+    get_settings.cache_clear()
+
+    async def _run():
+        pipeline = QuantDataPipeline()
+        pipeline._running = True
+        calls: list[tuple[list[str], str]] = []
+
+        def _capture_cycle(symbols, run_type):
+            calls.append((list(symbols), run_type))
+            pipeline._running = False
+            return {"status": "completed"}
+
+        monkeypatch.setattr(pipeline, "run_cycle", _capture_cycle)
+        task = asyncio.create_task(pipeline._run_loop())
+        await asyncio.wait_for(task, timeout=1.0)
+
+        assert len(calls) == 1
+        assert calls[0][1] == "fallback_polling"
+        status = pipeline.status()
+        assert status["mode"] == "rest_fallback"
+        assert status["scheduled_rest_cycles_enabled"] is True
+
+    asyncio.run(_run())
     get_settings.cache_clear()

@@ -4,7 +4,7 @@ param(
     [string]$WorkDir = ".",
     [string]$CanonicalBranch = "codex/main",
     [string]$RemoteName = "origin",
-    [string]$RemoteBranch = "main",
+    [string]$RemoteBranch = "codex/main",
     [switch]$AllowEmptyCommit,
     [switch]$SkipPush
 )

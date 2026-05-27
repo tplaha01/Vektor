@@ -9164,6 +9164,68 @@ files:
 validation: py -3 -m pytest backend/tests/test_admin_risk_policy_endpoints.py -q (2 passed); py -3 -m pytest backend/tests/test_admin_theses_positions_endpoints.py -q (2 passed); npm run build (frontend) succeeded.
 notes: Added admin risk routes (`/api/admin/risk/var`, `/api/admin/risk/cvar`, `/api/admin/risk/drawdown`, `/api/admin/risk/leverage`, `/api/admin/risk/sharpe`, `/api/admin/risk/breach-history`) plus policy routes for sector limits, position limits, and editable approval thresholds; wired new `RiskPolicyPanel` into the risk tab.
 
+[2026-05-27T23:01:31.620762Z] [START]
+entry_id: devlog-20260527-vektor-stream-first-data-pipeline
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260527-vektor-stream-first-data-pipeline
+git_branch: codex/main
+git_commit_start: ae950a02027a1c88ff1e1814d27706bd6aa5166d
+git_commit_end:
+scope: Make Vektor data pipeline stream-first for realtime market data and route core-engine market freshness through persisted stream ticks.
+active_phase: phase_alpha_backend_ops
+files:
+- backend/app/data_pipeline/service.py
+- backend/app/core_engine/feature_store.py
+- backend/tests/test_data_pipeline.py
+- backend/tests/test_core_engine.py
+- scripts/session-handoff.ps1
+- scripts/session-bootstrap.ps1
+- AGENTS.md
+- backend/AGENTS.md
+- frontend/AGENTS.md
+- docs/LONG_RUNNING_AGENT_WORKFLOW.md
+- .codex/prompts/initializer_prompt.md
+- .codex/prompts/coding_agent_prompt.md
+- Dev_Logs.md
+- codex-progress.txt
+- knowledge_graph/events.jsonl
+validation: in_progress
+notes: Data pipeline subscribed to stream callbacks but still ran scheduled REST cycles in `_run_loop`; core-engine snapshots also used direct history fetches without overlaying latest stream prices. This session makes the pipeline own market stream startup, prevents scheduled REST polling from controlling freshness when Alpaca streaming is enabled, feeds decision snapshots from the latest persisted stream price, and updates long-running handoff policy to publish only to `origin/codex/main`.
+
+[2026-05-27T23:04:27.329578Z] [END]
+entry_id: devlog-20260527-vektor-stream-first-data-pipeline
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260527-vektor-stream-first-data-pipeline
+git_branch: codex/main
+git_commit_start: ae950a02027a1c88ff1e1814d27706bd6aa5166d
+git_commit_end: pending_session_handoff_commit
+scope: Make Vektor data pipeline stream-first for realtime market data and route core-engine market freshness through persisted stream ticks.
+active_phase: phase_alpha_backend_ops
+files:
+- backend/app/data_pipeline/service.py
+- backend/app/core_engine/feature_store.py
+- backend/tests/test_data_pipeline.py
+- backend/tests/test_core_engine.py
+- scripts/session-handoff.ps1
+- scripts/session-bootstrap.ps1
+- AGENTS.md
+- backend/AGENTS.md
+- frontend/AGENTS.md
+- docs/LONG_RUNNING_AGENT_WORKFLOW.md
+- .codex/prompts/initializer_prompt.md
+- .codex/prompts/coding_agent_prompt.md
+- Dev_Logs.md
+- codex-progress.txt
+- knowledge_graph/events.jsonl
+validation: py -3 -m pytest backend\tests\test_data_pipeline.py -q -o cache_dir=C:\tmp\tradingbot-pytest-cache (11 passed); py -3 -m pytest backend\tests\test_core_engine.py -q -o cache_dir=C:\tmp\tradingbot-pytest-cache (7 passed); py -3 -m pytest backend\tests\test_websocket_stream.py -q -o cache_dir=C:\tmp\tradingbot-pytest-cache (2 passed); rg confirmed no remaining `origin/main` handoff references in AGENTS, scripts, long-running workflow docs, or Codex prompts.
+notes: Data pipeline now starts the market stream itself, reports `mode=live_stream_first`, disables scheduled REST cycles while Alpaca streaming is enabled, and only runs `fallback_polling` when streaming is disabled. Core-engine point-in-time snapshots overlay the latest stream-backed market price from the warehouse before deterministic signal evaluation. Long-running harness defaults now keep dev handoff on `origin/codex/main`; production `main` is explicitly protected from Codex handoff pushes.
+
 [2026-05-26T21:44:33.6052680Z] [START]
 entry_id: devlog-20260526-vektor-admin-execution-orders-panel5
 actor_name: codex_executor

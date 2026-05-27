@@ -3,7 +3,7 @@ param(
     [switch]$Strict,
     [switch]$CountRemaining,
     [string]$CanonicalBranch = "codex/main",
-    [string]$CanonicalRemote = "origin/main"
+    [string]$CanonicalRemote = "origin/codex/main"
 )
 
 $ErrorActionPreference = "Stop"

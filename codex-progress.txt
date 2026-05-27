@@ -1,8 +1,12 @@
 # Codex Progress Log
 
-Last updated: 2026-05-26T23:49:43.0989136Z
+Last updated: 2026-05-27T23:04:27.329578Z
 
 ## Session Summary
+- Made Vektor market data stream-first by starting the Alpaca market stream from the data pipeline, demoting scheduled REST cycles to disabled-stream fallback, and overlaying latest persisted stream ticks into core-engine point-in-time snapshots.
+- Added regression coverage proving data-pipeline startup owns live stream activation, stream-first loops do not run scheduled REST cycles, disabled-stream fallback uses `fallback_polling`, and core-engine snapshots prefer the latest stream price.
+- Updated the long-running harness and repo instructions so Codex handoff publishes only to `origin/codex/main`; production `main` is no longer the handoff target.
+- Validated focused backend coverage with `test_data_pipeline.py` (11 passed), `test_core_engine.py` (7 passed), and `test_websocket_stream.py` (2 passed).
 - Completed a full admin surface redesign pass to remove the cramped/AI-looking layout and rebuild the control-center experience with stronger spacing and typographic hierarchy.
 - Replaced `frontend/src/styles/admin-control-center.css` from scratch with a roomier black system:
   - larger panel/header/body paddings
@@ -131,9 +135,9 @@ Last updated: 2026-05-26T23:49:43.0989136Z
 - 14/200 tests passing
 
 ## Current Focus
-- Finish stabilizing the execution/orders backend slice while preserving the new immutable-signal decision contract end to end.
+- Continue tightening realtime data semantics after making live stream data the primary freshness source for ingestion and core-engine market snapshots.
 - Keep long-running harness validation tied to live backend endpoints, strict real-data status, and explicit deterministic policy diagnostics instead of inferred success.
-- Preserve `codex/main` -> `origin/main` handoff discipline and repo-managed service bring-up for every session.
+- Preserve `codex/main` -> `origin/codex/main` handoff discipline and repo-managed service bring-up for every session.
 - Address remaining realtime strict-mode friction around Alpaca stream connection limits without weakening the decision-engine contract.
 - Keep one-slice commits with verified tests, Playwright evidence, and devlog/knowledge-graph ingestion per session.
 

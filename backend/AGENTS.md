@@ -18,5 +18,5 @@ Rules:
 - Never edit feature descriptions/steps; only flip `passes` after end-to-end verification.
 - Keep `Dev_Logs.md` and KB ingestion in sync per `../DevViktor.md`.
 - Run focused tests for changed backend behavior before commit.
-- End the session with `..\scripts\session-handoff.ps1 -WorkDir .. -CommitMessage "<summary>"`.
+- End the session with `..\scripts\session-handoff.ps1 -WorkDir .. -CommitMessage "<summary>"`; this publishes to `origin/codex/main`, not production `main`.
 
