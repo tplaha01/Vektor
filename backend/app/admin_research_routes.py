@@ -16,6 +16,7 @@ from typing import Any, List, Literal, Optional
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from app.broker import paper as paper_broker_module
 from app.config import get_settings
 from app.core.context import broker
 from app.data.market_data import FEED
@@ -273,6 +274,28 @@ class ApprovalThresholdsUpdateIn(BaseModel):
     reason: str = Field(default="manual_policy_threshold_update", min_length=1, max_length=256)
 
 
+class AdminOrderValidateIn(BaseModel):
+    symbol: str = Field(..., min_length=1, max_length=32)
+    side: str = Field(default="buy", min_length=3, max_length=8)
+    quantity: float = Field(..., gt=0.0)
+    order_type: str = Field(default="MARKET", min_length=3, max_length=12)
+    limit_price: Optional[float] = Field(default=None, gt=0.0)
+    time_in_force: str = Field(default="IOC", min_length=2, max_length=8)
+    reason: str = Field(default="manual_admin_order", min_length=1, max_length=512)
+    thesis_id: Optional[str] = Field(default=None, min_length=3, max_length=256)
+    override: bool = False
+
+
+class AdminOrderUpdateIn(BaseModel):
+    status: str = Field(..., min_length=3, max_length=24)
+    reason: str = Field(default="manual_order_status_update", min_length=1, max_length=256)
+
+
+class ExecutionPriorityUpdateIn(BaseModel):
+    priority: str = Field(..., min_length=4, max_length=16)
+    reason: str = Field(default="manual_execution_priority_update", min_length=1, max_length=256)
+
+
 # ====================================================================
 # Router Setup
 # ====================================================================
@@ -329,6 +352,11 @@ _ADMIN_THESIS_STATUS_OVERRIDES: dict[str, str] = {}
 _ADMIN_THESIS_CONVICTION_OVERRIDES: dict[str, float] = {}
 _ADMIN_THESIS_ALLOCATION_OVERRIDES: dict[str, float] = {}
 _ADMIN_POLICY_THRESHOLD_OVERRIDES: dict[str, Any] = {}
+_ADMIN_EXECUTION_PRIORITY: dict[str, Any] = {
+    "priority": "QUALITY",
+    "reason": "default_execution_priority",
+    "updated_at": None,
+}
 
 _SECTOR_HINTS: dict[str, str] = {
     "AAPL": "Tech",
@@ -3123,6 +3151,346 @@ async def get_admin_thesis_detail(thesis_id: str):
     }
 
 
+def _paper_order_commission_pct() -> float:
+    return _safe_float(getattr(paper_broker_module, "_COMMISSION_PCT", 0.0), 0.0)
+
+
+def _paper_order_slippage_bps_model() -> float:
+    return _safe_float(getattr(paper_broker_module, "_SLIPPAGE_BPS", 0.0), 0.0)
+
+
+def _normalize_admin_order_side(value: Any) -> str:
+    return str(value or "buy").strip().lower() or "buy"
+
+
+def _normalize_admin_order_type(value: Any) -> str:
+    return str(value or "MARKET").strip().upper() or "MARKET"
+
+
+def _normalize_time_in_force(value: Any) -> str:
+    return str(value or "IOC").strip().upper() or "IOC"
+
+
+def _paper_orders() -> list[dict[str, Any]]:
+    rows = broker.list_orders()
+    return [dict(item) for item in rows if isinstance(item, dict)]
+
+
+def _find_order_record(order_id: str) -> dict[str, Any] | None:
+    key = str(order_id or "").strip()
+    if not key:
+        return None
+    history = getattr(broker, "order_history", None)
+    if isinstance(history, list):
+        for item in history:
+            if isinstance(item, dict) and str(item.get("id") or "").strip() == key:
+                return item
+    for item in _paper_orders():
+        if str(item.get("id") or "").strip() == key:
+            return item
+    return None
+
+
+def _persist_order_record(order: dict[str, Any]) -> None:
+    try:
+        storage_db.save_order(order)
+    except Exception:
+        return
+
+
+def _order_reference_price(order: dict[str, Any]) -> float:
+    metadata = order.get("metadata") if isinstance(order.get("metadata"), dict) else {}
+    requested_limit = _safe_float(metadata.get("requested_limit_price"), 0.0)
+    reference = _safe_float(metadata.get("reference_price"), 0.0)
+    if reference > 0:
+        return round(reference, 4)
+    if requested_limit > 0 and _normalize_admin_order_type(metadata.get("requested_order_type")) == "LIMIT":
+        return round(requested_limit, 4)
+    avg_price = _safe_float(order.get("avg_price") or order.get("price"), 0.0)
+    if avg_price > 0:
+        return round(avg_price, 4)
+    symbol = str(order.get("symbol") or "").strip().upper()
+    return round(_safe_float(FEED.price(symbol), 0.0), 4)
+
+
+def _order_commission_usd(order: dict[str, Any]) -> float:
+    metadata = order.get("metadata") if isinstance(order.get("metadata"), dict) else {}
+    explicit = _safe_float(metadata.get("commission_usd"), -1.0)
+    if explicit >= 0:
+        return round(explicit, 2)
+    quantity = abs(_safe_float(order.get("qty") or order.get("quantity"), 0.0))
+    avg_price = _safe_float(order.get("avg_price") or order.get("price"), 0.0)
+    multiplier = _safe_float(order.get("contract_multiplier"), 1.0) or 1.0
+    return round(quantity * avg_price * multiplier * _paper_order_commission_pct(), 2)
+
+
+def _order_slippage_bps(order: dict[str, Any], reference_price: float | None = None) -> float:
+    symbol = str(order.get("symbol") or "").strip().upper()
+    if not symbol:
+        return 0.0
+    avg_price = _safe_float(order.get("avg_price") or order.get("price"), 0.0)
+    reference = _safe_float(reference_price, 0.0) or _order_reference_price(order)
+    if avg_price <= 0 or reference <= 0:
+        return 0.0
+    side = _normalize_admin_order_side(order.get("side"))
+    direction = 1.0 if side == "buy" else -1.0
+    return round(direction * ((avg_price - reference) / reference) * 10000.0, 2)
+
+
+def _slippage_interpretation(slippage_bps: float) -> str:
+    if slippage_bps <= -1.0:
+        return "Favorable"
+    if slippage_bps >= 1.0:
+        return "Unfavorable"
+    return "In line"
+
+
+def _slippage_root_cause(order: dict[str, Any], slippage_bps: float) -> str:
+    quantity = abs(_safe_float(order.get("qty") or order.get("quantity"), 0.0))
+    notional = quantity * _safe_float(order.get("avg_price") or order.get("price"), 0.0)
+    if abs(slippage_bps) <= 1.0:
+        return "Low spread and normal queue depth"
+    if notional >= 100000.0:
+        return "Large ticket relative to simulated book depth"
+    if quantity >= 1000.0:
+        return "Size-driven fill pressure in paper venue model"
+    return "Spread crossing in paper broker execution path"
+
+
+def _build_order_fill_rows(order: dict[str, Any]) -> list[dict[str, Any]]:
+    quantity = abs(_safe_float(order.get("qty") or order.get("quantity"), 0.0))
+    avg_price = _safe_float(order.get("avg_price") or order.get("price"), 0.0)
+    created_at = str(order.get("created_at") or _utc_now().isoformat())
+    return [
+        {
+            "fill_id": f"{order.get('id')}-fill-1",
+            "timestamp": created_at,
+            "quantity": round(quantity, 4),
+            "price": round(avg_price, 4),
+            "venue": "PAPER",
+            "commission_usd": _order_commission_usd(order),
+            "status": str(order.get("status") or "filled"),
+        }
+    ]
+
+
+def _admin_order_context_map(limit: int = 250) -> dict[str, dict[str, Any]]:
+    mapping: dict[str, dict[str, Any]] = {}
+    for row in _recent_trades_snapshot(limit):
+        order_id = str(row.get("order_id") or "").strip()
+        if not order_id:
+            continue
+        scoring = row.get("decision_scoring") if isinstance(row.get("decision_scoring"), dict) else {}
+        metrics = scoring.get("metrics") if isinstance(scoring.get("metrics"), dict) else {}
+        confidence = _safe_float(
+            (row.get("math_summary") or {}).get("confidence")
+            if isinstance(row.get("math_summary"), dict)
+            else scoring.get("confidence"),
+            _safe_float(metrics.get("confidence"), 0.0),
+        )
+        mapping[order_id] = {
+            "decision_id": row.get("decision_id"),
+            "run_id": row.get("run_id"),
+            "agent_id": row.get("agent_id"),
+            "thesis_id": row.get("thesis_id"),
+            "approval_status": "pending_approval" if row.get("approval_request_id") else "auto",
+            "approval_request_id": row.get("approval_request_id"),
+            "signal_conviction_pct": round(confidence * 100.0 if confidence <= 1.0 else confidence, 2),
+            "decision_scoring": scoring,
+            "risk_gate": row.get("risk_gate"),
+            "audit_timeline_path": row.get("audit_timeline_path"),
+        }
+    return mapping
+
+
+def _matches_order_time_window(created_at: Any, window: str) -> bool:
+    normalized = str(window or "ALL").strip().upper() or "ALL"
+    if normalized == "ALL":
+        return True
+    created = _to_datetime(created_at)
+    now = _utc_now()
+    delta = now - created
+    if normalized == "TODAY":
+        return created.date() == now.date()
+    if normalized == "THIS_WEEK":
+        return delta <= timedelta(days=7)
+    if normalized == "THIS_MONTH":
+        return delta <= timedelta(days=31)
+    return True
+
+
+def _execution_quality_payload(order: dict[str, Any]) -> dict[str, Any]:
+    reference_price = _order_reference_price(order)
+    avg_fill_price = _safe_float(order.get("avg_price") or order.get("price"), 0.0)
+    slippage_bps = _order_slippage_bps(order, reference_price)
+    quantity = abs(_safe_float(order.get("qty") or order.get("quantity"), 0.0))
+    slippage_usd = round((slippage_bps / 10000.0) * reference_price * quantity, 2)
+    return {
+        "order_id": str(order.get("id") or ""),
+        "reference_price": round(reference_price, 4),
+        "vwap_at_order_time": round(reference_price, 4),
+        "actual_avg_fill_price": round(avg_fill_price, 4),
+        "slippage_bps": slippage_bps,
+        "slippage_usd": slippage_usd,
+        "interpretation": _slippage_interpretation(slippage_bps),
+        "root_cause": _slippage_root_cause(order, slippage_bps),
+        "updated_at": _utc_now().isoformat(),
+    }
+
+
+def _normalize_admin_order_row(order: dict[str, Any], context_map: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    order_id = str(order.get("id") or "").strip()
+    metadata = order.get("metadata") if isinstance(order.get("metadata"), dict) else {}
+    context = context_map.get(order_id, {})
+    fills = _build_order_fill_rows(order)
+    quality = _execution_quality_payload(order)
+    quantity = abs(_safe_float(order.get("qty") or order.get("quantity"), 0.0))
+    avg_price = _safe_float(order.get("avg_price") or order.get("price"), 0.0)
+    cash_notional = round(quantity * avg_price * (_safe_float(order.get("contract_multiplier"), 1.0) or 1.0), 2)
+    requested_type = _normalize_admin_order_type(metadata.get("requested_order_type") or "MARKET")
+    time_in_force = _normalize_time_in_force(metadata.get("requested_time_in_force") or "IOC")
+    return {
+        "order_id": order_id,
+        "status": str(order.get("status") or "filled").strip().upper() or "FILLED",
+        "symbol": str(order.get("symbol") or "").strip().upper(),
+        "side": _normalize_admin_order_side(order.get("side")).upper(),
+        "quantity": round(quantity, 4),
+        "price": round(avg_price, 4),
+        "time": str(order.get("created_at") or _utc_now().isoformat()),
+        "slippage_bps": quality["slippage_bps"],
+        "slippage_label": _slippage_interpretation(quality["slippage_bps"]),
+        "requested_order_type": requested_type,
+        "time_in_force": time_in_force,
+        "requested_limit_price": _safe_float(metadata.get("requested_limit_price"), 0.0) or None,
+        "cash_notional_usd": cash_notional,
+        "commission_usd": _order_commission_usd(order),
+        "broker": "Paper broker",
+        "fills_count": len(fills),
+        "fills_path": f"/api/admin/orders/{order_id}/fills",
+        "detail_path": f"/api/admin/orders/{order_id}",
+        "execution_quality_path": f"/api/admin/orders/{order_id}/execution_quality",
+        "audit_timeline_path": context.get("audit_timeline_path") or f"/api/admin/audit/orders/{order_id}/timeline",
+        "decision_id": context.get("decision_id"),
+        "run_id": context.get("run_id"),
+        "agent_id": context.get("agent_id"),
+        "thesis_id": metadata.get("thesis_id") or context.get("thesis_id"),
+        "signal_conviction_pct": context.get("signal_conviction_pct"),
+        "approval_status": "override" if metadata.get("override_requested") else context.get("approval_status") or "auto",
+        "notes": metadata.get("notes") or metadata.get("reason"),
+    }
+
+
+def _build_admin_order_validation(body: AdminOrderValidateIn) -> dict[str, Any]:
+    symbol = str(body.symbol or "").strip().upper()
+    side = _normalize_admin_order_side(body.side)
+    order_type = _normalize_admin_order_type(body.order_type)
+    time_in_force = _normalize_time_in_force(body.time_in_force)
+    quantity = _safe_float(body.quantity, 0.0)
+    limit_price = _safe_float(body.limit_price, 0.0)
+    current_price = _safe_float(FEED.price(symbol), 0.0)
+    reference_price = limit_price if order_type == "LIMIT" and limit_price > 0 else current_price
+    thresholds = _current_policy_thresholds()
+    positions = _portfolio_positions()
+    equity = max(_portfolio_equity(), 1.0)
+    cash_reader = getattr(broker, "get_cash", None)
+    if callable(cash_reader):
+        cash_before = _safe_float(cash_reader(), 0.0)
+    else:
+        cash_before = _safe_float(getattr(broker, "cash", 0.0), 0.0)
+    notional = abs(quantity) * max(reference_price, 0.0)
+    projected_cash = cash_before - notional if side == "buy" else cash_before + notional
+    cash_reserve_pct_after = (projected_cash / equity) if equity > 0 else 0.0
+    sector = _infer_sector(symbol, "equities", None)
+    sector_value = 0.0
+    asset_class_value = 0.0
+    same_sector_symbols: list[str] = []
+    for item in positions:
+        market_value = abs(_safe_float(item.get("market_value"), 0.0))
+        asset_class_value += market_value if str(item.get("asset_class") or "equities").strip().lower() == "equities" else 0.0
+        if _infer_sector(item.get("symbol"), item.get("asset_class"), item.get("metadata")) == sector:
+            sector_value += market_value
+            symbol_value = str(item.get("symbol") or "").strip().upper()
+            if symbol_value:
+                same_sector_symbols.append(symbol_value)
+    if side == "buy":
+        sector_value += notional
+        asset_class_value += notional
+    else:
+        sector_value = max(0.0, sector_value - notional)
+        asset_class_value = max(0.0, asset_class_value - notional)
+    sector_pct_after = (sector_value / equity) if equity > 0 else 0.0
+    asset_class_pct_after = (asset_class_value / equity) if equity > 0 else 0.0
+
+    warnings: list[str] = []
+    errors: list[str] = []
+    requires_override = False
+
+    if side not in {"buy", "sell"}:
+        errors.append("paper_broker_supports_buy_or_sell_only")
+    if order_type not in {"MARKET", "LIMIT"}:
+        errors.append("unsupported_order_type")
+    if order_type == "LIMIT" and limit_price <= 0:
+        errors.append("limit_price_required")
+    if time_in_force not in {"IOC", "DAY", "GTC"}:
+        errors.append("unsupported_time_in_force")
+    if current_price <= 0:
+        errors.append("market_price_unavailable")
+    if order_type == "LIMIT":
+        warnings.append("paper_broker_executes_admin_orders_on_market_reference_only")
+    if time_in_force != "IOC":
+        warnings.append("time_in_force_is_recorded_for_audit_but_not_enforced_by_paper_broker")
+    if notional > _safe_float(thresholds.get("max_order_notional_usd"), 0.0):
+        requires_override = True
+        warnings.append("notional_exceeds_manual_approval_threshold")
+    if cash_reserve_pct_after < _safe_float(thresholds.get("min_cash_reserve_pct"), 0.0):
+        requires_override = True
+        warnings.append("cash_reserve_would_fall_below_policy_floor")
+    if asset_class_pct_after > _safe_float(thresholds.get("max_asset_class_exposure_pct"), 0.0):
+        requires_override = True
+        warnings.append("asset_class_exposure_would_exceed_policy_limit")
+    if sector_pct_after > 0.40:
+        warnings.append("sector_concentration_would_exceed_40pct_proxy_limit")
+    if len(same_sector_symbols) >= 2:
+        warnings.append("correlation_proxy_detected_existing_same_sector_cluster")
+
+    legacy_approved, legacy_reason = risk.pre_trade_check(symbol, side, quantity, max(current_price, 0.0), positions)
+    if not legacy_approved and str(legacy_reason or "").strip():
+        errors.append(f"risk_engine:{legacy_reason}")
+
+    return {
+        "symbol": symbol,
+        "side": side.upper(),
+        "quantity": round(quantity, 4),
+        "order_type": order_type,
+        "time_in_force": time_in_force,
+        "reference_price": round(reference_price, 4),
+        "market_price": round(current_price, 4),
+        "notional_usd": round(notional, 2),
+        "warnings": warnings,
+        "errors": errors,
+        "can_submit": len(errors) == 0,
+        "requires_override": requires_override,
+        "execution_mode": "paper_market_only",
+        "risk_checks": {
+            "approval_threshold_usd": round(_safe_float(thresholds.get("max_order_notional_usd"), 0.0), 2),
+            "cash_before_usd": round(cash_before, 2),
+            "cash_after_usd": round(projected_cash, 2),
+            "cash_reserve_pct_after": round(cash_reserve_pct_after * 100.0, 2),
+            "min_cash_reserve_pct": round(_safe_float(thresholds.get("min_cash_reserve_pct"), 0.0) * 100.0, 2),
+            "asset_class": "equities",
+            "asset_class_exposure_pct_after": round(asset_class_pct_after * 100.0, 2),
+            "max_asset_class_exposure_pct": round(
+                _safe_float(thresholds.get("max_asset_class_exposure_pct"), 0.0) * 100.0,
+                2,
+            ),
+            "sector": sector,
+            "sector_concentration_pct_after": round(sector_pct_after * 100.0, 2),
+            "correlation_proxy_score": round(min(len(same_sector_symbols) / 4.0, 1.0), 2),
+            "correlation_symbols": same_sector_symbols[:6],
+        },
+        "updated_at": _utc_now().isoformat(),
+    }
+
 @router.put("/theses/{thesis_id}/conviction", response_model=dict)
 async def update_admin_thesis_conviction(thesis_id: str, body: ThesisConvictionUpdateIn):
     rows = _list_admin_thesis_rows()
@@ -3211,6 +3579,345 @@ async def update_admin_thesis_status(thesis_id: str, body: ThesisStatusUpdateIn)
         "status": normalized_status,
         "closed_positions": closed_positions,
         "close_failures": close_failures,
+    }
+
+
+@router.get("/orders", response_model=dict)
+async def get_admin_orders(
+    status: str = Query("ALL"),
+    time: str = Query("ALL"),
+    side: str = Query("ALL"),
+    sort: str = Query("date_desc"),
+    limit: int = Query(100, ge=1, le=500),
+):
+    context_map = _admin_order_context_map(limit=max(limit * 2, 120))
+    rows = [_normalize_admin_order_row(order, context_map) for order in _paper_orders()]
+    normalized_status = str(status or "ALL").strip().upper() or "ALL"
+    normalized_side = str(side or "ALL").strip().upper() or "ALL"
+    if normalized_status != "ALL":
+        rows = [row for row in rows if str(row.get("status") or "").upper() == normalized_status]
+    if normalized_side != "ALL":
+        rows = [row for row in rows if str(row.get("side") or "").upper() == normalized_side]
+    rows = [row for row in rows if _matches_order_time_window(row.get("time"), time)]
+    if str(sort or "date_desc").strip().lower() == "slippage":
+        rows.sort(key=lambda item: _safe_float(item.get("slippage_bps"), 0.0))
+    elif str(sort or "").strip().lower() == "status":
+        rows.sort(key=lambda item: (str(item.get("status") or ""), str(item.get("time") or "")), reverse=True)
+    else:
+        rows.sort(key=lambda item: str(item.get("time") or ""), reverse=True)
+    slippage_values = [_safe_float(item.get("slippage_bps"), 0.0) for item in rows]
+    return {
+        "orders": rows[:limit],
+        "total": len(rows),
+        "summary": {
+            "filled": sum(1 for item in rows if str(item.get("status") or "") == "FILLED"),
+            "pending": sum(1 for item in rows if str(item.get("status") or "") == "PENDING"),
+            "cancelled": sum(1 for item in rows if str(item.get("status") or "") == "CANCELLED"),
+            "avg_slippage_bps": round(sum(slippage_values) / len(slippage_values), 2) if slippage_values else 0.0,
+            "gross_notional_usd": round(sum(_safe_float(item.get("cash_notional_usd"), 0.0) for item in rows), 2),
+        },
+        "updated_at": _utc_now().isoformat(),
+    }
+
+
+@router.post("/orders/validate", response_model=dict)
+async def validate_admin_order(body: AdminOrderValidateIn):
+    return _build_admin_order_validation(body)
+
+
+@router.post("/orders", response_model=dict)
+async def submit_admin_order(body: AdminOrderValidateIn):
+    if data_integrity_guard.halted():
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error": "system_halted",
+                "reason": data_integrity_guard.halt_reason() or "strict_real_data_halt",
+                "message": (
+                    "Strict real-data mode halted the runtime after provider fallback/failure. "
+                    "Order placement is blocked."
+                ),
+            },
+        )
+
+    validation = _build_admin_order_validation(body)
+    if not validation.get("can_submit"):
+        reason = next(iter(validation.get("errors") or []), "order_validation_failed")
+        return {
+            "approved": False,
+            "status": "blocked",
+            "error": reason,
+            "reasons": list(validation.get("errors") or []),
+            "warnings": list(validation.get("warnings") or []),
+            "validation": validation,
+        }
+    if validation.get("requires_override") and not body.override:
+        return {
+            "approved": False,
+            "status": "blocked",
+            "error": "approval_override_required",
+            "reasons": ["approval_override_required"],
+            "warnings": list(validation.get("warnings") or []),
+            "validation": validation,
+        }
+
+    from app.fund.contracts import make_immutable_id
+
+    symbol = str(body.symbol or "").strip().upper()
+    side = _normalize_admin_order_side(body.side)
+    quantity = _safe_float(body.quantity, 0.0)
+    reference_price = _safe_float(validation.get("market_price"), 0.0)
+    run_id = make_immutable_id("run", "admin-order", symbol, side, quantity, _utc_now().isoformat())
+    decision_id = make_immutable_id("decision", run_id, symbol, side, quantity, reference_price)
+    metadata = {
+        "submitted_from": "admin_execution_orders_panel",
+        "requested_order_type": _normalize_admin_order_type(body.order_type),
+        "requested_time_in_force": _normalize_time_in_force(body.time_in_force),
+        "requested_limit_price": _safe_float(body.limit_price, 0.0) or None,
+        "notes": str(body.reason or "").strip(),
+        "reason": str(body.reason or "").strip(),
+        "thesis_id": str(body.thesis_id or "").strip() or None,
+        "override_requested": bool(body.override),
+        "reference_price": reference_price,
+        "validation": validation.get("risk_checks"),
+        "execution_priority": str(_ADMIN_EXECUTION_PRIORITY.get("priority") or "QUALITY"),
+    }
+    legacy_approved, legacy_reason = risk.pre_trade_check(symbol, side, quantity, reference_price, _portfolio_positions())
+    external_blocked_reasons: list[str] = []
+    if not legacy_approved and str(legacy_reason or "").strip():
+        external_blocked_reasons.append(f"risk_engine:{legacy_reason}")
+    execution = firm_orchestrator.execute_manual_paper_order(
+        run_id=run_id,
+        agent_id="admin_operator",
+        symbol=symbol,
+        side=side,
+        quantity=quantity,
+        price=reference_price,
+        decision_id=decision_id,
+        external_blocked_reasons=external_blocked_reasons,
+        metadata=metadata,
+    )
+    if not bool(execution.get("approved")):
+        reason = str(execution.get("error") or "policy_gate_blocked")
+        return {
+            "approved": False,
+            "status": str(execution.get("status") or "blocked"),
+            "error": reason,
+            "reasons": list(execution.get("reasons") or [reason]),
+            "warnings": list(validation.get("warnings") or []),
+            "validation": validation,
+            "run_id": str(execution.get("run_id") or run_id),
+            "decision_id": str(execution.get("decision_id") or decision_id),
+            "risk_id": str(execution.get("risk_id") or ""),
+            "intent_id": str(execution.get("intent_id") or ""),
+        }
+    created = execution.get("order") if isinstance(execution.get("order"), dict) else {}
+    context_map = _admin_order_context_map(limit=160)
+    detail = _normalize_admin_order_row(created, context_map) if created else None
+    return {
+        "approved": True,
+        "status": str(execution.get("status") or "executed"),
+        "warnings": list(validation.get("warnings") or []),
+        "validation": validation,
+        "run_id": str(execution.get("run_id") or run_id),
+        "decision_id": str(execution.get("decision_id") or decision_id),
+        "risk_id": str(execution.get("risk_id") or ""),
+        "intent_id": str(execution.get("intent_id") or ""),
+        "order": detail,
+        "message": f"Order {created.get('id') or ''} executed on paper broker.",
+    }
+
+
+@router.get("/orders/tape", response_model=dict)
+async def get_admin_order_tape(
+    symbol: str = Query(""),
+    side: str = Query("ALL"),
+    days: int = Query(30, ge=1, le=365),
+):
+    rows: list[dict[str, Any]] = []
+    cutoff = _utc_now() - timedelta(days=days)
+    normalized_symbol = str(symbol or "").strip().upper()
+    normalized_side = str(side or "ALL").strip().upper() or "ALL"
+    for order in _paper_orders():
+        created = _to_datetime(order.get("created_at"))
+        if created < cutoff:
+            continue
+        if normalized_symbol and str(order.get("symbol") or "").strip().upper() != normalized_symbol:
+            continue
+        order_side = _normalize_admin_order_side(order.get("side")).upper()
+        if normalized_side != "ALL" and order_side != normalized_side:
+            continue
+        quality = _execution_quality_payload(order)
+        fill = _build_order_fill_rows(order)[0]
+        rows.append(
+            {
+                "timestamp": fill["timestamp"],
+                "order_id": str(order.get("id") or ""),
+                "symbol": str(order.get("symbol") or "").strip().upper(),
+                "side": order_side,
+                "quantity": fill["quantity"],
+                "price": fill["price"],
+                "venue": fill["venue"],
+                "commission_usd": fill["commission_usd"],
+                "slippage_bps": quality["slippage_bps"],
+            }
+        )
+    rows.sort(key=lambda item: str(item.get("timestamp") or ""), reverse=True)
+    return {"rows": rows, "total": len(rows), "updated_at": _utc_now().isoformat()}
+
+
+@router.get("/orders/{order_id}/fills", response_model=dict)
+async def get_admin_order_fills(order_id: str):
+    order = _find_order_record(order_id)
+    if order is None:
+        raise HTTPException(status_code=404, detail="order_not_found")
+    fills = _build_order_fill_rows(order)
+    total_qty = sum(_safe_float(item.get("quantity"), 0.0) for item in fills)
+    return {
+        "order_id": str(order.get("id") or order_id),
+        "fills": fills,
+        "total_quantity": round(total_qty, 4),
+        "avg_price": round(
+            sum(_safe_float(item.get("price"), 0.0) * _safe_float(item.get("quantity"), 0.0) for item in fills)
+            / max(total_qty, 1.0),
+            4,
+        ),
+        "total_commission_usd": round(sum(_safe_float(item.get("commission_usd"), 0.0) for item in fills), 2),
+    }
+
+
+@router.get("/orders/{order_id}/execution_quality", response_model=dict)
+async def get_admin_order_execution_quality(order_id: str):
+    order = _find_order_record(order_id)
+    if order is None:
+        raise HTTPException(status_code=404, detail="order_not_found")
+    return _execution_quality_payload(order)
+
+
+@router.get("/orders/{order_id}", response_model=dict)
+async def get_admin_order_detail(order_id: str):
+    order = _find_order_record(order_id)
+    if order is None:
+        raise HTTPException(status_code=404, detail="order_not_found")
+    context_map = _admin_order_context_map(limit=250)
+    summary = _normalize_admin_order_row(order, context_map)
+    metadata = order.get("metadata") if isinstance(order.get("metadata"), dict) else {}
+    quality = _execution_quality_payload(order)
+    fills = _build_order_fill_rows(order)
+    audit_timeline = firm_orchestrator.audit_timeline_for_order(order_id)
+    price_cost = round(summary["cash_notional_usd"], 2)
+    commission = _order_commission_usd(order)
+    slippage_cost = quality["slippage_usd"]
+    return {
+        **summary,
+        "execution_context": {
+            "thesis_id": summary.get("thesis_id"),
+            "decision_id": summary.get("decision_id"),
+            "signal_conviction_pct": summary.get("signal_conviction_pct"),
+            "approval_status": summary.get("approval_status"),
+            "submitted_by": metadata.get("submitted_from") or summary.get("agent_id") or "orchestrator",
+        },
+        "order_details": {
+            "instrument": summary.get("symbol"),
+            "quantity": summary.get("quantity"),
+            "order_type": summary.get("requested_order_type"),
+            "time_in_force": summary.get("time_in_force"),
+            "limit_price": summary.get("requested_limit_price"),
+            "asset_class": str(order.get("asset_class") or "equities"),
+            "instrument_type": str(order.get("instrument_type") or "equity"),
+        },
+        "execution": {
+            "submitted_at": summary.get("time"),
+            "filled_at": summary.get("time"),
+            "fill_quantity": summary.get("quantity"),
+            "fill_price_avg": summary.get("price"),
+            "broker": "Paper broker",
+            "commission_usd": commission,
+            "fills_count": len(fills),
+        },
+        "execution_quality": quality,
+        "cost_breakdown": {
+            "price_usd": price_cost,
+            "commission_usd": commission,
+            "slippage_usd": slippage_cost,
+            "total_cost_usd": round(price_cost + commission + slippage_cost, 2),
+        },
+        "fills": fills,
+        "audit_timeline": [
+            {
+                "source": str(item.get("source") or "audit"),
+                "event_id": str(item.get("event_id") or uuid.uuid4().hex),
+                "event_type": str(item.get("event_type") or "event"),
+                "timestamp": _to_datetime(item.get("timestamp")).isoformat(),
+                "payload": item.get("payload") if isinstance(item.get("payload"), dict) else {},
+            }
+            for item in audit_timeline
+        ],
+        "notes": metadata.get("notes") or metadata.get("reason"),
+        "updated_at": _utc_now().isoformat(),
+    }
+
+
+@router.put("/orders/{order_id}", response_model=dict)
+async def update_admin_order(order_id: str, body: AdminOrderUpdateIn):
+    normalized_status = str(body.status or "").strip().upper()
+    if normalized_status != "CANCELLED":
+        raise HTTPException(status_code=400, detail="unsupported_order_status_update")
+    order = _find_order_record(order_id)
+    if order is None:
+        raise HTTPException(status_code=404, detail="order_not_found")
+    current_status = str(order.get("status") or "").strip().upper() or "FILLED"
+    if current_status == "FILLED":
+        raise HTTPException(status_code=409, detail="filled_order_cannot_be_cancelled")
+    order["status"] = "cancelled"
+    metadata = order.get("metadata") if isinstance(order.get("metadata"), dict) else {}
+    metadata["cancel_reason"] = body.reason
+    metadata["cancelled_at"] = _utc_now().isoformat()
+    order["metadata"] = metadata
+    _persist_order_record(order)
+    return {
+        "order_id": str(order.get("id") or order_id),
+        "status": "CANCELLED",
+        "reason": body.reason,
+        "updated_at": _utc_now().isoformat(),
+    }
+
+
+@router.get("/broker/config", response_model=dict)
+async def get_admin_broker_config():
+    return {
+        "broker": "Paper broker",
+        "status": "ready",
+        "commission_bps": round(_paper_order_commission_pct() * 10000.0, 2),
+        "slippage_bps": round(_paper_order_slippage_bps_model(), 2),
+        "slippage_model": "Fixed spread-cross plus light random noise",
+        "settlement": "T+2",
+        "routing": "single_venue_simulation",
+        "updated_at": _utc_now().isoformat(),
+    }
+
+
+@router.get("/execution/priority", response_model=dict)
+async def get_admin_execution_priority():
+    return {
+        "priority": str(_ADMIN_EXECUTION_PRIORITY.get("priority") or "QUALITY"),
+        "reason": _ADMIN_EXECUTION_PRIORITY.get("reason") or "default_execution_priority",
+        "updated_at": _ADMIN_EXECUTION_PRIORITY.get("updated_at") or _utc_now().isoformat(),
+    }
+
+
+@router.put("/execution/priority", response_model=dict)
+async def update_admin_execution_priority(body: ExecutionPriorityUpdateIn):
+    normalized_priority = str(body.priority or "").strip().upper()
+    if normalized_priority not in {"SPEED", "QUALITY", "COST"}:
+        raise HTTPException(status_code=400, detail="invalid_execution_priority")
+    _ADMIN_EXECUTION_PRIORITY["priority"] = normalized_priority
+    _ADMIN_EXECUTION_PRIORITY["reason"] = body.reason
+    _ADMIN_EXECUTION_PRIORITY["updated_at"] = _utc_now().isoformat()
+    return {
+        "priority": normalized_priority,
+        "reason": body.reason,
+        "updated_at": _ADMIN_EXECUTION_PRIORITY["updated_at"],
     }
 
 

@@ -337,6 +337,236 @@ files:
 validation: in_progress
 notes: Automated session start on server boot
 
+[2026-05-26T23:38:05.0000000Z] [START]
+entry_id: devlog-20260526-admin-surface-redesign-v2
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260526-admin-surface-redesign-v2
+git_branch: codex/main
+git_commit_start: ae950a023c9e5a604d92e49d5eeb2b861f081ebe
+git_commit_end:
+scope: Redesign the admin surface from scratch to remove cramped layout and deliver a professional black control center across desktop and mobile.
+active_phase: phase_alpha_frontend_ops
+files:
+- frontend/src/pages/Admin.jsx
+- frontend/src/styles/admin-control-center.css
+- Dev_Logs.md
+- codex-progress.txt
+- knowledge_graph/events.jsonl
+validation: in_progress
+notes: Replacing the control-center CSS layer with roomier spacing, stronger typography hierarchy, calmer rhythm, and mobile section toggle behavior to avoid cramped stacked navigation.
+
+[2026-05-26T23:49:43.0989136Z] [END]
+entry_id: devlog-20260526-admin-surface-redesign-v2
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260526-admin-surface-redesign-v2
+git_branch: codex/main
+git_commit_start: ae950a023c9e5a604d92e49d5eeb2b861f081ebe
+git_commit_end: pending_session_handoff_commit
+scope: Redesign the admin surface from scratch to remove cramped layout and deliver a professional black control center across desktop and mobile.
+active_phase: phase_alpha_frontend_ops
+files:
+- frontend/src/pages/Admin.jsx
+- frontend/src/styles/admin-control-center.css
+- Dev_Logs.md
+- codex-progress.txt
+- knowledge_graph/events.jsonl
+validation: npm run build (frontend) succeeded; curl http://127.0.0.1:5173/admin returned 200; curl http://127.0.0.1:8000/health returned 200; Playwright captures completed (`admin-redesign-surface-desktop-v3.png`, `admin-redesign-surface-mobile-pixel5-v3.png`).
+notes: Completed full-surface spacing and typography refactor, upgraded panel rhythm/forms/tables/list density, and added mobile nav toggle (`Sections`) with close-on-select behavior while preserving monochrome aesthetic and status legibility.
+
+[2026-05-26T23:28:10.0000000Z] [START]
+entry_id: devlog-20260526-admin-redesign-scratch-black-ui
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260526-admin-redesign-scratch-black-ui
+git_branch: codex/main
+git_commit_start: ae950a023c9e5a604d92e49d5eeb2b861f081ebe
+git_commit_end:
+scope: Redesign admin surface from scratch into a professional low-noise monochrome control center shell with responsive behavior.
+active_phase: phase_alpha_frontend_ops
+files:
+- frontend/src/pages/Admin.jsx
+- frontend/src/styles/admin-control-center.css
+- Dev_Logs.md
+- codex-progress.txt
+- knowledge_graph/events.jsonl
+validation: in_progress
+notes: Replacing decorative/gradient-heavy visual language with flat black system styling, simpler navigation chrome, lower-noise header, and scoped overrides to suppress legacy accent leakage.
+
+[2026-05-26T23:36:22.3694018Z] [END]
+entry_id: devlog-20260526-admin-redesign-scratch-black-ui
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260526-admin-redesign-scratch-black-ui
+git_branch: codex/main
+git_commit_start: ae950a023c9e5a604d92e49d5eeb2b861f081ebe
+git_commit_end: pending_session_handoff_commit
+scope: Redesign admin surface from scratch into a professional low-noise monochrome control center shell with responsive behavior.
+active_phase: phase_alpha_frontend_ops
+files:
+- frontend/src/pages/Admin.jsx
+- frontend/src/styles/admin-control-center.css
+- Dev_Logs.md
+- codex-progress.txt
+- knowledge_graph/events.jsonl
+validation: npm run build (frontend) succeeded; curl http://127.0.0.1:5173/admin returned 200; curl http://127.0.0.1:8000/health returned 200; Playwright screenshots captured for desktop/mobile viewport (`admin-redesign-from-scratch-desktop-viewport-v3.png`, `admin-redesign-from-scratch-mobile-viewport-pixel5-v3.png`).
+notes: Completed full shell rewrite (`cc-*`) and monotone visual pass; removed topbar description copy, flattened backgrounds/effects, simplified nav chrome, added focus-visible states, and neutralized inherited accent highlights while retaining minimal semantic status tones.
+
+[2026-05-26T22:07:54.8541295Z] [START]
+entry_id: devlog-20260526-vektor-admin-surface-redesign
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260526-vektor-admin-surface-redesign
+git_branch: codex/main
+git_commit_start: ae950a02ef73f7f435254404f652c4da75aab0dd
+git_commit_end:
+scope: Refactor Admin Control Center visual surface to align with Vektor design-system/spec and remove generic AI-style UI artifacts.
+active_phase: phase_alpha_backend_ops
+files:
+- frontend/src/pages/Admin.jsx
+- frontend/src/styles/admin-control-center.css
+- Dev_Logs.md
+- codex-progress.txt
+- knowledge_graph/events.jsonl
+validation: in_progress
+notes: Applying institutional visual system (palette, spacing, typography, hierarchy), panel naming alignment, and responsive shell behavior without changing backend contracts.
+
+[2026-05-26T22:07:54.8541295Z] [END]
+entry_id: devlog-20260526-vektor-admin-surface-redesign
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260526-vektor-admin-surface-redesign
+git_branch: codex/main
+git_commit_start: ae950a02ef73f7f435254404f652c4da75aab0dd
+git_commit_end: pending_session_handoff_commit
+scope: Refactor Admin Control Center visual surface to align with Vektor design-system/spec and remove generic AI-style UI artifacts.
+active_phase: phase_alpha_backend_ops
+files:
+- frontend/src/pages/Admin.jsx
+- frontend/src/styles/admin-control-center.css
+- Dev_Logs.md
+- codex-progress.txt
+- knowledge_graph/events.jsonl
+validation: npm run build (frontend) succeeded; playwright screenshots captured at `/admin` desktop and mobile (`frontend/output/playwright/admin-audit/admin-redesign-desktop-1600.png`, `admin-redesign-mobile-390-v2.png`).
+notes: Implemented spec-aligned control-center terminology and CSS override layer with professional institutional styling, improved desktop/tablet shell breakpoints, and mobile top-nav behavior with immediate content access.
+
+[2026-05-26T23:24:25.3132573Z] [START]
+entry_id: devlog-20260526-admin-monochrome-ui-pass
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260526-admin-monochrome-ui-pass
+git_branch: codex/main
+git_commit_start: ae950a02ef73f7f435254404f652c4da75aab0dd
+git_commit_end:
+scope: Convert admin frontend to simple modern monochrome black UI and remove unnecessary accent colors with Playwright-verified output.
+active_phase: phase_alpha_backend_ops
+files:
+- frontend/src/styles/admin-control-center.css
+- Dev_Logs.md
+- codex-progress.txt
+- knowledge_graph/events.jsonl
+validation: in_progress
+notes: User requested strict black UI; Google MCP unavailable in this session so execution used local tooling plus Playwright screenshots.
+
+[2026-05-26T23:24:25.3132573Z] [END]
+entry_id: devlog-20260526-admin-monochrome-ui-pass
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260526-admin-monochrome-ui-pass
+git_branch: codex/main
+git_commit_start: ae950a02ef73f7f435254404f652c4da75aab0dd
+git_commit_end: pending_session_handoff_commit
+scope: Convert admin frontend to simple modern monochrome black UI and remove unnecessary accent colors with Playwright-verified output.
+active_phase: phase_alpha_backend_ops
+files:
+- frontend/src/styles/admin-control-center.css
+- Dev_Logs.md
+- codex-progress.txt
+- knowledge_graph/events.jsonl
+validation: npm run build (frontend) succeeded; Playwright screenshots captured at `/admin` (`frontend/output/playwright/admin-audit/admin-monochrome-desktop-1600-v3.png`, `admin-monochrome-mobile-390.png`).
+notes: Final UI now uses grayscale-only design language with neutral status treatments, desaturated branding, and responsive shell behavior for desktop/mobile.
+
+[2026-05-26T23:27:13.1602095Z] [START]
+entry_id: devlog-20260526-admin-noise-reduction-pass
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260526-admin-noise-reduction-pass
+git_branch: codex/main
+git_commit_start: ae950a02ef73f7f435254404f652c4da75aab0dd
+git_commit_end:
+scope: Remove unnecessary UI noise from admin shell while preserving functional panel content.
+active_phase: phase_alpha_backend_ops
+files:
+- frontend/src/pages/Admin.jsx
+- Dev_Logs.md
+- codex-progress.txt
+- knowledge_graph/events.jsonl
+validation: in_progress
+notes: Removing duplicate shell telemetry blocks and redundant top-level chrome for a cleaner operator surface.
+
+[2026-05-26T23:27:13.1602095Z] [END]
+entry_id: devlog-20260526-admin-noise-reduction-pass
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260526-admin-noise-reduction-pass
+git_branch: codex/main
+git_commit_start: ae950a02ef73f7f435254404f652c4da75aab0dd
+git_commit_end: pending_session_handoff_commit
+scope: Remove unnecessary UI noise from admin shell while preserving functional panel content.
+active_phase: phase_alpha_backend_ops
+files:
+- frontend/src/pages/Admin.jsx
+- Dev_Logs.md
+- codex-progress.txt
+- knowledge_graph/events.jsonl
+validation: npm run build (frontend) succeeded; Playwright screenshots captured (`frontend/output/playwright/admin-audit/admin-noise-reduced-desktop-1600.png`, `admin-noise-reduced-mobile-390.png`).
+notes: Removed sidebar summary/footer telemetry, nav item subcopy, top status badge rail, and redundant alert banners to tighten signal-to-noise.
+
+[2026-05-26T21:58:04.8483405Z] [END]
+entry_id: devlog-20260526-vektor-admin-execution-orders-panel5
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260526-vektor-admin-execution-orders-panel5
+git_branch: codex/main
+git_commit_start: ae950a02ef73f7f435254404f652c4da75aab0dd
+git_commit_end: pending_session_handoff_commit
+scope: Build Vektor Admin Control Center Panel 5 (Execution & Orders) with order review, manual ticketing, execution quality, and desk routing controls.
+active_phase: phase_alpha_backend_ops
+files:
+- backend/app/admin_research_routes.py
+- backend/tests/test_admin_execution_orders_endpoints.py
+- frontend/src/api/adminAPI.js
+- frontend/src/components/admin/ExecutionOrdersPanel.jsx
+- frontend/src/pages/Admin.jsx
+- Dev_Logs.md
+- codex-progress.txt
+- knowledge_graph/events.jsonl
+validation: py -3 -m pytest backend/tests/test_admin_execution_orders_endpoints.py -q (2 passed); npm run build (frontend) succeeded; scripts/vektor-services.ps1 health => backend=healthy ollama=healthy openclaw=healthy; curl http://127.0.0.1:5173 => HTTP 200; curl /api/admin/orders => payload verified.
+notes: Confirmed Panel 5 implementation in dirty worktree is wired and running locally; started backend runtime harness and frontend dev server for immediate operator use.
+
 [2026-05-24T00:33:38.6082876Z] [START]
 entry_id: devlog-20260524-openclaw-alpaca-hygiene
 actor_name: codex
@@ -8933,3 +9163,69 @@ files:
 - knowledge_graph/events.jsonl
 validation: py -3 -m pytest backend/tests/test_admin_risk_policy_endpoints.py -q (2 passed); py -3 -m pytest backend/tests/test_admin_theses_positions_endpoints.py -q (2 passed); npm run build (frontend) succeeded.
 notes: Added admin risk routes (`/api/admin/risk/var`, `/api/admin/risk/cvar`, `/api/admin/risk/drawdown`, `/api/admin/risk/leverage`, `/api/admin/risk/sharpe`, `/api/admin/risk/breach-history`) plus policy routes for sector limits, position limits, and editable approval thresholds; wired new `RiskPolicyPanel` into the risk tab.
+
+[2026-05-26T21:44:33.6052680Z] [START]
+entry_id: devlog-20260526-vektor-admin-execution-orders-panel5
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260526-vektor-admin-execution-orders-panel5
+git_branch: codex/main
+git_commit_start: ae950a02ef73f7f435254404f652c4da75aab0dd
+git_commit_end:
+scope: Build Vektor Admin Control Center Panel 5 (Execution & Orders) with order review, manual ticketing, execution quality, and desk routing controls.
+active_phase: phase_alpha_backend_ops
+files:
+- backend/app/admin_research_routes.py
+- backend/tests/test_admin_execution_orders_endpoints.py
+- frontend/src/api/adminAPI.js
+- frontend/src/components/admin/ExecutionOrdersPanel.jsx
+- frontend/src/pages/Admin.jsx
+- Dev_Logs.md
+- codex-progress.txt
+- knowledge_graph/events.jsonl
+validation: in_progress
+notes: Completing the partially started execution/orders slice left dirty in the previous session and validating backend order endpoints plus frontend admin integration.
+
+[2026-05-26T21:56:32.820133Z] [START]
+entry_id: devlog-20260526-eac20025
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-1cb9162ed1e9
+git_branch: codex/main
+git_commit_start: ae950a023c9e5a604d92e49d5eeb2b861f081ebe
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-05-27T22:44:27.684047Z] [START]
+entry_id: devlog-20260527-bc1ea5e4
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-09f017c9420c
+git_branch: codex/main
+git_commit_start: ae950a023c9e5a604d92e49d5eeb2b861f081ebe
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot

@@ -1,8 +1,62 @@
 # Codex Progress Log
 
-Last updated: 2026-05-26T10:16:25.7506545Z
+Last updated: 2026-05-26T23:49:43.0989136Z
 
 ## Session Summary
+- Completed a full admin surface redesign pass to remove the cramped/AI-looking layout and rebuild the control-center experience with stronger spacing and typographic hierarchy.
+- Replaced `frontend/src/styles/admin-control-center.css` from scratch with a roomier black system:
+  - larger panel/header/body paddings
+  - cleaner component rhythm (cards, lists, tables, forms, chips)
+  - unified border/radius treatment
+  - preserved restrained semantic tones for status visibility
+- Added mobile section control flow in `frontend/src/pages/Admin.jsx`:
+  - new `Sections` toggle button on non-desktop widths
+  - collapsible nav list to avoid oversized stacked navigation
+  - auto-close nav on section selection for faster content access
+- Adjusted desktop detection threshold (`DESKTOP_MEDIA_QUERY`) so laptop-class widths use desktop rail behavior instead of mobile mode.
+- Revalidated build, runtime reachability, and visual output:
+  - `npm run build` succeeded in `frontend/`
+  - `/admin` HTTP 200 and `/health` HTTP 200
+  - Playwright evidence:
+    - `frontend/output/playwright/admin-audit/admin-redesign-surface-desktop-v3.png`
+    - `frontend/output/playwright/admin-audit/admin-redesign-surface-mobile-pixel5-v3.png`
+- Completed a from-scratch admin shell pass focused on a professional black control-center surface with lower visual noise.
+- Rebuilt `frontend/src/styles/admin-control-center.css` around a strict monochrome token set (`cc-*`), flattened gradients/blur effects, normalized spacing rhythm, and simplified navigation/topbar chrome.
+- Updated `frontend/src/pages/Admin.jsx` to remove topbar descriptive copy and keep the header concise.
+- Added scoped neutralization for inherited legacy `ops-*` accents, semantic-only status tones, and `:focus-visible` states for keyboard accessibility.
+- Validated local runtime reachability and UI delivery:
+  - frontend `/admin`: HTTP 200
+  - backend `/health`: HTTP 200
+- Revalidated frontend build and captured fresh Playwright evidence:
+  - `frontend/output/playwright/admin-audit/admin-redesign-from-scratch-desktop-viewport-v3.png`
+  - `frontend/output/playwright/admin-audit/admin-redesign-from-scratch-mobile-viewport-pixel5-v3.png`
+- Reduced UI noise in the admin shell by removing non-essential chrome while preserving panel functionality:
+  - removed sidebar backend/runtime summary block
+  - removed sidebar footer connection strip
+  - removed per-nav-item description subcopy
+  - removed top header badge rail
+  - removed redundant warning banners from shell body
+- Kept core content panels and refresh action intact for faster scan/readability.
+- Validated with `npm run build` and Playwright captures:
+  - `frontend/output/playwright/admin-audit/admin-noise-reduced-desktop-1600.png`
+  - `frontend/output/playwright/admin-audit/admin-noise-reduced-mobile-390.png`
+- Reworked the admin surface into a strict monochrome black/white/gray system to remove the previous AI-looking multicolor aesthetic.
+- Replaced `frontend/src/styles/admin-control-center.css` with a minimalist visual layer: neutral palette, flat panel system, simplified typography hierarchy, restrained borders/shadows, monochrome badges/buttons/tables, and desaturated branding.
+- Neutralized residual component accent classes (`overview-*`, status tone classes, alert treatments) so panels no longer leak cyan/green/yellow styling from legacy CSS.
+- Preserved responsive behavior with mobile horizontal section rail and desktop split-shell layout.
+- Validated with `npm run build` and Playwright captures:
+  - `frontend/output/playwright/admin-audit/admin-monochrome-desktop-1600-v3.png`
+  - `frontend/output/playwright/admin-audit/admin-monochrome-mobile-390.png`
+- Refactored the Admin Control Center surface to align with `docs/Vektor_Admin_Design_System.md` and `docs/Vektor_Admin_Control_Center_Spec.md`, replacing the ad hoc visual language with a spec-driven institutional style layer.
+- Added `frontend/src/styles/admin-control-center.css` (loaded after legacy styles) to enforce the new palette, typography scale, panel/table/input/button states, status tones, and responsive layout behavior.
+- Updated `frontend/src/pages/Admin.jsx` navigation labels/descriptions to control-center terminology (Overview, Research & Discovery, Theses & Positions, Risk & Policy, Execution & Orders, etc.) and improved header hierarchy with panel-specific descriptions.
+- Repaired desktop/tablet shell behavior by overriding the 1280px collapse regression and improved mobile ergonomics with a compact horizontal nav strip that keeps content immediately reachable.
+- Validated with `npm run build` and Playwright captures at `/admin` for desktop/mobile:
+  - `frontend/output/playwright/admin-audit/admin-redesign-desktop-1600.png`
+  - `frontend/output/playwright/admin-audit/admin-redesign-mobile-390-v2.png`
+- Confirmed Admin Control Center Panel 5 (Execution & Orders) is the active next slice and validated the in-progress implementation in the dirty worktree.
+- Ran focused regression `py -3 -m pytest backend/tests/test_admin_execution_orders_endpoints.py -q` (2 passed) and revalidated frontend integration with `npm run build` in `frontend/` (Vite build succeeded).
+- Brought local runtime online for immediate use: `scripts/vektor-services.ps1 health` returned `backend=healthy ollama=healthy openclaw=healthy`; frontend dev server confirmed at `http://127.0.0.1:5173` (HTTP 200); backend `/api/admin/orders` payload verified live.
 - Implemented Admin Control Center Panel 3 (Theses & Positions) with thesis list/detail/update routes, linked position drill-down, and close-thesis actions.
 - Added focused regression coverage in `backend/tests/test_admin_theses_positions_endpoints.py` and revalidated with `py -3 -m pytest backend/tests/test_admin_theses_positions_endpoints.py -q` (2 passed).
 - Implemented Admin Control Center Panel 4 (Risk & Policy) with explicit admin risk metrics routes for VaR, CVaR, drawdown, leverage, sharpe, breach history, plus policy summaries and editable approval thresholds.
@@ -67,18 +121,23 @@ Last updated: 2026-05-26T10:16:25.7506545Z
 - Added frontend `ResearchDiscoveryPanel` and wired a new `Research` nav tab in `Admin.jsx` for filter/search, inspect, archive, and create-thesis actions.
 - Added focused backend regression `backend/tests/test_admin_research_ideas_endpoints.py` and validated with `py -3 -m pytest backend/tests/test_admin_research_ideas_endpoints.py -q` (2 passed).
 - Revalidated frontend build after integration with `npm run build` in `frontend/` (Vite build succeeded).
+- Revalidated the live backend on 2026-05-27 through `/health`, `/data-pipeline/status`, `/fund/agents/workers/status`, `/ml/status`, `/signals/generate`, and `/api/admin/orders` under the long-running harness.
+- Confirmed the realtime pipeline is active and provider-backed, and captured the live strict-data halt condition `real_data_required:alpaca_stream:stream_connection_limit_exceeded` from `/fund/agents/workers/status` before clearing it through `/api/admin/system/deterministic-ml/recover` for signal verification.
+- Hardened the backend decision engine against signal drift by snapshotting the deterministic ML signal plus derived decision scoring at the `fund_manager` -> `trader` handoff and teaching the orchestrator to reuse a provided signal artifact instead of recomputing it during execution when the symbol matches.
+- Added regression coverage for signal-artifact reuse in `backend/tests/test_orchestrator_manual_order.py` and for snapshot stamping in `backend/tests/test_fund_agent_runtime.py`.
+- Ran focused backend regressions `backend/tests/test_orchestrator_manual_order.py`, `backend/tests/test_fund_agent_runtime.py`, `backend/tests/test_signals.py`, `backend/tests/test_fund_policy_gate.py`, `backend/tests/test_data_pipeline.py`, and `backend/tests/test_admin_execution_orders_endpoints.py` with `38 passed`.
 
 ## Completed Tests
 - 14/200 tests passing
 
 ## Current Focus
-- Continue Admin Control Center implementation after Panel 4, with the next product slice moving to execution/order controls while keeping long-running harness validation intact.
-- Keep long-running harness validation tied to live backend endpoints and explicit deterministic policy diagnostics instead of inferred success.
+- Finish stabilizing the execution/orders backend slice while preserving the new immutable-signal decision contract end to end.
+- Keep long-running harness validation tied to live backend endpoints, strict real-data status, and explicit deterministic policy diagnostics instead of inferred success.
 - Preserve `codex/main` -> `origin/main` handoff discipline and repo-managed service bring-up for every session.
-- Preserve desktop-first operator clarity while backend telemetry and service health remain stable under the latest runtime hardening changes.
+- Address remaining realtime strict-mode friction around Alpaca stream connection limits without weakening the decision-engine contract.
 - Keep one-slice commits with verified tests, Playwright evidence, and devlog/knowledge-graph ingestion per session.
 
 ## Next Steps
 1. Run `powershell -ExecutionPolicy Bypass -File scripts/session-bootstrap.ps1 -CountRemaining`.
 2. Run `powershell -ExecutionPolicy Bypass -File scripts/select-next-feature.ps1`.
-3. Continue from local `codex/main` with the next Admin Control Center slice, likely Panel 5 (Execution & Orders), while preserving the same bootstrap -> validate -> index -> handoff workflow.
+3. Continue from local `codex/main` by closing the remaining Admin Control Center Panel 5 integration work and then tackle the live Alpaca stream limit/halt path with the same bootstrap -> validate -> index -> handoff workflow.

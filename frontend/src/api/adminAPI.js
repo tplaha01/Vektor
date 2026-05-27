@@ -186,6 +186,52 @@ export const adminAPI = {
     }),
   getAdminRiskBreachHistory: async (limit = 12) =>
     fetchJson(`${API_BASE}/admin/risk/breach-history?limit=${encodeURIComponent(limit)}`),
+  getAdminOrders: async ({ status = 'ALL', time = 'ALL', side = 'ALL', sort = 'date_desc', limit = 100 } = {}) => {
+    const params = new URLSearchParams();
+    params.set('status', status);
+    params.set('time', time);
+    params.set('side', side);
+    params.set('sort', sort);
+    params.set('limit', String(limit));
+    return fetchJson(`${API_BASE}/admin/orders?${params.toString()}`);
+  },
+  getAdminOrderDetail: async (orderId) => fetchJson(`${API_BASE}/admin/orders/${encodeURIComponent(orderId)}`),
+  getAdminOrderFills: async (orderId) => fetchJson(`${API_BASE}/admin/orders/${encodeURIComponent(orderId)}/fills`),
+  getAdminOrderExecutionQuality: async (orderId) =>
+    fetchJson(`${API_BASE}/admin/orders/${encodeURIComponent(orderId)}/execution_quality`),
+  getAdminOrderTape: async ({ symbol = '', side = 'ALL', days = 30 } = {}) => {
+    const params = new URLSearchParams();
+    if (symbol) params.set('symbol', symbol);
+    params.set('side', side);
+    params.set('days', String(days));
+    return fetchJson(`${API_BASE}/admin/orders/tape?${params.toString()}`);
+  },
+  validateAdminOrder: async (payload = {}) =>
+    fetchJson(`${API_BASE}/admin/orders/validate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+  submitAdminOrder: async (payload = {}) =>
+    fetchJson(`${API_BASE}/admin/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+  updateAdminOrder: async (orderId, payload = {}) =>
+    fetchJson(`${API_BASE}/admin/orders/${encodeURIComponent(orderId)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+  getAdminBrokerConfig: async () => fetchJson(`${API_BASE}/admin/broker/config`),
+  getAdminExecutionPriority: async () => fetchJson(`${API_BASE}/admin/execution/priority`),
+  updateAdminExecutionPriority: async (payload = {}) =>
+    fetchJson(`${API_BASE}/admin/execution/priority`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
 
   getSystemStatusBadges: async () => {
     return fetchJson(`${API_BASE}/admin/system/status-badges`);

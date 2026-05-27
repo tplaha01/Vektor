@@ -9,6 +9,7 @@ import {
   FileText,
   Globe,
   LineChart,
+  Menu,
   Pause,
   Play,
   RefreshCw,
@@ -29,11 +30,13 @@ import {
 } from 'recharts';
 import '../styles/admin.css';
 import '../styles/admin-portal.css';
+import '../styles/admin-control-center.css';
 import { adminAPI } from '../api/adminAPI';
 import { useToast } from '../components/common/Toast';
 import ToastContainer from '../components/common/Toast';
 import AgentMonitor from '../components/admin/AgentMonitor';
 import DecisionQueue from '../components/admin/DecisionQueue';
+import ExecutionOrdersPanel from '../components/admin/ExecutionOrdersPanel';
 import KnowledgeTraceGraph from '../components/admin/KnowledgeTraceGraph';
 import LineagePanel from '../components/admin/LineagePanel';
 import OverviewPanel from '../components/admin/OverviewPanel';
@@ -49,80 +52,80 @@ const backendTarget = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000
 const POLL_INTERVAL_MS = 20000;
 const RETRY_INTERVAL_MS = 60000;
 const SIDEBAR_STORAGE_KEY = 'vektor.admin.sidebarCollapsed';
-const DESKTOP_MEDIA_QUERY = '(min-width: 1281px)';
+const DESKTOP_MEDIA_QUERY = '(min-width: 1100px)';
 
 const navigationItems = [
   {
     id: 'control',
-    label: 'Control',
+    label: 'Overview',
     icon: Sigma,
-    description: 'Executive command deck',
+    description: 'Fund status, runtime posture, and active intervention points',
   },
   {
     id: 'research',
-    label: 'Research',
+    label: 'Research & Discovery',
     icon: FileText,
-    description: 'Discovery ideas and thesis intake',
+    description: 'Idea pipeline, source provenance, and thesis conversion',
   },
   {
     id: 'positions',
-    label: 'Positions',
+    label: 'Theses & Positions',
     icon: Activity,
-    description: 'Portfolio and book detail',
+    description: 'Live theses, exposure, and position-level operating detail',
   },
   {
     id: 'market',
-    label: 'Market',
+    label: 'Market Context',
     icon: Globe,
-    description: 'Focus charts and market feed',
+    description: 'Regime state, macro context, and market telemetry',
   },
   {
     id: 'agents',
-    label: 'Agents',
+    label: 'Agents & Runtime',
     icon: Bot,
-    description: 'Workers, hierarchy, and task flow',
+    description: 'Worker hierarchy, queue health, and orchestration state',
   },
   {
     id: 'risk',
-    label: 'Risk',
+    label: 'Risk & Policy',
     icon: Shield,
-    description: 'Alerts, drawdown, and capital pressure',
+    description: 'Risk limits, breaches, and policy gate enforcement',
   },
   {
     id: 'performance',
-    label: 'Performance',
+    label: 'Audit & Lineage',
     icon: FileText,
-    description: 'Track record and review trail',
+    description: 'Outcome attribution, review trails, and execution lineage',
   },
   {
     id: 'orders',
-    label: 'Orders',
+    label: 'Execution & Orders',
     icon: LineChart,
-    description: 'Manual execution and book snapshot',
+    description: 'Order lifecycle, execution quality, and manual routing controls',
   },
   {
     id: 'decisions',
-    label: 'Decisions',
+    label: 'Approvals & Digests',
     icon: TrendingUp,
-    description: 'Approvals and blocked flow',
+    description: 'Decision queue, sign-offs, and blocked demand',
   },
   {
     id: 'runtime',
-    label: 'Runtime',
+    label: 'Control Surface',
     icon: Workflow,
-    description: 'Workers, providers, and control logs',
+    description: 'Provider status, runtime commands, and control history',
   },
   {
     id: 'knowledge',
-    label: 'Knowledge',
+    label: 'Knowledge Graph',
     icon: Database,
-    description: 'Store state and run lineage',
+    description: 'Fund memory, store state, and cross-run traceability',
   },
   {
     id: 'settings',
-    label: 'Settings',
+    label: 'Settings & Config',
     icon: Settings,
-    description: 'Backend config and model routing',
+    description: 'System configuration, model routing, and operating thresholds',
   },
 ];
 
@@ -250,17 +253,16 @@ function NavItem({ active, collapsed, item, onSelect }) {
   return (
     <button
       type="button"
-      className={`ops-nav-item ${active ? 'is-active' : ''}`}
+      className={`cc-nav-item ${active ? 'is-active' : ''}`}
       onClick={() => onSelect(item.id)}
       aria-label={item.label}
       title={collapsed ? item.label : undefined}
     >
-      <span className="ops-nav-icon">
+      <span className="cc-nav-icon">
         <Icon size={16} />
       </span>
-      <span className="ops-nav-copy">
+      <span className="cc-nav-copy">
         <strong>{item.label}</strong>
-        {item.description ? <small>{item.description}</small> : null}
       </span>
     </button>
   );
@@ -304,6 +306,7 @@ export default function Admin() {
       return false;
     }
   });
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('control');
   const [metrics, setMetrics] = useState(null);
   const [overviewData, setOverviewData] = useState({
@@ -387,6 +390,7 @@ export default function Admin() {
 
       if (!matches) {
         setIsSidebarCollapsed(false);
+        setIsMobileNavOpen(false);
         return;
       }
 
@@ -3459,85 +3463,7 @@ export default function Admin() {
     </>
   );
 
-  const renderOrdersDesk = () => (
-    <>
-      <div className="ops-grid ops-grid-overview">
-        <Panel eyebrow="Ticket" title="Manual Order">
-          <form className="ops-form-stack" onSubmit={handleOrderSubmit}>
-            <div className="ops-form-grid">
-              <label className="ops-field">
-                <span>Symbol</span>
-                <input className="ops-input ops-input-uppercase" type="text" value={orderForm.symbol} onChange={(event) => setOrderForm((prev) => ({ ...prev, symbol: event.target.value.toUpperCase() }))} />
-              </label>
-              <label className="ops-field">
-                <span>Side</span>
-                <select className="ops-input" value={orderForm.side} onChange={(event) => setOrderForm((prev) => ({ ...prev, side: event.target.value }))}>
-                  <option value="buy">Buy</option>
-                  <option value="sell">Sell</option>
-                </select>
-              </label>
-              <label className="ops-field">
-                <span>Quantity</span>
-                <input className="ops-input" type="number" min="1" step="1" value={orderForm.quantity} onChange={(event) => setOrderForm((prev) => ({ ...prev, quantity: event.target.value }))} />
-              </label>
-            </div>
-            <div className="ops-inline-chips">
-              {safeArray(pipelineStatus?.configured_symbols).slice(0, 12).map((symbol) => (
-                <button key={symbol} type="button" className="ops-command-chip" onClick={() => setOrderForm((prev) => ({ ...prev, symbol }))}>
-                  {symbol}
-                </button>
-              ))}
-            </div>
-            <div className="ops-button-row compact">
-              <button type="submit" className="ops-button" disabled={busyMutation === 'order'}>Submit Order</button>
-            </div>
-          </form>
-        </Panel>
-
-        <Panel eyebrow="Book" title="Book Snapshot">
-          <div className="ops-kv-grid">
-            <div className="ops-kv"><span className="ops-kv-label">Cash</span><strong className="ops-kv-value">{currency(latestSnapshot?.cash)}</strong></div>
-            <div className="ops-kv"><span className="ops-kv-label">Market Value</span><strong className="ops-kv-value">{currency(latestSnapshot?.market_value)}</strong></div>
-            <div className="ops-kv"><span className="ops-kv-label">Positions</span><strong className="ops-kv-value">{number(metrics?.active_positions)}</strong></div>
-            <div className="ops-kv"><span className="ops-kv-label">PnL</span><strong className="ops-kv-value">{currency(metrics?.unrealized_pnl)}</strong></div>
-          </div>
-
-          {topPositionRows.length ? (
-            <div className="ops-table-wrap">
-              <table className="ops-table">
-                <thead>
-                  <tr>
-                    <th>Symbol</th>
-                    <th>Qty</th>
-                    <th>Price</th>
-                    <th>PnL</th>
-                    <th>Alloc</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {topPositionRows.map((row) => (
-                    <tr key={row.symbol}>
-                      <td className="ops-symbol-cell">{row.symbol}</td>
-                      <td>{number(row.quantity)}</td>
-                      <td>{currency(row.marketPrice)}</td>
-                      <td className={row.unrealizedPnl >= 0 ? 'ops-positive' : 'ops-negative'}>{currency(row.unrealizedPnl)}</td>
-                      <td>{plainPercent(row.allocationPct, 2)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="ops-empty">No positions.</div>
-          )}
-        </Panel>
-      </div>
-
-      <Panel eyebrow="Positions" title="Open Positions">
-        <PositionsPanel />
-      </Panel>
-    </>
-  );
+  const renderOrdersDesk = () => <ExecutionOrdersPanel />;
 
   const renderDecisionsDesk = () => (
     <>
@@ -3822,105 +3748,76 @@ export default function Admin() {
   };
 
   return (
-    <div className={`ops-shell ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
-      <aside className={`ops-sidebar ${isSidebarCollapsed ? 'is-collapsed' : ''}`}>
-        <div className="ops-sidebar-top">
-          <div className="ops-sidebar-header">
-            <div className="ops-brand">
-              <div className="ops-brand-mark ops-brand-mark-logo">
-                <img src="/VektorLogo.png?v=20260422b" alt="Vektor" className="ops-brand-logo" />
-              </div>
-              <div className="ops-brand-copy">
-                <strong>Vektor</strong>
-                <small>Control Center</small>
-              </div>
+    <div className={`cc-root ${isSidebarCollapsed ? 'is-collapsed' : ''}`}>
+      <aside className="cc-rail">
+        <div className="cc-rail-head">
+          <div className="cc-brand">
+            <img src="/VektorLogo.png?v=20260422b" alt="Vektor" className="cc-brand-logo" />
+            <div className="cc-brand-copy">
+              <strong>Vektor</strong>
+              <small>Admin</small>
             </div>
-            {isDesktopViewport ? (
-              <button
-                type="button"
-                className="ops-sidebar-toggle"
-                aria-label={isSidebarCollapsed ? 'Expand admin sidebar' : 'Collapse admin sidebar'}
-                aria-pressed={isSidebarCollapsed}
-                onClick={() => setIsSidebarCollapsed((previous) => !previous)}
-              >
-                {isSidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-              </button>
-            ) : null}
           </div>
-
-          <div className="ops-sidebar-summary">
-            <div className="ops-sidebar-summary-row"><span>Backend</span><strong>{backendTarget}</strong></div>
-            <div className="ops-sidebar-summary-row"><span>Status</span><strong>{connectionStatus === 'connected' ? 'Live' : connectionStatus === 'error' ? 'Offline' : 'Syncing'}</strong></div>
-            <div className="ops-sidebar-summary-row"><span>Runtime</span><strong>{runtimeControl?.runtime_started ? 'Running' : 'Paused'}</strong></div>
-            <div className="ops-sidebar-summary-row"><span>Halt</span><strong>{systemStatus?.halt?.halted ? 'Active' : 'Clear'}</strong></div>
-          </div>
+          {isDesktopViewport ? (
+            <button
+              type="button"
+              className="cc-rail-toggle"
+              aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              aria-pressed={isSidebarCollapsed}
+              onClick={() => setIsSidebarCollapsed((previous) => !previous)}
+            >
+              {isSidebarCollapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="cc-mobile-nav-toggle"
+              aria-label={isMobileNavOpen ? 'Hide sections' : 'Show sections'}
+              aria-pressed={isMobileNavOpen}
+              onClick={() => setIsMobileNavOpen((previous) => !previous)}
+            >
+              <Menu size={15} />
+              Sections
+            </button>
+          )}
         </div>
 
-        <nav className="ops-nav" aria-label="Admin sections">
+        <nav className={`cc-nav ${isDesktopViewport || isMobileNavOpen ? 'is-open' : 'is-closed'}`} aria-label="Admin sections">
           {navigationItems.map((item) => (
-            <NavItem key={item.id} item={item} active={activeTab === item.id} collapsed={isSidebarCollapsed} onSelect={setActiveTab} />
+            <NavItem
+              key={item.id}
+              item={item}
+              active={activeTab === item.id}
+              collapsed={isSidebarCollapsed}
+              onSelect={(tab) => {
+                setActiveTab(tab);
+                if (!isDesktopViewport) setIsMobileNavOpen(false);
+              }}
+            />
           ))}
         </nav>
-
-        <div className="ops-sidebar-footer">
-          <div className="ops-connection-row">
-            <span className={`ops-connection-dot ${connectionStatus}`} />
-            <span className="ops-connection-label">{connectionStatus === 'connected' ? 'Live backend' : connectionStatus === 'error' ? 'Backend unreachable' : 'Syncing'}</span>
-          </div>
-        </div>
       </aside>
 
-      <main className="ops-main">
-        <header className="ops-header">
-          <div className="ops-header-top">
-            <div className="ops-header-copy">
-              <p className="ops-header-eyebrow">{activeNavigationItem.label}</p>
-              <h1>{activeNavigationItem.label}</h1>
-            </div>
-            <div className="ops-button-row compact">
-              <button type="button" className="ops-button secondary" disabled={refreshing} onClick={() => fetchAdminState({ manual: true })}>
-                <RefreshCw size={15} className={refreshing ? 'ops-spin' : ''} />
-                Refresh
-              </button>
-            </div>
+      <main className="cc-main">
+        <header className="cc-topbar">
+          <div className="cc-topbar-copy">
+            <h1>{activeNavigationItem.label}</h1>
           </div>
-
-          <div className="ops-status-row">
-            {headerBadges.map((badge) => (
-              <div key={badge.label} className={`ops-status-badge ${toneClassName(badge.tone)}`}>
-                <span className="ops-status-label">{badge.label}</span>
-                <strong className="ops-status-value">{badge.value}</strong>
-              </div>
-            ))}
-          </div>
+          <button
+            type="button"
+            className="cc-refresh"
+            disabled={refreshing}
+            onClick={() => fetchAdminState({ manual: true })}
+          >
+            <RefreshCw size={15} className={refreshing ? 'ops-spin' : ''} />
+            Refresh
+          </button>
         </header>
 
-        <div className="ops-content">
+        <section className="cc-content">
           {initialLoading ? <div className="ops-empty">Loading backend state.</div> : null}
-
-          {connectionStatus === 'error' ? (
-            <div className={`ops-banner ${toneClassName('bad')}`}>
-              <AlertCircle size={16} />
-              <div>
-                <strong>Backend unreachable</strong>
-                <p>{backendTarget}</p>
-              </div>
-            </div>
-          ) : null}
-
-          {fallbackProvider ? (
-            <div className={`ops-banner ${toneClassName('caution')}`}>
-              <Database size={16} />
-              <div>
-                <strong>Fallback provider</strong>
-                <p>{fallbackProvider.provider} {fallbackProvider.symbol || ''} {fallbackProvider.detail || ''}</p>
-              </div>
-            </div>
-          ) : null}
-
           {renderActiveTab()}
-        </div>
-
+        </section>
         <ToastContainer />
       </main>
     </div>

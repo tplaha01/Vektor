@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+from decimal import Decimal
+
 from app.broker.paper import PaperBroker
 from app.fund.audit_log import AuditLog
+from app.fund.contracts import ResearchReport as ContractResearchReport
+from app.fund.contracts import Sleeve
 from app.fund.decision_ledger import DecisionLedger
 from app.fund.knowledge_graph import KnowledgeGraph
 from app.fund.orchestrator import FirmOrchestrator
@@ -16,6 +20,7 @@ class _StubPolicyGate:
         self.approved = approved
         self.reasons = list(reasons or [])
         self.calls: list[tuple[object, list[dict], float]] = []
+        self.limits = type("_Limits", (), {"max_order_notional_usd": 1_000_000.0})()
 
     def evaluate(self, intent, positions: list[dict], equity: float):
         self.calls.append((intent, list(positions), float(equity)))
@@ -146,3 +151,84 @@ def test_execute_manual_paper_order_returns_combined_policy_and_breaker_reasons(
 
     events = ledger.list_events(limit=-1)
     assert any(row.get("event_type") == "paper.order.blocked" for row in events)
+
+
+def test_execute_manual_paper_order_reuses_provided_signal_artifact(monkeypatch):
+    policy_gate = _StubPolicyGate(approved=True)
+    orchestrator, audit, _ledger = _build_orchestrator(policy_gate)
+
+    def _unexpected_recompute(_symbol: str):
+        raise AssertionError("manual execution should reuse provided signal artifact")
+
+    monkeypatch.setattr(orchestrator_module, "run_core_engine", _unexpected_recompute)
+
+    result = orchestrator.execute_manual_paper_order(
+        run_id="run-manual-artifact-1",
+        agent_id="manual_trader",
+        symbol="aapl",
+        side="buy",
+        quantity=2.0,
+        price=100.0,
+        external_blocked_reasons=[],
+        metadata={
+            "deterministic_ml_signal": _engine_payload(policy_version="deterministic-policy-v8.0.0"),
+            "signal_artifact_source": "fund_manager_snapshot",
+        },
+    )
+
+    assert result["approved"] is True
+    assert result["policy_version"] == "deterministic-policy-v8.0.0"
+    intent, _positions, _equity = policy_gate.calls[0]
+    assert intent.metadata["signal_artifact_reused"] is True
+    assert intent.metadata["signal_artifact_source"] == "fund_manager_snapshot"
+
+    pre_trade = audit.list_events(event_type="pre_trade.approved", run_id="run-manual-artifact-1")
+    assert len(pre_trade) == 1
+    assert pre_trade[0].payload["policy_version"] == "deterministic-policy-v8.0.0"
+
+
+def test_execute_decision_reuses_provided_signal_artifact(monkeypatch):
+    policy_gate = _StubPolicyGate(approved=True)
+    orchestrator, _audit, _ledger = _build_orchestrator(policy_gate)
+
+    report = ContractResearchReport(
+        run_id="run-decision-artifact-1",
+        agent_id="insight_researcher_agent",
+        asset_universe=("AAPL",),
+        summary="AAPL setup",
+        findings=("signal stack aligned",),
+        confidence=Decimal("0.82"),
+    )
+    saved = orchestrator.submit_research(report)
+    thesis = orchestrator.create_thesis(
+        run_id="run-decision-artifact-1",
+        agent_id="fund_manager_agent",
+        sleeve=Sleeve.TACTICAL,
+        report_ids=[saved["report_id"]],
+        statement="Execute AAPL thesis",
+        conviction=Decimal("0.82"),
+    )
+
+    def _unexpected_recompute(_symbol: str):
+        raise AssertionError("execution should reuse provided signal artifact")
+
+    monkeypatch.setattr(orchestrator_module, "run_core_engine", _unexpected_recompute)
+
+    result = orchestrator.execute_decision(
+        run_id="run-decision-artifact-1",
+        agent_id="trader_agent",
+        thesis_id=thesis["thesis_id"],
+        symbol="AAPL",
+        side="buy",
+        quantity=1.0,
+        price=100.0,
+        metadata={
+            "deterministic_ml_signal": _engine_payload(policy_version="deterministic-policy-v7.0.0"),
+            "signal_artifact_source": "fund_manager_snapshot",
+        },
+    )
+
+    assert result["status"] == "executed"
+    intent, _positions, _equity = policy_gate.calls[0]
+    assert intent.metadata["signal_artifact_reused"] is True
+    assert intent.metadata["signal_artifact_source"] == "fund_manager_snapshot"

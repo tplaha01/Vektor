@@ -12,6 +12,7 @@ from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from app.config import get_settings
+from app.core_engine import run_core_engine
 from app.data.market_data import FEED
 from app.data.news import latest_news
 from app.fund.ai_role_adapter import TemporaryProviderCapacityError, ai_role_adapter
@@ -24,6 +25,7 @@ from app.fund.contracts import (
     Sleeve,
 )
 from app.fund.blog_service import blog_service
+from app.fund.core_engine_scoring import build_decision_scoring_from_signal
 from app.fund.ingestion_adapters import market_ingestion
 from app.fund.market_session import market_session_status
 from app.fund.orchestrator import FirmOrchestrator, firm_orchestrator
@@ -2266,6 +2268,22 @@ class FundAgentRuntime:
                     "conviction": conviction,
                     "market_session": session,
                 }
+        asset_class = infer_asset_class(symbol, dict(payload.get("metadata") or {}).get("asset_class"))
+        engine_signal = run_core_engine(symbol).to_dict()
+        decision_scoring = build_decision_scoring_from_signal(
+            symbol=symbol,
+            asset_class=asset_class,
+            engine_signal=engine_signal,
+        )
+        trader_metadata = {
+            **dict(payload.get("metadata") or {}),
+            "market_session": session,
+            "deterministic_ml_signal": engine_signal,
+            "decision_scoring": decision_scoring,
+            "strategy_family": decision_scoring.get("strategy_family"),
+            "signal_artifact_source": "fund_manager_snapshot",
+            "signal_artifact_recorded_at": _utc_iso(),
+        }
         trader_task = self._task_bus.create_task(
             run_id=run_id,
             agent_id="trader_agent",
@@ -2277,7 +2295,7 @@ class FundAgentRuntime:
                 "side": str(payload.get("side") or "buy").lower(),
                 "quantity": float(payload.get("quantity") or 1.0),
                 "price": payload.get("price"),
-                "metadata": {**dict(payload.get("metadata") or {}), "market_session": session},
+                "metadata": trader_metadata,
             },
         )
         return {"status": "completed", "thesis_id": thesis["thesis_id"], "next_task_id": trader_task.task_id, "next_role": "trader"}

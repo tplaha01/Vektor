@@ -80,6 +80,73 @@ def _stub_discovery_opportunity(symbol: str, *, score: float, confidence: float)
     }
 
 
+def test_fund_manager_stamps_trader_task_with_signal_snapshot(monkeypatch):
+    bus, orchestrator, runtime = _build_stack()
+
+    class _StubEngineResult:
+        def to_dict(self) -> dict:
+            return {
+                "symbol": "AAPL",
+                "score": 0.71,
+                "confidence": 0.79,
+                "subscores": {"sentiment": 0.11},
+                "model": {"selected": "meta-intent-v1.0.0"},
+                "diagnostics": {
+                    "technical": {"confidence": 0.77, "volume_ratio": 0.9, "atr_pct": 0.02, "regime_edge": 0.2},
+                    "sentiment": {"headline_count": 3},
+                    "meta_intent": {
+                        "expected_utility": 0.08,
+                        "reason_codes": ["dominant_technical"],
+                        "diagnostics": {
+                            "sign_consensus": 0.82,
+                            "aggregate_uncertainty": 0.24,
+                            "domain_disagreement": 0.09,
+                        },
+                    },
+                    "policy": {"safe_mode": False},
+                },
+            }
+
+    from app.fund import agent_runtime as runtime_module
+
+    monkeypatch.setattr(runtime_module, "run_core_engine", lambda _symbol: _StubEngineResult())
+    monkeypatch.setattr(runtime, "_market_session", lambda: {"open": True, "trading_day": True, "reason": "open"})
+
+    report = ContractResearchReport(
+        run_id="run-fund-manager-snapshot-1",
+        agent_id="insight_researcher_agent",
+        asset_universe=("AAPL",),
+        summary="Strong AAPL setup.",
+        findings=("trend and quality aligned",),
+        confidence=Decimal("0.84"),
+    )
+    saved = orchestrator.submit_research(report)
+
+    result = runtime._handle_fund_manager(
+        {
+            "report_ids": [saved["report_id"]],
+            "symbol": "AAPL",
+            "side": "buy",
+            "quantity": 1.0,
+            "conviction": 0.84,
+            "sleeve": "tactical",
+            "metadata": {"origin": "unit_test"},
+        },
+        run_id="run-fund-manager-snapshot-1",
+    )
+
+    assert result["status"] == "completed"
+    assert result["next_role"] == "trader"
+
+    trader_task = next(task for task in bus.list_tasks() if task.task_id == result["next_task_id"])
+    metadata = trader_task.payload["metadata"]
+    assert metadata["origin"] == "unit_test"
+    assert metadata["signal_artifact_source"] == "fund_manager_snapshot"
+    assert metadata["deterministic_ml_signal"]["symbol"] == "AAPL"
+    assert metadata["decision_scoring"]["strategy_family"] == "deterministic_ml_firm_engine"
+    assert metadata["signal_artifact_recorded_at"]
+
+
 def test_ceo_command_endpoint_queues_role_task():
     _, orchestrator, runtime = _build_stack()
     app = FastAPI()

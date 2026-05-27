@@ -29,7 +29,10 @@ from app.fund.allocation_policy import (
 )
 from app.fund.approval_center import ApprovalCenter, approval_center
 from app.fund.audit_log import AuditLog, audit_log
-from app.fund.core_engine_scoring import build_decision_scoring_from_signal
+from app.fund.core_engine_scoring import (
+    build_decision_scoring_from_signal,
+    resolve_decision_scoring,
+)
 from app.fund.contracts import (
     DecisionRecord,
     ProvenanceRef,
@@ -74,6 +77,43 @@ logger = logging.getLogger("alfred.fund")
 
 def _as_utc_datetime(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def _as_dict(value: Any) -> dict[str, Any]:
+    return dict(value) if isinstance(value, dict) else {}
+
+
+def _resolve_execution_signal_artifact(
+    *,
+    symbol: str,
+    asset_class: str,
+    metadata: dict[str, Any] | None,
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], bool]:
+    normalized_symbol = str(symbol or "").upper().strip()
+    meta = _as_dict(metadata)
+    provided_signal = _as_dict(meta.get("deterministic_ml_signal"))
+    reusable_signal: dict[str, Any] | None = None
+    if provided_signal:
+        provided_symbol = str(provided_signal.get("symbol") or normalized_symbol).upper().strip()
+        if provided_symbol == normalized_symbol:
+            reusable_signal = provided_signal
+
+    engine_signal = dict(reusable_signal) if reusable_signal is not None else run_core_engine(normalized_symbol).to_dict()
+    scoring_metadata = dict(meta)
+    scoring_metadata["deterministic_ml_signal"] = engine_signal
+    decision_scoring = resolve_decision_scoring(
+        metadata=scoring_metadata,
+        symbol=normalized_symbol,
+        asset_class=asset_class,
+    )
+    if not decision_scoring:
+        decision_scoring = build_decision_scoring_from_signal(
+            symbol=normalized_symbol,
+            asset_class=asset_class,
+            engine_signal=engine_signal,
+        )
+    diagnostics = _as_dict(engine_signal.get("diagnostics"))
+    return engine_signal, decision_scoring, diagnostics, reusable_signal is not None
 
 
 class FirmOrchestrator:
@@ -741,12 +781,10 @@ class FirmOrchestrator:
         routing_mode = infer_routing_mode(normalized_symbol, asset_class)
         underlier_symbol = infer_underlier_symbol(normalized_symbol, asset_class)
         discovery_snapshot = self.latest_discovery_opportunity(run_id=run_id, symbol=normalized_symbol)
-        engine_signal = run_core_engine(normalized_symbol).to_dict()
-        diagnostics = engine_signal.get("diagnostics") if isinstance(engine_signal.get("diagnostics"), dict) else {}
-        decision_scoring = build_decision_scoring_from_signal(
+        engine_signal, decision_scoring, diagnostics, signal_artifact_reused = _resolve_execution_signal_artifact(
             symbol=normalized_symbol,
             asset_class=asset_class,
-            engine_signal=engine_signal,
+            metadata=metadata,
         )
         positions = self._broker.list_positions(self._price_lookup)
         equity = self._current_equity(positions)
@@ -788,6 +826,7 @@ class FirmOrchestrator:
             "estimated_notional_usd": estimated_notional,
             "meta_intent": diagnostics.get("meta_intent") if isinstance(diagnostics.get("meta_intent"), dict) else None,
             "core_engine_policy": diagnostics.get("policy") if isinstance(diagnostics.get("policy"), dict) else None,
+            "signal_artifact_reused": signal_artifact_reused,
             "deterministic_ml_signal": engine_signal,
             **(metadata or {}),
         }
@@ -991,16 +1030,10 @@ class FirmOrchestrator:
                 effective_price,
             )
         )
-        engine_signal = run_core_engine(normalized_symbol).to_dict()
-        decision_scoring = build_decision_scoring_from_signal(
+        engine_signal, decision_scoring, signal_diagnostics, signal_artifact_reused = _resolve_execution_signal_artifact(
             symbol=normalized_symbol,
             asset_class="equities",
-            engine_signal=engine_signal,
-        )
-        signal_diagnostics = (
-            engine_signal.get("diagnostics")
-            if isinstance(engine_signal.get("diagnostics"), dict)
-            else {}
+            metadata=metadata,
         )
         model_versions = (
             signal_diagnostics.get("model_versions")
@@ -1037,6 +1070,7 @@ class FirmOrchestrator:
             "routing_mode": "paper_equity",
             "strategy_family": decision_scoring.get("strategy_family"),
             "decision_scoring": decision_scoring,
+            "signal_artifact_reused": signal_artifact_reused,
             "deterministic_ml_signal": engine_signal,
             "core_engine_policy": signal_diagnostics.get("policy")
             if isinstance(signal_diagnostics.get("policy"), dict)
