@@ -8,8 +8,10 @@ import pandas as pd
 from app.core_engine import run_core_engine
 from app.core_engine import feature_store
 from app.config import get_settings
+from app.core_engine.routing import profile_router
 from app.data_pipeline.service import QuantDataPipeline
 from app.data_pipeline.warehouse import utc_iso
+from app.quant.types import MarketRegimeSnapshot
 from app.storage import db as storage_db
 from app.strategies.deterministic_ml_engine import deterministic_signal
 
@@ -63,6 +65,7 @@ def test_core_engine_emits_contract_payload(monkeypatch):
     assert 0.0 <= out["confidence"] <= 1.0
     assert "lineage" in out["diagnostics"]
     assert "policy" in out["diagnostics"]
+    assert "profile_routing" in out["diagnostics"]
     assert out["diagnostics"]["signal_pipeline_only"] is True
     assert out["diagnostics"]["llm_signal_path"] is False
     assert out["diagnostics"]["market_pack_inference"] is True
@@ -269,3 +272,121 @@ def test_core_engine_snapshot_prefers_latest_stream_price(tmp_path, monkeypatch)
     assert snapshot.freshness.market_age_minutes is not None
     assert snapshot.freshness.market_age_minutes < 0.01
     get_settings.cache_clear()
+
+
+def test_core_engine_auto_routes_directional_regime_to_latency_low(monkeypatch):
+    monkeypatch.setattr(feature_store.FEED, "history", lambda symbol, bars=320: _history_frame(min(220, bars)))
+    monkeypatch.setattr(
+        feature_store,
+        "get_fundamentals",
+        lambda symbol: {
+            "revenue_growth": 0.11,
+            "gross_margin": 0.44,
+            "oper_margin": 0.27,
+            "debt_to_equity": 0.9,
+            "pe": 24.0,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+    monkeypatch.setattr(
+        feature_store,
+        "latest_news",
+        lambda symbol, limit=24: [
+            {
+                "symbol": symbol,
+                "headline": "Momentum remains strong after institutional accumulation",
+                "source": "Reuters",
+                "url": "",
+                "published_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        profile_router,
+        "infer_market_regime",
+        lambda df: MarketRegimeSnapshot(
+            regime="TREND_UP",
+            direction="long_bias",
+            confidence=0.84,
+            edge=0.39,
+            trend_score=0.8,
+            breakout_score=0.2,
+            mean_reversion_score=0.0,
+            volatility_score=0.44,
+            liquidity_score=0.8,
+            adx=31.0,
+            atr_pct=0.018,
+            realised_vol_20d=0.22,
+            rsi=63.0,
+            volume_ratio=1.35,
+            notes=("adx_trend",),
+            metrics={},
+        ),
+    )
+
+    out = run_core_engine("AAPL").to_dict()
+    routing = out["diagnostics"]["profile_routing"]
+    assert routing["mode"] == "auto"
+    assert routing["requested_profile"] == "auto"
+    assert routing["active_profile"] == "latency_low"
+    assert "directional_regime" in routing["reasons"]
+    assert out["model"]["profile"] == "latency_low"
+
+
+def test_core_engine_explicit_profile_bypasses_auto_router(monkeypatch):
+    monkeypatch.setattr(feature_store.FEED, "history", lambda symbol, bars=320: _history_frame(min(220, bars)))
+    monkeypatch.setattr(
+        feature_store,
+        "get_fundamentals",
+        lambda symbol: {
+            "revenue_growth": 0.11,
+            "gross_margin": 0.44,
+            "oper_margin": 0.27,
+            "debt_to_equity": 0.9,
+            "pe": 24.0,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+    monkeypatch.setattr(
+        feature_store,
+        "latest_news",
+        lambda symbol, limit=24: [
+            {
+                "symbol": symbol,
+                "headline": "Momentum remains strong after institutional accumulation",
+                "source": "Reuters",
+                "url": "",
+                "published_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        profile_router,
+        "infer_market_regime",
+        lambda df: MarketRegimeSnapshot(
+            regime="HIGH_VOL",
+            direction="neutral",
+            confidence=0.88,
+            edge=0.02,
+            trend_score=0.1,
+            breakout_score=0.0,
+            mean_reversion_score=0.0,
+            volatility_score=0.93,
+            liquidity_score=0.7,
+            adx=16.0,
+            atr_pct=0.052,
+            realised_vol_20d=0.46,
+            rsi=51.0,
+            volume_ratio=1.1,
+            notes=("volatility_orderly",),
+            metrics={},
+        ),
+    )
+
+    out = run_core_engine("AAPL", profile="balanced").to_dict()
+    routing = out["diagnostics"]["profile_routing"]
+    assert routing["mode"] == "fixed"
+    assert routing["requested_profile"] == "balanced"
+    assert routing["active_profile"] == "balanced"
+    assert routing["reasons"] == ["explicit_profile"]
+    assert out["model"]["profile"] == "balanced"

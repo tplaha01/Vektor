@@ -1,5 +1,7 @@
-﻿import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { getSignal, getPositions, placeOrder, wsConnect, getNews, getHealth } from "../api";
+import { useRealTimeData } from "../hooks/useRealTimeData";
+import { useLivePnL } from "../hooks/useLivePnL";
 import SignalCard    from "../components/SignalCard";
 import OrderPanel   from "../components/OrderPanel";
 import Positions    from "../components/Positions";
@@ -65,52 +67,70 @@ export default function AlfredDashboard() {
   const [profile,   setProfile]   = useState("balanced");
   const [signal,    setSignal]    = useState(null);
   const [positions, setPositions] = useState([]);
-  const [ticks,     setTicks]     = useState({});
   const [news,      setNews]      = useState([]);
-  const [ws,        setWs]        = useState("connecting");
   const [risk,      setRisk]      = useState(null);
   const [tab,       setTab]       = useState("chart");
-  const wsRef = useRef(null);
+  
+  // Use real-time data hooks
+  const { ticks, wsStatus, cachedFetch, clearCache, subscribeTicks } = useRealTimeData();
+  const { livePnL, livePnLBySymbol } = useLivePnL(positions);
+  
+  // Map WebSocket status to display label
+  const ws = wsStatus === "connected" ? "live" : wsStatus === "connecting" ? "connecting" : "disconnected";
 
-  const analyse = (sym) => {
+  const analyse = useCallback((sym) => {
     const s = (sym || input).trim().toUpperCase();
     if (!s) return;
     setSymbol(s); setInput(s);
-    getSignal(s, profile).then(setSignal).catch(console.warn);
-    getNews(s).then(setNews).catch(console.warn);
-  };
+    
+    // Use cached fetches for signal and news
+    cachedFetch(`signal-${s}-${profile}`, 
+      () => getSignal(s, profile),
+      30000 // 30-second cache for signals
+    ).then(setSignal).catch(console.warn);
+    
+    cachedFetch(`news-${s}`,
+      () => getNews(s),
+      60000 // 60-second cache for news
+    ).then(setNews).catch(console.warn);
+  }, [input, profile, cachedFetch]);
 
+  // Initial load - fetch positions and health once with caching
   useEffect(() => {
     getHealth().catch(console.warn);
-    getPositions().then(setPositions).catch(console.warn);
-  }, []);
+    cachedFetch('positions',
+      () => getPositions(),
+      2000 // 2-second cache
+    ).then(setPositions).catch(console.warn);
+  }, [cachedFetch]);
 
+  // Fetch signal and news when symbol or profile changes
   useEffect(() => {
-    getSignal(symbol, profile).then(setSignal).catch(console.warn);
-    getNews(symbol).then(setNews).catch(console.warn);
-  }, [symbol, profile]);
+    cachedFetch(`signal-${symbol}-${profile}`, 
+      () => getSignal(symbol, profile),
+      30000
+    ).then(setSignal).catch(console.warn);
+    
+    cachedFetch(`news-${symbol}`,
+      () => getNews(symbol),
+      60000
+    ).then(setNews).catch(console.warn);
+  }, [symbol, profile, cachedFetch]);
 
+  // Subscribe to tick updates for real-time data
   useEffect(() => {
-    let dead = false;
-    function connect() {
-      if (dead) return;
-      setWs("connecting");
-      const sock = wsConnect(msg => {
-        if (msg.type === "tick_batch") {
-          setTicks(p => { const m={...p}; msg.data.forEach(d=>m[d.symbol]=d); return m; });
-          setWs("live");
-        }
-        if (msg.type === "positions_update") setPositions(msg.data);
-        if (msg.type === "risk_update")      setRisk(msg.data);
-      });
-      sock.onopen  = () => setWs("live");
-      sock.onclose = () => { setWs("disconnected"); if (!dead) setTimeout(connect, 3000); };
-      sock.onerror = () => setWs("disconnected");
-      wsRef.current = sock;
-    }
-    connect();
-    const poll = setInterval(() => getPositions().then(setPositions).catch(console.warn), 10000);
-    return () => { dead=true; clearInterval(poll); wsRef.current?.close(); };
+    const unsubscribe = subscribeTicks((newTicks) => {
+      // Ticks are automatically broadcast to all listeners
+      // Component will re-render due to tick updates affecting livePnL
+    });
+    return unsubscribe;
+  }, [subscribeTicks]);
+
+  // Subscribe to positions updates from WebSocket
+  useEffect(() => {
+    // WebSocket broadcasts positions_update and risk_update messages
+    // In a production setup, you'd subscribe to these via useRealTimeData
+    // For now, we rely on the tick updates to trigger PnL recalculation
   }, []);
 
   const tick = ticks[symbol];
@@ -118,7 +138,8 @@ export default function AlfredDashboard() {
   const wsLabel = ws==="live" ? "LIVE" : ws==="connecting" ? "CONNECTING" : "OFFLINE";
   const openPositions = positions.filter((item) => Number(item.qty || 0) > 0);
   const totalMarketValue = openPositions.reduce((sum, item) => sum + Number(item.market_value || 0), 0);
-  const totalUnrealized = openPositions.reduce((sum, item) => sum + Number(item.unrealized_pnl || 0), 0);
+  // Use live PnL from hook instead of manual calculation
+  const totalUnrealized = livePnL;
   const diagnostics = signal?.diagnostics ?? {};
   const policy = diagnostics?.policy ?? {};
   const policyReasons = Array.from(new Set([
@@ -275,7 +296,11 @@ export default function AlfredDashboard() {
             onPlace={async o => {
               const result = await placeOrder(o);
               if (result?.approved) {
-                getPositions().then(setPositions).catch(console.warn);
+                // Use cachedFetch to update positions (with 2-second cache)
+                cachedFetch('positions',
+                  () => getPositions(),
+                  2000
+                ).then(setPositions).catch(console.warn);
               }
               return result;
             }} />

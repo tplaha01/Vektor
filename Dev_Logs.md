@@ -9922,3 +9922,512 @@ files:
 - knowledge_graph/events.jsonl
 validation: backend ./init.sh completed; /api/admin/system/component-readiness added; focused regression .venv\Scripts\python.exe -m pytest tests\test_admin_component_readiness.py tests\test_admin_status_badges.py -q -o cache_dir=C:\tmp\tradingbot-pytest-cache passed with 5 passed; FastAPI app smoke for GET /api/admin/system/component-readiness returned HTTP 200 with feature_inventory_status=complete, production_ready=false, and remaining blocker ids data_pipeline_status_unavailable, market_data_sip_entitlement, provider_redundancy, news_stream_runtime; scripts/index-repo.ps1 refreshed codebase-memory index for C-Users-tplah-OneDrive-Desktop-ASU-Projects-TradingBot with 7247 nodes and 14439 edges.
 notes: This does not claim institutional production readiness; it exposes remaining runtime/external blockers directly in the admin API.
+
+[2026-05-28T10:59:33.363807Z] [START]
+entry_id: devlog-20260528-3e762afc
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-bf759e7708ba
+git_branch: codex/main
+git_commit_start: adab791208babcda01bba6099c643e508b2a5853
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-05-28T11:25:00Z] [START]
+entry_id: devlog-20260528-ai-surface-audit-start
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260528-ai-surface-audit
+git_branch: codex/main
+git_commit_start: adab791208babcda01bba6099c643e508b2a5853
+git_commit_end:
+scope: Audit backend AI, LLM-agent, OpenClaw, sentiment, and deterministic ML surfaces without changing application code.
+files:
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: in_progress
+notes: Checking live runtime health, AI adapter state, OpenClaw command state, focused tests, and deterministic signal diagnostics.
+
+[2026-05-28T11:27:00Z] [END]
+entry_id: devlog-20260528-ai-surface-audit-end
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260528-ai-surface-audit
+git_branch: codex/main
+git_commit_start: adab791208babcda01bba6099c643e508b2a5853
+git_commit_end: adab791208babcda01bba6099c643e508b2a5853
+scope: Completed read-only backend AI surface audit.
+files:
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: bootstrap and backend init passed; services health reported backend=healthy, ollama=healthy, openclaw=healthy; /health returned ml_model.ready=true and VADER sentiment active; /api/admin/system/status-badges reported LLM Agent Health Disabled in deterministic mode; /fund/agents/workers/status reported agent runtime/autopilot disabled; /signals/generate for AAPL returned deterministic diagnostics with llm_signal_path=false, mandatory_ml=true, ml_ready=true, action=hold due stale_market_data and fundamentals_timestamp_missing; focused AI/agent pytest command returned 26 passed and 18 failed, with failures concentrated around OpenClaw sender allowlist/env-loaded command routing and halted runtime enqueue paths.
+notes: No code changes were made. Local .env contains active provider credentials; do not echo them in reports, and rotate if session output is retained outside a trusted machine.
+
+[2026-05-28T11:40:14.6483422Z] [START]
+entry_id: devlog-20260528-core-engine-profile-routing-start
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260528-core-engine-profile-routing
+git_branch: codex/main
+git_commit_start: adab791208babcda01bba6099c643e508b2a5853
+git_commit_end:
+scope: Add regime-conditioned auto profile routing to the deterministic core engine while preserving the canonical signal contract for explicit profile calls.
+files:
+- backend/app/core_engine/__init__.py
+- backend/app/core_engine/feature_store.py
+- backend/app/core_engine/registry/model_registry.py
+- backend/app/core_engine/routing/profile_router.py
+- backend/app/main.py
+- backend/app/models.py
+- backend/tests/test_core_engine.py
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: in_progress
+notes: Default signal generation will route through an auto profile selector; explicit profile requests must remain stable and deterministic.
+
+[2026-05-28T11:43:10.5550572Z] [END]
+entry_id: devlog-20260528-core-engine-profile-routing-end
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260528-core-engine-profile-routing
+git_branch: codex/main
+git_commit_start: adab791208babcda01bba6099c643e508b2a5853
+git_commit_end: pending_session_handoff_commit
+scope: Added regime-conditioned auto profile routing to the deterministic core engine while preserving explicit profile determinism.
+files:
+- backend/app/core_engine/__init__.py
+- backend/app/core_engine/feature_store.py
+- backend/app/core_engine/routing/__init__.py
+- backend/app/core_engine/routing/profile_router.py
+- backend/app/main.py
+- backend/app/models.py
+- backend/tests/test_core_engine.py
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: backend ..\scripts\session-bootstrap.ps1 -WorkDir .. -CountRemaining completed; backend bash ./init.sh completed; focused regression .\.venv\Scripts\python.exe -m pytest tests\test_core_engine.py tests\test_quant_regime.py -q -o cache_dir=C:\tmp\tradingbot-pytest-cache passed with 12 passed; default signal requests now auto-route between balanced base and regime-selected profiles, while explicit profile requests remain fixed and deterministic.
+notes: Added routing diagnostics to the core-engine payload and re-bound snapshot lineage/model metadata when auto routing selects a non-base profile.
+
+[2026-05-28T19:30:13.594277Z] [START]
+entry_id: devlog-20260528-cebb36f0
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-bd27dfe5925f
+git_branch: codex/main
+git_commit_start: adab791208babcda01bba6099c643e508b2a5853
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-05-28T19:44:04.323546Z] [START]
+entry_id: devlog-20260528-1e72ed1c
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-63ef4747ce59
+git_branch: codex/main
+git_commit_start: adab791208babcda01bba6099c643e508b2a5853
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-05-28T19:45:04.145121Z] [START]
+entry_id: devlog-20260528-9ced6876
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-36740dbfa0bb
+git_branch: codex/main
+git_commit_start: adab791208babcda01bba6099c643e508b2a5853
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-05-28T19:45:04.145121Z] [END]
+entry_id: devlog-20260528-9ced6876
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-36740dbfa0bb
+git_branch: codex/main
+git_commit_start: adab791208babcda01bba6099c643e508b2a5853
+git_commit_end: adab791208babcda01bba6099c643e508b2a5853
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: completed
+notes: Server shutdown - session ended normally
+
+[2026-05-28T19:53:32.824361Z] [START]
+entry_id: devlog-20260528-ed95e269
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-2a579dae34a3
+git_branch: codex/main
+git_commit_start: adab791208babcda01bba6099c643e508b2a5853
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-05-28T19:53:32.824361Z] [END]
+entry_id: devlog-20260528-ed95e269
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-2a579dae34a3
+git_branch: codex/main
+git_commit_start: adab791208babcda01bba6099c643e508b2a5853
+git_commit_end: adab791208babcda01bba6099c643e508b2a5853
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: completed
+notes: Server shutdown - session ended normally
+
+[2026-05-28T20:09:46.430902Z] [START]
+entry_id: devlog-20260528-89369650
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-ae24d6bcd20a
+git_branch: codex/main
+git_commit_start: adab791208babcda01bba6099c643e508b2a5853
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-05-28T20:09:57.682659Z] [START]
+entry_id: devlog-20260528-da202c01
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-97ac7fdd2bfe
+git_branch: codex/main
+git_commit_start: adab791208babcda01bba6099c643e508b2a5853
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-05-28T20:09:57.682659Z] [END]
+entry_id: devlog-20260528-da202c01
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-97ac7fdd2bfe
+git_branch: codex/main
+git_commit_start: adab791208babcda01bba6099c643e508b2a5853
+git_commit_end: adab791208babcda01bba6099c643e508b2a5853
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: completed
+notes: Server shutdown - session ended normally
+
+[2026-05-28T20:51:42.823286Z] [START]
+entry_id: devlog-20260528-52656d54
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-baef2663e421
+git_branch: codex/main
+git_commit_start: adab791208babcda01bba6099c643e508b2a5853
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-05-28T20:51:42.823286Z] [END]
+entry_id: devlog-20260528-52656d54
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-baef2663e421
+git_branch: codex/main
+git_commit_start: adab791208babcda01bba6099c643e508b2a5853
+git_commit_end: adab791208babcda01bba6099c643e508b2a5853
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: completed
+notes: Server shutdown - session ended normally
+
+[2026-05-28T20:52:09.713895Z] [START]
+entry_id: devlog-20260528-ec7dc781
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-411f391c6eae
+git_branch: codex/main
+git_commit_start: adab791208babcda01bba6099c643e508b2a5853
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-05-28T20:52:09.713895Z] [END]
+entry_id: devlog-20260528-ec7dc781
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-411f391c6eae
+git_branch: codex/main
+git_commit_start: adab791208babcda01bba6099c643e508b2a5853
+git_commit_end: adab791208babcda01bba6099c643e508b2a5853
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: completed
+notes: Server shutdown - session ended normally
+
+[2026-05-28T20:52:30.771731Z] [START]
+entry_id: devlog-20260528-95bad101
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-a9a91f82a186
+git_branch: codex/main
+git_commit_start: adab791208babcda01bba6099c643e508b2a5853
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-05-28T20:52:30.771731Z] [END]
+entry_id: devlog-20260528-95bad101
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-a9a91f82a186
+git_branch: codex/main
+git_commit_start: adab791208babcda01bba6099c643e508b2a5853
+git_commit_end: adab791208babcda01bba6099c643e508b2a5853
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: completed
+notes: Server shutdown - session ended normally
+
+[2026-05-28T20:55:38.879059Z] [START]
+entry_id: devlog-20260528-2444dbe1
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-03c3ead992a9
+git_branch: codex/main
+git_commit_start: adab791208babcda01bba6099c643e508b2a5853
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-05-28T21:57:46.4699405Z] [START]
+entry_id: devlog-20260528-commit-current-files-start
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260528-commit-current-files
+git_branch: codex/main
+git_commit_start: adab791208babcda01bba6099c643e508b2a5853
+git_commit_end:
+scope: Commit the current TradingBot working tree to codex/main
+files:
+- Dev_Logs.md
+- REALTIME_OPTIMIZATION_FIXES.md
+- backend/.env.example
+- backend/app/cache.py
+- backend/app/core_engine/__init__.py
+- backend/app/core_engine/feature_store.py
+- backend/app/core_engine/routing/__init__.py
+- backend/app/core_engine/routing/profile_router.py
+- backend/app/fund/router.py
+- backend/app/main.py
+- backend/app/models.py
+- backend/audit_app.py
+- backend/tests/test_core_engine.py
+- frontend/package-lock.json
+- frontend/package.json
+- frontend/src/hooks/useLivePnL.js
+- frontend/src/hooks/useRealTimeData.js
+- frontend/src/pages/AlfredDashboard.jsx
+- frontend/vite.config.js
+- knowledge_graph/events.jsonl
+validation: in_progress
+notes: Inspecting the dirty working tree, refreshing the repo index, and creating a single local commit on codex/main without rewriting existing user changes.
+
+[2026-05-28T21:57:46.4699405Z] [END]
+entry_id: devlog-20260528-commit-current-files-end
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260528-commit-current-files
+git_branch: codex/main
+git_commit_start: adab791208babcda01bba6099c643e508b2a5853
+git_commit_end: pending_local_commit
+scope: Commit the current TradingBot working tree to codex/main
+files:
+- Dev_Logs.md
+- REALTIME_OPTIMIZATION_FIXES.md
+- backend/.env.example
+- backend/app/cache.py
+- backend/app/core_engine/__init__.py
+- backend/app/core_engine/feature_store.py
+- backend/app/core_engine/routing/__init__.py
+- backend/app/core_engine/routing/profile_router.py
+- backend/app/fund/router.py
+- backend/app/main.py
+- backend/app/models.py
+- backend/audit_app.py
+- backend/tests/test_core_engine.py
+- frontend/package-lock.json
+- frontend/package.json
+- frontend/src/hooks/useLivePnL.js
+- frontend/src/hooks/useRealTimeData.js
+- frontend/src/pages/AlfredDashboard.jsx
+- frontend/vite.config.js
+- knowledge_graph/events.jsonl
+validation: git status reviewed; local commit requested; no additional automated verification was run in this session
+notes: This session committed the existing working tree as-is on codex/main after refreshing repo memory/index artifacts required by the repo contract.

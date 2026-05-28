@@ -19,6 +19,7 @@ from app.fund.orchestrator import FirmOrchestrator, firm_orchestrator
 from app.fund.performance_tracker import performance_tracker
 from app.fund.realtime_stream import realtime_stream
 from app.fund.runtime_guard import data_integrity_guard
+from app.cache import cache_response
 
 router = APIRouter(prefix="/fund", tags=["fund"])
 
@@ -311,6 +312,7 @@ async def task_history(
     )
 
 
+@cache_response(ttl_seconds=5)
 @router.get("/agents/workers/status")
 async def worker_status(runtime: FundAgentRuntime = Depends(get_agent_runtime)):
     return runtime.status()
@@ -374,6 +376,7 @@ async def ceo_commands(
     )
 
 
+@cache_response(ttl_seconds=3)
 @router.get("/decisions/pending")
 async def pending_decisions(orchestrator: FirmOrchestrator = Depends(get_orchestrator)):
     return orchestrator.list_pending_decisions()
@@ -485,6 +488,7 @@ async def knowledge_lineage(
     )
 
 
+@cache_response(ttl_seconds=30)
 @router.get("/knowledge/stats")
 async def knowledge_stats(orchestrator: FirmOrchestrator = Depends(get_orchestrator)):
     return orchestrator.knowledge_stats()

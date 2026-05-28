@@ -224,6 +224,88 @@ def _hash_payload(payload: dict[str, Any]) -> str:
     return hashlib.sha256(packed.encode("utf-8")).hexdigest()
 
 
+def _feature_payload(
+    *,
+    symbol: str,
+    as_of: str,
+    profile: str,
+    history: pd.DataFrame,
+    fundamentals: dict[str, Any],
+    fundamentals_ts: datetime | None,
+    news: list[dict[str, Any]],
+) -> dict[str, Any]:
+    return {
+        "symbol": symbol,
+        "as_of": as_of,
+        "profile": profile,
+        "closes_tail": [round(_safe_float(v), 6) for v in history["close"].tail(32).tolist()] if len(history) else [],
+        "fundamentals": {k: round(_safe_float(v), 6) for k, v in sorted(fundamentals.items())},
+        "fundamentals_ts": _to_utc_iso(fundamentals_ts) if fundamentals_ts is not None else None,
+        "news": [
+            {
+                "published_at": str(item.get("published_at") or ""),
+                "source": str(item.get("source") or ""),
+                "headline": str(item.get("headline") or "")[:160],
+            }
+            for item in news[:12]
+        ],
+    }
+
+
+def _build_lineage(
+    *,
+    symbol: str,
+    as_of: str,
+    profile: str,
+    history: pd.DataFrame,
+    fundamentals: dict[str, Any],
+    news: list[dict[str, Any]],
+) -> dict[str, str]:
+    fundamentals_ts = _extract_fundamentals_timestamp(fundamentals)
+    feature_fingerprint = _hash_payload(
+        _feature_payload(
+            symbol=symbol,
+            as_of=as_of,
+            profile=profile,
+            history=history,
+            fundamentals=fundamentals,
+            fundamentals_ts=fundamentals_ts,
+            news=news,
+        )
+    )
+    return {
+        "run_id": f"run-{feature_fingerprint[:16]}",
+        "decision_id": f"decision-{feature_fingerprint[16:32]}",
+        "feature_hash": feature_fingerprint,
+    }
+
+
+def rebind_snapshot_profile(snapshot: EngineInputSnapshot, profile: str) -> EngineInputSnapshot:
+    profile_name = str(profile or "").strip().lower()
+    snapshot.profile = profile_name
+    snapshot.model_versions = get_active_model_versions(profile_name)
+
+    quality_flags = [flag for flag in snapshot.freshness.quality_flags if flag != "model_versions_incomplete"]
+    if any(not str(version).strip() for version in snapshot.model_versions.values()):
+        quality_flags.append("model_versions_incomplete")
+    snapshot.freshness = DataFreshness(
+        as_of=snapshot.freshness.as_of,
+        market_age_minutes=snapshot.freshness.market_age_minutes,
+        sentiment_age_minutes=snapshot.freshness.sentiment_age_minutes,
+        fundamentals_age_hours=snapshot.freshness.fundamentals_age_hours,
+        quality_flags=quality_flags,
+    )
+    snapshot.lineage = _build_lineage(
+        symbol=snapshot.symbol,
+        as_of=snapshot.as_of,
+        profile=profile_name,
+        history=snapshot.history,
+        fundamentals=snapshot.fundamentals,
+        news=snapshot.news,
+    )
+    return snapshot
+
+
 def build_point_in_time_snapshot(symbol: str, profile: str, bars: int = 320, news_limit: int = 24) -> EngineInputSnapshot:
     sym = str(symbol or "").upper().strip()
     history = _overlay_latest_stream_price(_normalize_hist(FEED.history(sym, bars=bars)), sym)
@@ -258,29 +340,14 @@ def build_point_in_time_snapshot(symbol: str, profile: str, bars: int = 320, new
         quality_flags=quality_flags,
     )
 
-    feature_fingerprint = _hash_payload(
-        {
-            "symbol": sym,
-            "as_of": as_of,
-            "profile": profile,
-            "closes_tail": [round(_safe_float(v), 6) for v in history["close"].tail(32).tolist()] if len(history) else [],
-            "fundamentals": {k: round(_safe_float(v), 6) for k, v in sorted(fundamentals.items())},
-            "fundamentals_ts": _to_utc_iso(fundamentals_ts) if fundamentals_ts is not None else None,
-            "news": [
-                {
-                    "published_at": str(item.get("published_at") or ""),
-                    "source": str(item.get("source") or ""),
-                    "headline": str(item.get("headline") or "")[:160],
-                }
-                for item in news[:12]
-            ],
-        }
+    lineage = _build_lineage(
+        symbol=sym,
+        as_of=as_of,
+        profile=profile,
+        history=history,
+        fundamentals=fundamentals,
+        news=news,
     )
-    lineage = {
-        "run_id": f"run-{feature_fingerprint[:16]}",
-        "decision_id": f"decision-{feature_fingerprint[16:32]}",
-        "feature_hash": feature_fingerprint,
-    }
 
     return EngineInputSnapshot(
         symbol=sym,

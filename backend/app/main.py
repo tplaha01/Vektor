@@ -40,6 +40,7 @@ from app.knowledge_routes import router as knowledge_router
 from app.devlog import get_dev_logger
 from app.data_pipeline.router import router as data_pipeline_router
 from app.data_pipeline.service import data_pipeline
+from app.cache import cache_response
 
 logging.basicConfig(
     level=logging.INFO,
@@ -451,6 +452,7 @@ async def debug_websocket_stream():
     }
 
 
+@cache_response(ttl_seconds=10)
 @app.post("/signals/generate")
 async def generate_signal(req: SignalRequest) -> Dict[str, Any]:
     if data_integrity_guard.halted():
@@ -480,10 +482,12 @@ async def generate_signal(req: SignalRequest) -> Dict[str, Any]:
         )
     return result
 
+@cache_response(ttl_seconds=2)
 @app.get("/paper/positions")
 async def get_positions():
     return broker.list_positions(lambda s: FEED.price(s))
 
+@cache_response(ttl_seconds=2)
 @app.get("/paper/orders")
 async def get_orders():
     return broker.list_orders()
@@ -619,6 +623,8 @@ async def ml_status():
         "sentiment": sentiment_model_name(),
         "core_engine": {
             "active_profile": get_profile(settings.CORE_ENGINE_PROFILE).name,
+            "default_request_profile": "auto",
+            "default_base_profile": get_profile(settings.CORE_ENGINE_PROFILE).name,
             "available_profiles": list_profiles(),
         },
     }
