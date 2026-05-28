@@ -5,11 +5,13 @@ Admin Console, Research, and Blog API Routes (live-backed).
 from __future__ import annotations
 
 import asyncio
+import json
 import math
 import re
 import uuid
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from pathlib import Path
 from time import monotonic
 from typing import Any, List, Literal, Optional
 
@@ -20,6 +22,7 @@ from app.broker import paper as paper_broker_module
 from app.config import get_settings
 from app.core.context import broker
 from app.data.market_data import FEED
+from app.data_pipeline.service import data_pipeline
 from app.fund.ai_role_adapter import ai_role_adapter
 from app.fund.agent_runtime import fund_agent_runtime
 from app.fund.audit_log import audit_log
@@ -304,6 +307,9 @@ class ExecutionPriorityUpdateIn(BaseModel):
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 research_router = APIRouter(prefix="/api/research", tags=["research"])
 blog_router = APIRouter(prefix="/api/blog", tags=["blog"])
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_FEATURE_LIST_PATH = _REPO_ROOT / "feature_list.json"
 
 
 # ====================================================================
@@ -876,6 +882,191 @@ def _portfolio_exposure_snapshot() -> dict[str, Any]:
         "long_short_ratio": round(long_short_ratio, 2),
         "gross_leverage": round(gross_leverage, 3),
         "largest_symbol_concentration_pct": round(concentration_pct, 2),
+    }
+
+
+def _feature_list_completion() -> dict[str, Any]:
+    try:
+        raw = json.loads(_FEATURE_LIST_PATH.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return {
+            "status": "missing",
+            "total": 0,
+            "passed": 0,
+            "pending": 0,
+            "source": str(_FEATURE_LIST_PATH),
+            "error": "feature_list_json_missing",
+        }
+    except (json.JSONDecodeError, OSError) as exc:
+        return {
+            "status": "invalid",
+            "total": 0,
+            "passed": 0,
+            "pending": 0,
+            "source": str(_FEATURE_LIST_PATH),
+            "error": str(exc),
+        }
+
+    items = raw if isinstance(raw, list) else raw.get("features") if isinstance(raw, dict) else []
+    if not isinstance(items, list):
+        items = []
+    total = len(items)
+    passed = len([item for item in items if isinstance(item, dict) and bool(item.get("passes"))])
+    pending = max(total - passed, 0)
+    return {
+        "status": "complete" if total > 0 and pending == 0 else "incomplete",
+        "total": total,
+        "passed": passed,
+        "pending": pending,
+        "source": str(_FEATURE_LIST_PATH),
+    }
+
+
+def _safe_data_pipeline_status() -> dict[str, Any]:
+    try:
+        status = data_pipeline.status()
+    except Exception as exc:  # pragma: no cover - defensive runtime surface
+        return {"available": False, "error": str(exc)}
+    return status if isinstance(status, dict) else {"available": False, "error": "invalid_pipeline_status"}
+
+
+def _broker_state_snapshot() -> dict[str, Any]:
+    positions: list[dict[str, Any]] = []
+    try:
+        raw_positions = broker.list_positions(lambda s: FEED.price(s))
+        if isinstance(raw_positions, list):
+            positions = [item for item in raw_positions if isinstance(item, dict)]
+    except Exception as exc:  # pragma: no cover - defensive runtime surface
+        return {
+            "status": "degraded",
+            "positions_count": 0,
+            "orders_count": 0,
+            "cash_usd": 0.0,
+            "error": str(exc),
+        }
+
+    raw_orders = getattr(broker, "order_history", [])
+    orders = raw_orders if isinstance(raw_orders, list) else []
+    cash = _safe_float(getattr(broker, "get_cash", lambda: 0.0)(), 0.0)
+    return {
+        "status": "ok",
+        "positions_count": len(positions),
+        "orders_count": len(orders),
+        "cash_usd": round(cash, 2),
+    }
+
+
+def _provider_health_summary(provider_health: Any) -> dict[str, Any]:
+    providers = provider_health if isinstance(provider_health, list) else []
+    healthy = [
+        str(item.get("provider") or item.get("name") or "").strip()
+        for item in providers
+        if isinstance(item, dict) and str(item.get("status") or item.get("mode") or "").lower() in {"healthy", "provider", "ok"}
+    ]
+    return {
+        "providers": providers,
+        "healthy_provider_count": len([item for item in healthy if item]),
+        "healthy_providers": [item for item in healthy if item],
+    }
+
+
+def _component_readiness_payload() -> dict[str, Any]:
+    settings = get_settings()
+    feature_completion = _feature_list_completion()
+    pipeline = _safe_data_pipeline_status()
+    stream = pipeline.get("stream") if isinstance(pipeline.get("stream"), dict) else {}
+    news_stream = pipeline.get("news_stream") if isinstance(pipeline.get("news_stream"), dict) else {}
+    provider_summary = _provider_health_summary(pipeline.get("provider_health"))
+    broker_state = _broker_state_snapshot()
+
+    blockers: list[dict[str, Any]] = []
+    if pipeline.get("available") is False:
+        blockers.append(
+            {
+                "id": "data_pipeline_status_unavailable",
+                "severity": "medium",
+                "component": "data_pipeline",
+                "status": "unavailable",
+                "message": "Data-pipeline status could not be read from this runtime.",
+                "evidence": {"error": pipeline.get("error")},
+            }
+        )
+    feed = str(stream.get("feed") or getattr(settings, "ALPACA_FEED", "iex") or "").strip().lower()
+    if feed != "sip":
+        blockers.append(
+            {
+                "id": "market_data_sip_entitlement",
+                "severity": "high",
+                "component": "data_pipeline",
+                "status": "blocked_external",
+                "message": "Market-data stream is not verified on Alpaca SIP feed; IEX feed is not institutional-grade coverage.",
+                "evidence": {"configured_feed": feed or "unknown"},
+            }
+        )
+    if provider_summary["healthy_provider_count"] < 2:
+        blockers.append(
+            {
+                "id": "provider_redundancy",
+                "severity": "high",
+                "component": "data_pipeline",
+                "status": "incomplete",
+                "message": "Provider health shows fewer than two healthy independent data providers.",
+                "evidence": {"healthy_provider_count": provider_summary["healthy_provider_count"]},
+            }
+        )
+    if bool(news_stream.get("enabled", True)) and not bool(news_stream.get("started")):
+        blockers.append(
+            {
+                "id": "news_stream_runtime",
+                "severity": "medium",
+                "component": "data_pipeline",
+                "status": "not_running",
+                "message": "News stream is enabled but not running in the current runtime snapshot.",
+                "evidence": {"disable_reason": news_stream.get("disable_reason")},
+            }
+        )
+    if feature_completion["status"] != "complete":
+        blockers.append(
+            {
+                "id": "feature_inventory",
+                "severity": "medium",
+                "component": "delivery",
+                "status": feature_completion["status"],
+                "message": "Feature inventory is not fully complete.",
+                "evidence": {
+                    "total": feature_completion["total"],
+                    "passed": feature_completion["passed"],
+                    "pending": feature_completion["pending"],
+                },
+            }
+        )
+
+    high_blockers = [item for item in blockers if item.get("severity") == "high"]
+    return {
+        "timestamp": _utc_now().isoformat(),
+        "production_ready": len(blockers) == 0,
+        "summary": {
+            "feature_inventory_status": feature_completion["status"],
+            "runtime_mode": pipeline.get("mode") or "unknown",
+            "broker": str(getattr(settings, "BROKER", "") or "unknown").lower(),
+            "high_blockers": len(high_blockers),
+            "total_blockers": len(blockers),
+        },
+        "components": {
+            "feature_inventory": feature_completion,
+            "data_pipeline": {
+                "status": "degraded" if any(item.get("component") == "data_pipeline" for item in blockers) else "ok",
+                "available": bool(pipeline.get("available", True)),
+                "error": pipeline.get("error"),
+                "mode": pipeline.get("mode"),
+                "running": bool(pipeline.get("running")),
+                "stream": stream,
+                "news_stream": news_stream,
+                **provider_summary,
+            },
+            "paper_broker": broker_state,
+        },
+        "remaining": blockers,
     }
 
 
@@ -2196,6 +2387,11 @@ async def get_runtime_control_status():
         "strict_real_data_only": bool(halt.get("strict_real_data_only")),
         "recovery_checklist": recovery_checklist,
     }
+
+
+@router.get("/system/component-readiness", response_model=dict)
+async def get_component_readiness():
+    return _component_readiness_payload()
 
 
 @router.get("/system/ops/panel", response_model=dict)

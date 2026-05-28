@@ -1,4 +1,4 @@
-# Dev Logs (Viktor)
+﻿# Dev Logs (Viktor)
 
 ## Policy
 - Every development session must append one `START` and one `END`.
@@ -9884,3 +9884,41 @@ files:
 - knowledge_graph/events.jsonl
 validation: bash scripts/session-bootstrap.sh --count-remaining passed with codex/main and origin/codex/main status plus pending-feature summary; bash scripts/select-next-feature.sh passed and selected feature #20; bash scripts/index-repo.sh failed gracefully with explicit missing codebase-memory-mcp binary requirement; bash scripts/session-handoff.sh logic path exercised but commit operation could not run in this sandbox due .git/index.lock permission failure.
 notes: Harness now has native shell entrypoints for bootstrap/selector/handoff/indexing, PowerShell fallback retained, branch contract normalized to origin/codex/main across active contracts, and bootstrap output is head-limited by default for lower token usage.
+
+[2026-05-28T10:50:00Z] [START]
+entry_id: devlog-20260528-component-readiness-start
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260528-component-readiness
+git_branch: codex/main
+git_commit_start: 3b520ebd1f4012cf2051068acdaf24f7ebe19d87
+git_commit_end:
+scope: Build the remaining production-readiness component after feature_list.json reached 200/200, exposing real runtime/data-provider/broker blockers instead of treating checklist completion as production completion.
+files:
+- backend/app/admin_research_routes.py
+- backend/tests/test_admin_component_readiness.py
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: in_progress
+notes: Added a backend admin component-readiness endpoint with focused regression coverage planned.
+
+[2026-05-28T10:58:00Z] [END]
+entry_id: devlog-20260528-component-readiness-end
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260528-component-readiness
+git_branch: codex/main
+git_commit_start: 3b520ebd1f4012cf2051068acdaf24f7ebe19d87
+git_commit_end: pending_session_handoff_commit
+scope: Built the backend admin component-readiness endpoint for surfacing actual remaining production blockers after feature-list completion.
+files:
+- backend/app/admin_research_routes.py
+- backend/tests/test_admin_component_readiness.py
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: backend ./init.sh completed; /api/admin/system/component-readiness added; focused regression .venv\Scripts\python.exe -m pytest tests\test_admin_component_readiness.py tests\test_admin_status_badges.py -q -o cache_dir=C:\tmp\tradingbot-pytest-cache passed with 5 passed; FastAPI app smoke for GET /api/admin/system/component-readiness returned HTTP 200 with feature_inventory_status=complete, production_ready=false, and remaining blocker ids data_pipeline_status_unavailable, market_data_sip_entitlement, provider_redundancy, news_stream_runtime; scripts/index-repo.ps1 refreshed codebase-memory index for C-Users-tplah-OneDrive-Desktop-ASU-Projects-TradingBot with 7247 nodes and 14439 edges.
+notes: This does not claim institutional production readiness; it exposes remaining runtime/external blockers directly in the admin API.
