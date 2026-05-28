@@ -9352,3 +9352,61 @@ files:
 - backend/app/admin_research_routes.py
 validation: in_progress
 notes: Automated session start on server boot
+[2026-05-28T09:02:50Z] [START]
+entry_id: devlog-20260528-feature15-backend-compliance-start
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260528-feature15-backend-compliance
+git_branch: codex/main
+git_commit_start: 61e0129eea7991d36b3da215375b81fb315989ec
+git_commit_end:
+scope: Complete feature_list.json compliance validation #15 with backend bootstrap, runtime evidence, deterministic signal diagnostics, devlog, knowledge graph ingestion, index refresh, and codex/main handoff.
+files:
+- feature_list.json
+- Dev_Logs.md
+- codex-progress.txt
+- knowledge_graph/events.jsonl
+validation: in_progress
+notes: Selected the highest-priority failing feature from feature_list.json and keeping the slice limited to backend long-running harness compliance evidence.
+
+[2026-05-28T09:07:38Z] [END]
+entry_id: devlog-20260528-feature15-backend-compliance-end
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260528-feature15-backend-compliance
+git_branch: codex/main
+git_commit_start: 61e0129eea7991d36b3da215375b81fb315989ec
+git_commit_end: pending_session_handoff_commit
+scope: Completed feature_list.json compliance validation #15 with backend long-running harness evidence.
+files:
+- feature_list.json
+- Dev_Logs.md
+- codex-progress.txt
+- knowledge_graph/events.jsonl
+validation: session bootstrap completed; root ./init.sh completed; backend ./init.sh completed; scripts/vektor-services.ps1 health returned backend/ollama/openclaw healthy; /health returned status ok; /data-pipeline/status returned mode=live_stream_first, scheduled_rest_cycles_enabled=false, stream.subscribed=true, stream.started=true; /fund/agents/workers/status returned strict_real_data_only=true and halted=false with provider-backed Alpaca events; /signals/generate for AAPL returned deterministic diagnostics with technical/fundamental/sentiment/meta_intent/market_pack_inference, signal_pipeline_only=true, llm_signal_path=false, and explicit policy rejections; .venv\Scripts\python.exe -m pytest tests/test_signals.py -q -o cache_dir=C:\tmp\tradingbot-pytest-cache passed.
+notes: Flipped only compliance validation #15 to passes=true. The next pending feature is #16.
+
+[2026-05-28T09:04:31.479130Z] [START]
+entry_id: devlog-20260528-c28ad880
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-658e6580b3d3
+git_branch: codex/main
+git_commit_start: 61e0129eea7991d36b3da215375b81fb315989ec
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot

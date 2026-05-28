@@ -147,3 +147,8 @@ Last updated: 2026-05-27T23:14:03.553336Z
 1. Run `powershell -ExecutionPolicy Bypass -File scripts/session-bootstrap.ps1 -CountRemaining`.
 2. Run `powershell -ExecutionPolicy Bypass -File scripts/select-next-feature.ps1`.
 3. Continue from local `codex/main` by closing the remaining Admin Control Center Panel 5 integration work and then tackle the live Alpaca stream limit/halt path with the same bootstrap -> validate -> index -> handoff workflow.
+- Completed `feature_list.json` highest-priority pending feature `Session bootstrap, required file gate, and codex workflow compliance validation #15` with fresh backend long-running harness evidence.
+- Verified required files, root `init.sh`, backend `init.sh`, repo-managed service health, `/health`, `/data-pipeline/status`, `/fund/agents/workers/status`, and `/signals/generate` against the live local backend.
+- Confirmed stream-first data mode remains active (`mode=live_stream_first`, scheduled REST cycles disabled, stream subscribed/started) and strict real-data guard is not halted with provider-backed Alpaca evidence.
+- Revalidated deterministic signal diagnostics for `AAPL`: technical, fundamental, sentiment, meta-intent, and ML diagnostics present; `signal_pipeline_only=true`; `llm_signal_path=false`; policy rejection state explicit (`fundamentals_timestamp_missing`, `stale_market_data`).
+- Ran focused backend regression `.venv\\Scripts\\python.exe -m pytest tests/test_signals.py -q -o cache_dir=C:\\tmp\\tradingbot-pytest-cache` (1 passed, 2 warnings).
