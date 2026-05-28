@@ -9626,6 +9626,46 @@ files:
 validation: session bootstrap completed; required files present/readable; feature_list.json parsed as 200 entries with #21 selected; root ./init.sh completed; backend ./init.sh completed; scripts/vektor-services.ps1 health returned backend/ollama/openclaw healthy; /health returned status ok; /data-pipeline/status returned mode=live_stream_first, scheduled_rest_cycles_enabled=false, stream.subscribed=true, stream.started=true, latest_run.status=completed, and provider health entries for alpaca_quote_stream/alpaca_stream/alpaca_news_stream were healthy; /data-pipeline/storage-estimate returned symbols=20 and annual estimate 0.587GB; /data-pipeline/warehouse returned non-empty samples for data_raw_events, data_market_prices, data_market_bars, data_market_quotes, data_text_events, data_fundamentals, data_quality_events, data_feature_vectors, data_pipeline_runs, data_provider_health, and data_snapshots; /data-pipeline/snapshots replayed NBBO snapshot 976e7347d56768859a6e6edb08f8213b for SPY with quality keys; /fund/agents/workers/status returned data_integrity.strict_real_data_only=true and data_integrity.halted=false; /fund/knowledge/stats returned event_count=2010, last_graphify_sync_status=ok, and graphify_failures=0; /ml/status returned lgbm.ready=true, features=39, and core_engine.active_profile=balanced; /signals/generate for AAPL returned deterministic diagnostics with market_pack_inference, technical/fundamental/sentiment/meta_intent, freshness, lineage, model_versions, signal_pipeline_only=true, llm_signal_path=false, and explicit policy rejections; .venv\Scripts\python.exe -m pytest tests/test_data_pipeline.py -q -o cache_dir=C:\tmp\tradingbot-pytest-cache passed; .venv\Scripts\python.exe -m pytest tests/test_signals.py -q -o cache_dir=C:\tmp\tradingbot-pytest-cache passed.
 notes: Flipped only data ingestion validation #21 to passes=true. The next pending feature is #22.
 
+[2026-05-28T10:09:27Z] [START]
+entry_id: devlog-20260528-feature22-data-ingestion-start
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260528-feature22-data-ingestion
+git_branch: codex/main
+git_commit_start: 6c7e39baba1fcc10b007d03a01c062ac7b1bf3ea
+git_commit_end:
+scope: Complete feature_list.json data ingestion, database completeness, and freshness assurance validation #22 with refreshed live pipeline evidence, warehouse completeness checks, deterministic signal diagnostics, devlog, knowledge graph ingestion, index refresh, and codex/main handoff.
+files:
+- app_spec.txt
+- feature_list.json
+- codex-progress.txt
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: in_progress
+notes: Selected the highest-priority failing data-ingestion feature from feature_list.json and validating it against the stream-first pipeline, warehouse endpoints, provider health, freshness gates, signal diagnostics, and focused backend regressions.
+
+[2026-05-28T10:11:00Z] [END]
+entry_id: devlog-20260528-feature22-data-ingestion-end
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260528-feature22-data-ingestion
+git_branch: codex/main
+git_commit_start: 6c7e39baba1fcc10b007d03a01c062ac7b1bf3ea
+git_commit_end: pending_session_handoff_commit
+scope: Completed feature_list.json data ingestion, database completeness, and freshness assurance validation #22 with refreshed live stream-first pipeline and warehouse evidence.
+files:
+- app_spec.txt
+- feature_list.json
+- codex-progress.txt
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: session bootstrap completed; required files present/readable; feature_list.json parsed as 200 entries with #22 selected; root ./init.sh completed; backend ./init.sh completed; scripts/vektor-services.ps1 health returned backend/ollama/openclaw healthy; /health returned status ok; /data-pipeline/status returned mode=live_stream_first, scheduled_rest_cycles_enabled=false, stream.subscribed=true, stream.started=true, latest_run.status=completed, and provider health entries for alpaca_quote_stream/alpaca_stream/alpaca_news_stream were healthy; /data-pipeline/storage-estimate returned symbols=20 and annual estimate 0.587GB; /data-pipeline/warehouse returned non-empty samples for data_raw_events, data_market_prices, data_market_bars, data_market_quotes, data_text_events, data_fundamentals, data_quality_events, data_feature_vectors, data_pipeline_runs, data_provider_health, and data_snapshots; /data-pipeline/snapshots replayed NBBO snapshot 976e7347d56768859a6e6edb08f8213b for SPY with quality keys; /fund/agents/workers/status returned data_integrity.strict_real_data_only=true and data_integrity.halted=false; /fund/knowledge/stats returned event_count=2010, last_graphify_sync_status=ok, and graphify_failures=0; /ml/status returned lgbm.ready=true, features=39, and core_engine.active_profile=balanced; /signals/generate for AAPL returned deterministic diagnostics with market_pack_inference, technical/fundamental/sentiment/meta_intent, freshness, lineage, model_versions, signal_pipeline_only=true, llm_signal_path=false, and explicit policy rejections; .venv\Scripts\python.exe -m pytest tests/test_data_pipeline.py -q -o cache_dir=C:\tmp\tradingbot-pytest-cache passed; .venv\Scripts\python.exe -m pytest tests/test_signals.py -q -o cache_dir=C:\tmp\tradingbot-pytest-cache passed.
+notes: Flipped only data ingestion validation #22 to passes=true. The next pending feature is #23.
+
 [2026-05-28T09:04:31.479130Z] [START]
 entry_id: devlog-20260528-c28ad880
 actor_name: github_copilot
