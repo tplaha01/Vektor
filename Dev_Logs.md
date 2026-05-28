@@ -9766,3 +9766,121 @@ files:
 - backend/app/admin_research_routes.py
 validation: in_progress
 notes: Automated session start on server boot
+
+[2026-05-28T09:59:14Z] [START]
+entry_id: devlog-20260528-long-running-harness-verify-start
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260528-long-running-harness-verify
+active_phase: phase_alpha_backend_ops
+git_branch: codex/main
+git_commit_start: 3819f4ce1ffa54e223593d5f4bd888dc85feb304
+git_commit_end:
+scope: Verify whether the long-running harness and agent/subagent workflow are currently operational for Vektor development in this local environment.
+files:
+- AGENTS.md
+- DevViktor.md
+- docs/LONG_RUNNING_AGENT_WORKFLOW.md
+- .codex/config.toml
+- scripts/session-bootstrap.ps1
+- scripts/session-handoff.ps1
+- scripts/index-repo.ps1
+- subagents/README.md
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: in_progress
+notes: Verification-only session requested by user. Using repo contract and local script inspection to determine whether the long-running harness can execute here.
+
+[2026-05-28T10:00:30Z] [END]
+entry_id: devlog-20260528-long-running-harness-verify-end
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260528-long-running-harness-verify
+active_phase: phase_alpha_backend_ops
+git_branch: codex/main
+git_commit_start: 3819f4ce1ffa54e223593d5f4bd888dc85feb304
+git_commit_end: 3819f4ce1ffa54e223593d5f4bd888dc85feb304
+scope: Verified the current long-running harness and agent/subagent workflow contract for local Vektor development.
+files:
+- AGENTS.md
+- DevViktor.md
+- docs/LONG_RUNNING_AGENT_WORKFLOW.md
+- .codex/config.toml
+- scripts/session-bootstrap.ps1
+- scripts/session-handoff.ps1
+- scripts/index-repo.ps1
+- subagents/README.md
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: git branch is codex/main with clean worktree; required files exist; feature_list.json parsed with 200 entries and 181 pending; session bootstrap did not run because neither pwsh nor powershell exists in this shell; no literal sbagent wiring exists in repo, only agents/ and subagents/ role docs plus .codex agent configs; long-running branch contract is inconsistent because AGENTS.md, LONG_RUNNING_AGENT_WORKFLOW.md, and scripts target origin/codex/main while DevViktor.md still requires origin/main; scripts/index-repo.ps1 is not runnable here because it requires PowerShell and a Windows-only LOCALAPPDATA codebase-memory-mcp binary path, and codebase-memory-mcp is not on PATH.
+notes: Current harness is partially specified but not portable to this macOS shell as written. Verification concludes the workflow is not fully operational here without installing PowerShell and aligning the branch/indexing contract.
+
+[2026-05-28T10:07:03Z] [START]
+entry_id: devlog-20260528-harness-cross-platform-token-efficiency-start
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260528-harness-cross-platform-token-efficiency
+active_phase: phase_alpha_backend_ops
+git_branch: codex/main
+git_commit_start: 3819f4ce1ffa54e223593d5f4bd888dc85feb304
+git_commit_end:
+scope: Implement practical fixes for long-running harness portability, branch consistency, subagent token-efficiency guidance, and context-efficient bootstrap behavior.
+files:
+- scripts/session-bootstrap.sh
+- scripts/session-handoff.sh
+- scripts/select-next-feature.sh
+- scripts/index-repo.sh
+- scripts/session-bootstrap.ps1
+- .codex/config.toml
+- AGENTS.md
+- DevViktor.md
+- docs/LONG_RUNNING_AGENT_WORKFLOW.md
+- init.sh
+- backend/init.sh
+- frontend/init.sh
+- backend/AGENTS.md
+- frontend/AGENTS.md
+- subagents/README.md
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: in_progress
+notes: User requested cross-platform harness, origin/codex/main normalization, subagent token-efficiency intent, and smarter low-token long-running context loading.
+
+[2026-05-28T10:08:30Z] [END]
+entry_id: devlog-20260528-harness-cross-platform-token-efficiency-end
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260528-harness-cross-platform-token-efficiency
+active_phase: phase_alpha_backend_ops
+git_branch: codex/main
+git_commit_start: 3819f4ce1ffa54e223593d5f4bd888dc85feb304
+git_commit_end: 3819f4ce1ffa54e223593d5f4bd888dc85feb304
+scope: Completed cross-platform long-running harness scripts, branch canonicalization updates, and token-efficiency guidance updates.
+files:
+- scripts/session-bootstrap.sh
+- scripts/session-handoff.sh
+- scripts/select-next-feature.sh
+- scripts/index-repo.sh
+- scripts/session-bootstrap.ps1
+- .codex/config.toml
+- AGENTS.md
+- DevViktor.md
+- docs/LONG_RUNNING_AGENT_WORKFLOW.md
+- init.sh
+- backend/init.sh
+- frontend/init.sh
+- backend/AGENTS.md
+- frontend/AGENTS.md
+- subagents/README.md
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: bash scripts/session-bootstrap.sh --count-remaining passed with codex/main and origin/codex/main status plus pending-feature summary; bash scripts/select-next-feature.sh passed and selected feature #20; bash scripts/index-repo.sh failed gracefully with explicit missing codebase-memory-mcp binary requirement; bash scripts/session-handoff.sh logic path exercised but commit operation could not run in this sandbox due .git/index.lock permission failure.
+notes: Harness now has native shell entrypoints for bootstrap/selector/handoff/indexing, PowerShell fallback retained, branch contract normalized to origin/codex/main across active contracts, and bootstrap output is head-limited by default for lower token usage.

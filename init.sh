@@ -46,5 +46,4 @@ echo "[vektor:init] complete"
 echo "backend:  cd backend && source .venv/bin/activate (or .venv/Scripts/activate on Windows) && uvicorn app.main:app --reload --port 8000"
 echo "frontend: cd frontend && npm run dev"
 echo "landing:  cd landing-next && npm run dev"
-echo "session bootstrap: pwsh ./scripts/session-bootstrap.ps1 -CountRemaining"
-
+echo "session bootstrap: bash ./scripts/session-bootstrap.sh --count-remaining"

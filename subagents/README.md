@@ -14,6 +14,12 @@ Usage pattern:
 - Use `fund_manager` to coordinate cross-role execution.
 - Use `reviewer` before merging each milestone.
 
+Token-efficiency policy:
+- Treat subagents as context filters, not extra narration layers.
+- Keep each subagent on a narrow file scope tied to the active feature.
+- Run planner/explorer first, then hand only validated target files to executor.
+- Avoid broad repo scans after bootstrap unless the active feature requires them.
+
 Role specs:
 - `fund-manager-subagent.md`
 - `research-subagent.md`

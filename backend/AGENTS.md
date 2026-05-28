@@ -2,8 +2,8 @@
 
 Before coding in `backend/`, run:
 
-```powershell
-..\scripts\session-bootstrap.ps1 -WorkDir .. -CountRemaining
+```bash
+bash ../scripts/session-bootstrap.sh --work-dir .. --count-remaining
 ```
 
 Then initialize backend environment:
@@ -18,5 +18,4 @@ Rules:
 - Never edit feature descriptions/steps; only flip `passes` after end-to-end verification.
 - Keep `Dev_Logs.md` and KB ingestion in sync per `../DevViktor.md`.
 - Run focused tests for changed backend behavior before commit.
-- End the session with `..\scripts\session-handoff.ps1 -WorkDir .. -CommitMessage "<summary>"`; this publishes to `origin/codex/main`, not production `main`.
-
+- End the session with `bash ../scripts/session-handoff.sh --work-dir .. --commit-message "<summary>"`; this publishes to `origin/codex/main`, not production `main`.

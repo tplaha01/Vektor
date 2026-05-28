@@ -3,7 +3,9 @@ param(
     [switch]$Strict,
     [switch]$CountRemaining,
     [string]$CanonicalBranch = "codex/main",
-    [string]$CanonicalRemote = "origin/codex/main"
+    [string]$CanonicalRemote = "origin/codex/main",
+    [int]$HeadLines = 80,
+    [int]$LsLines = 40
 )
 
 $ErrorActionPreference = "Stop"
@@ -16,11 +18,11 @@ Write-Output "[1/8] pwd"
 Get-Location
 
 Write-Output "[2/8] ls -la"
-Get-ChildItem -Force
+Get-ChildItem -Force | Select-Object -First $LsLines
 
-Write-Output "[3/8] app_spec.txt"
+Write-Output "[3/8] app_spec.txt (head)"
 if (Test-Path -LiteralPath "app_spec.txt") {
-    Get-Content -Path "app_spec.txt"
+    Get-Content -Path "app_spec.txt" -TotalCount $HeadLines
 } else {
     Write-Warning "app_spec.txt missing"
     if ($Strict) { exit 2 }
@@ -34,9 +36,9 @@ if (Test-Path -LiteralPath "feature_list.json") {
     if ($Strict) { exit 3 }
 }
 
-Write-Output "[5/8] codex-progress.txt"
+Write-Output "[5/8] codex-progress.txt (head)"
 if (Test-Path -LiteralPath "codex-progress.txt") {
-    Get-Content -Path "codex-progress.txt"
+    Get-Content -Path "codex-progress.txt" -TotalCount $HeadLines
 } else {
     Write-Warning "codex-progress.txt missing"
     if ($Strict) { exit 4 }
@@ -97,8 +99,16 @@ if ($CountRemaining -and (Test-Path -LiteralPath "feature_list.json")) {
     try {
         $raw = Get-Content -Raw -Path "feature_list.json"
         $json = $raw | ConvertFrom-Json
-        $remaining = @($json | Where-Object { $_.passes -eq $false }).Count
+        $pending = @($json | Where-Object { $_.passes -eq $false })
+        $remaining = $pending.Count
         Write-Output "remaining_false=$remaining"
+        if ($remaining -gt 0) {
+            $next = $pending[0]
+            $stepCount = @($next.steps).Count
+            Write-Output "next_category=$($next.category)"
+            Write-Output "next_description=$($next.description)"
+            Write-Output "next_step_count=$stepCount"
+        }
     } catch {
         Write-Warning "could not parse feature_list.json for remaining tests"
     }

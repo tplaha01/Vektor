@@ -1,7 +1,8 @@
 param(
     [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path,
     [string]$Binary = "$env:LOCALAPPDATA\Programs\codebase-memory-mcp\codebase-memory-mcp.exe",
-    [int]$TimeoutSeconds = 1200
+    [int]$TimeoutSeconds = 1200,
+    [string]$Mode = "fast"
 )
 
 $ErrorActionPreference = "Stop"
@@ -20,7 +21,7 @@ $nodeScript = @'
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
 
-const [repoRoot, binaryPath, timeoutSecondsRaw] = process.argv.slice(2);
+const [repoRoot, binaryPath, timeoutSecondsRaw, indexMode] = process.argv.slice(2);
 const timeoutMs = Math.max(30, Number(timeoutSecondsRaw || "1200")) * 1000;
 
 const child = spawn(binaryPath, [], {
@@ -115,7 +116,7 @@ if (!tools.tools?.some((tool) => tool.name === "index_repository")) {
 
 const result = await request("tools/call", {
   name: "index_repository",
-  arguments: { repo_path: repoRoot },
+  arguments: { repo_path: repoRoot, mode: indexMode || "fast" },
 });
 
 process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
@@ -127,7 +128,7 @@ await closePromise;
 Set-Content -LiteralPath $tempJs -Value $nodeScript -Encoding UTF8
 
 try {
-    & node $tempJs $RepoRoot $Binary $TimeoutSeconds
+    & node $tempJs $RepoRoot $Binary $TimeoutSeconds $Mode
     exit $LASTEXITCODE
 } finally {
     if (Test-Path -LiteralPath $tempJs) {

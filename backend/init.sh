@@ -29,5 +29,4 @@ fi
 
 echo "[backend:init] complete"
 echo "run: source .venv/bin/activate (or .venv/Scripts/activate on Windows) && uvicorn app.main:app --reload --port 8000"
-echo "bootstrap: pwsh ../scripts/session-bootstrap.ps1 -WorkDir .. -CountRemaining"
-
+echo "bootstrap: bash ../scripts/session-bootstrap.sh --work-dir .. --count-remaining"

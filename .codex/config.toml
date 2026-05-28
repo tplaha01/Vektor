@@ -3,11 +3,11 @@
 approval_policy = "on-request"
 sandbox_mode = "workspace-write"
 
-persistent_instructions = "Operate as a paper-first AI-native hedge fund builder. Use docs/AI_NATIVE_HEDGE_FUND_AUDIT_AND_ROADMAP.md as source of truth. Use planner for low-cost planning, executor for higher-cost implementation Respond concisely and avoid narrating internal planning unless explicitly requested."
+persistent_instructions = "Operate as a paper-first AI-native hedge fund builder. Use docs/AI_NATIVE_HEDGE_FUND_AUDIT_AND_ROADMAP.md as source of truth. Treat subagents as the token-efficiency mechanism: planner/explorer/docs_researcher first for narrow read-only mapping, executor only for validated edits/tests, reviewer only for focused risk checks. Keep context retrieval minimal and task-scoped. Respond concisely and avoid narrating internal planning unless explicitly requested."
 
 [session_bootstrap]
-required_command = "powershell -ExecutionPolicy Bypass -File scripts/session-bootstrap.ps1 -CountRemaining"
-feature_selector_command = "powershell -ExecutionPolicy Bypass -File scripts/select-next-feature.ps1"
+required_command = "bash scripts/session-bootstrap.sh --count-remaining"
+feature_selector_command = "bash scripts/select-next-feature.sh"
 initializer_prompt_file = ".codex/prompts/initializer_prompt.md"
 coding_prompt_file = ".codex/prompts/coding_agent_prompt.md"
 required_files = ["app_spec.txt", "feature_list.json", "codex-progress.txt"]

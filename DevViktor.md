@@ -5,7 +5,8 @@ Product vision, business goals, and role architecture live in `Viktor.md`.
 
 ## 1) Boot Sequence (Mandatory)
 0. Run mandatory session bearings bootstrap:
-   - `powershell -ExecutionPolicy Bypass -File scripts/session-bootstrap.ps1 -CountRemaining`
+   - `bash scripts/session-bootstrap.sh --count-remaining`
+   - PowerShell fallback: `powershell -ExecutionPolicy Bypass -File scripts/session-bootstrap.ps1 -CountRemaining`
    - If files are missing (`app_spec.txt`, `feature_list.json`, `codex-progress.txt`), stop feature work and restore initializer baseline first.
 1. Read `Viktor.md`.
 2. Read `docs/VEKTOR_PHASED_EXECUTION_PLAN.md`.
@@ -29,9 +30,9 @@ Product vision, business goals, and role architecture live in `Viktor.md`.
 
 ## 3) Branch and Commit Discipline
 - Long-running Codex sessions must work on local `codex/main` only.
-- `codex/main` is the canonical local handoff branch and must be kept aligned with `origin/main`.
-- End every coding session with a commit on `codex/main`, then push that commit to `origin/main` using `scripts/session-handoff.ps1`.
-- A session is incomplete if `git status --short` is non-empty or if local `codex/main` and `origin/main` differ.
+- `codex/main` is the canonical local handoff branch and must be kept aligned with `origin/codex/main`.
+- End every coding session with a commit on `codex/main`, then push that commit to `origin/codex/main` using `scripts/session-handoff.sh` (or `scripts/session-handoff.ps1` on PowerShell hosts).
+- A session is incomplete if `git status --short` is non-empty or if local `codex/main` and `origin/codex/main` differ.
 - Log `git_branch`, `git_commit_start`, and `git_commit_end` in `Dev_Logs.md`.
 - Keep commits migration-safe and reversible.
 
@@ -77,6 +78,7 @@ Offline fallback (if backend API is unavailable):
 - Use the higher-cost `executor` agent for actual file edits, tests, and implementation.
 - Do not ask the executor to do planning-only work when the planner can answer it cheaply.
 - Prefer a small, explicit plan before any non-trivial implementation.
+- Use subagent role docs as strict scope boundaries so each step loads only the minimum relevant files.
 
 ## 7) Validation and Exit
 Before ending a session:
@@ -85,6 +87,6 @@ Before ending a session:
 3. Append `END` entry in `Dev_Logs.md`.
 4. Ingest `END` entry to KB via `/fund/knowledge/development/log`.
 5. Verify `END` entry exists in repo KB query results.
-6. Refresh the codebase-memory graph with `scripts/index-repo.ps1`.
+6. Refresh the codebase-memory graph with `scripts/index-repo.sh` (or `scripts/index-repo.ps1` on PowerShell hosts).
 7. Verify the repo appears in the graph registry after indexing.
-8. Run `scripts/session-handoff.ps1 -CommitMessage "<summary>"` from `codex/main`.
+8. Run `scripts/session-handoff.sh --commit-message "<summary>"` from `codex/main`.
