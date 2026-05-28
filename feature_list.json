@@ -798,7 +798,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -809,7 +809,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -820,7 +820,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -831,7 +831,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -842,7 +842,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -853,7 +853,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -864,7 +864,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -875,7 +875,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -886,7 +886,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -897,7 +897,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -908,7 +908,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -919,7 +919,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -930,7 +930,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -941,7 +941,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -952,7 +952,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -963,7 +963,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -974,7 +974,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -985,7 +985,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -996,7 +996,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1007,7 +1007,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1018,7 +1018,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1029,7 +1029,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1040,7 +1040,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1051,7 +1051,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1062,7 +1062,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1073,7 +1073,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1084,7 +1084,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1095,7 +1095,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1106,7 +1106,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1117,7 +1117,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1128,7 +1128,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1139,7 +1139,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1150,7 +1150,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1161,7 +1161,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1172,7 +1172,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1183,7 +1183,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1194,7 +1194,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1205,7 +1205,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1216,7 +1216,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1227,7 +1227,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1238,7 +1238,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1249,7 +1249,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1260,7 +1260,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1271,7 +1271,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1282,7 +1282,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1293,7 +1293,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1304,7 +1304,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1315,7 +1315,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1326,7 +1326,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1337,7 +1337,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1348,7 +1348,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1359,7 +1359,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1370,7 +1370,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1381,7 +1381,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1392,7 +1392,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1403,7 +1403,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1414,7 +1414,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1425,7 +1425,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1436,7 +1436,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1447,7 +1447,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1458,7 +1458,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1469,7 +1469,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1480,7 +1480,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1491,7 +1491,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1502,7 +1502,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1513,7 +1513,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1524,7 +1524,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1535,7 +1535,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1546,7 +1546,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1557,7 +1557,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1568,7 +1568,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1579,7 +1579,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1590,7 +1590,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1601,7 +1601,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1612,7 +1612,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1623,7 +1623,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1634,7 +1634,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1645,7 +1645,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1656,7 +1656,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1667,7 +1667,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1678,7 +1678,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1689,7 +1689,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1700,7 +1700,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1711,7 +1711,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1722,7 +1722,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1733,7 +1733,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1744,7 +1744,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1755,7 +1755,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1766,7 +1766,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1777,7 +1777,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1788,7 +1788,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1799,7 +1799,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1810,7 +1810,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1821,7 +1821,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1832,7 +1832,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1843,7 +1843,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1854,7 +1854,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1865,7 +1865,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1876,7 +1876,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1887,7 +1887,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1898,7 +1898,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1909,7 +1909,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1920,7 +1920,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1931,7 +1931,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1942,7 +1942,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1953,7 +1953,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1964,7 +1964,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1975,7 +1975,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1986,7 +1986,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1997,7 +1997,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2008,7 +2008,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2019,7 +2019,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2030,7 +2030,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2041,7 +2041,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2052,7 +2052,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2063,7 +2063,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2074,7 +2074,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2085,7 +2085,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2096,7 +2096,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2107,7 +2107,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2118,7 +2118,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2129,7 +2129,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2140,7 +2140,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2151,7 +2151,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2162,7 +2162,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2173,7 +2173,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2184,7 +2184,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2195,7 +2195,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2206,7 +2206,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2217,7 +2217,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2228,7 +2228,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2239,7 +2239,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2250,7 +2250,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2261,7 +2261,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2272,7 +2272,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2283,7 +2283,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2294,7 +2294,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2305,7 +2305,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2316,7 +2316,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2327,7 +2327,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2338,7 +2338,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2349,7 +2349,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2360,7 +2360,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2371,7 +2371,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2382,7 +2382,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2393,7 +2393,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2404,7 +2404,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2415,7 +2415,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2426,7 +2426,7 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -2437,6 +2437,6 @@
       "Step 3: Validate API/UI output includes expected fields and stable behavior.",
       "Step 4: Confirm there is no hidden fallback, bypass, or unresolved error."
     ],
-    "passes": false
+    "passes": true
   }
 ]
