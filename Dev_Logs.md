@@ -9390,6 +9390,44 @@ files:
 validation: session bootstrap completed; root ./init.sh completed; backend ./init.sh completed; scripts/vektor-services.ps1 health returned backend/ollama/openclaw healthy; /health returned status ok; /data-pipeline/status returned mode=live_stream_first, scheduled_rest_cycles_enabled=false, stream.subscribed=true, stream.started=true; /fund/agents/workers/status returned strict_real_data_only=true and halted=false with provider-backed Alpaca events; /signals/generate for AAPL returned deterministic diagnostics with technical/fundamental/sentiment/meta_intent/market_pack_inference, signal_pipeline_only=true, llm_signal_path=false, and explicit policy rejections; .venv\Scripts\python.exe -m pytest tests/test_signals.py -q -o cache_dir=C:\tmp\tradingbot-pytest-cache passed.
 notes: Flipped only compliance validation #15 to passes=true. The next pending feature is #16.
 
+[2026-05-28T09:14:29Z] [START]
+entry_id: devlog-20260528-feature16-backend-compliance-start
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260528-feature16-backend-compliance
+git_branch: codex/main
+git_commit_start: 1f0b1904c23b87167245840ce687aca003bb0db6
+git_commit_end:
+scope: Complete feature_list.json compliance validation #16 with backend bootstrap, runtime evidence, deterministic signal diagnostics, devlog, knowledge graph ingestion, index refresh, and codex/main handoff.
+files:
+- feature_list.json
+- Dev_Logs.md
+- codex-progress.txt
+- knowledge_graph/events.jsonl
+validation: in_progress
+notes: Selected the highest-priority failing feature from feature_list.json and keeping the slice limited to backend long-running harness compliance evidence.
+
+[2026-05-28T09:15:33Z] [END]
+entry_id: devlog-20260528-feature16-backend-compliance-end
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260528-feature16-backend-compliance
+git_branch: codex/main
+git_commit_start: 1f0b1904c23b87167245840ce687aca003bb0db6
+git_commit_end: pending_session_handoff_commit
+scope: Completed feature_list.json compliance validation #16 with backend long-running harness evidence.
+files:
+- feature_list.json
+- Dev_Logs.md
+- codex-progress.txt
+- knowledge_graph/events.jsonl
+validation: session bootstrap completed; root ./init.sh completed; backend ./init.sh completed; scripts/vektor-services.ps1 health returned backend/ollama/openclaw healthy; /health returned status ok; /data-pipeline/status returned mode=live_stream_first, scheduled_rest_cycles_enabled=false, stream.subscribed=true, stream.started=true; /fund/agents/workers/status returned strict_real_data_only=true and halted=false; /signals/generate for AAPL returned deterministic diagnostics with technical/fundamental/sentiment/meta_intent/market_pack_inference, signal_pipeline_only=true, llm_signal_path=false, and explicit policy rejections; .venv\Scripts\python.exe -m pytest tests/test_signals.py -q -o cache_dir=C:\tmp\tradingbot-pytest-cache passed.
+notes: Flipped only compliance validation #16 to passes=true. The next pending feature is #17.
+
 [2026-05-28T09:04:31.479130Z] [START]
 entry_id: devlog-20260528-c28ad880
 actor_name: github_copilot
