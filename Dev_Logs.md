@@ -10714,3 +10714,62 @@ files:
 - backend/app/admin_research_routes.py
 validation: completed
 notes: Server shutdown - session ended normally
+
+[2026-05-29T09:46:27.9215937Z] [START]
+entry_id: devlog-20260529-r0-research-next-scaffold-start
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260529-r0-research-next-scaffold
+git_branch: codex/main
+git_commit_start: 300204646c95e533d433e492276b8f24ef62efd9
+git_commit_end:
+scope: Build R0 from prompts/vektor_codex_prompt.html by scaffolding the research-next Next.js frontend with shared blog-derived chrome, Tailwind, and typed research contracts.
+files:
+- frontend-next/research-next/
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: in_progress
+notes: Started from the extracted Master Prompt section "Master Prompt - Copy This Into Codex to Start Session Chain"; preserving the existing untracked Prompts artifact while keeping implementation scoped to R0.
+
+[2026-05-29T09:54:58.7356670Z] [END]
+entry_id: devlog-20260529-r0-research-next-scaffold-end
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260529-r0-research-next-scaffold
+git_branch: codex/main
+git_commit_start: 300204646c95e533d433e492276b8f24ef62efd9
+git_commit_end: pending_r0_commit
+scope: Build R0 from prompts/vektor_codex_prompt.html by scaffolding the research-next Next.js frontend with shared blog-derived chrome, Tailwind, and typed research contracts.
+files:
+- frontend-next/research-next/.eslintrc.json
+- frontend-next/research-next/.gitignore
+- frontend-next/research-next/app/globals.css
+- frontend-next/research-next/app/layout.tsx
+- frontend-next/research-next/app/metadata.ts
+- frontend-next/research-next/app/page.tsx
+- frontend-next/research-next/components/footer.tsx
+- frontend-next/research-next/components/navbar.tsx
+- frontend-next/research-next/components/site-nav.tsx
+- frontend-next/research-next/components/theme-provider.tsx
+- frontend-next/research-next/components/theme-toggle.tsx
+- frontend-next/research-next/components/typography.tsx
+- frontend-next/research-next/components/ui/button.tsx
+- frontend-next/research-next/lib/site.ts
+- frontend-next/research-next/lib/types.ts
+- frontend-next/research-next/lib/utils.ts
+- frontend-next/research-next/next-env.d.ts
+- frontend-next/research-next/next.config.mjs
+- frontend-next/research-next/package-lock.json
+- frontend-next/research-next/package.json
+- frontend-next/research-next/postcss.config.js
+- frontend-next/research-next/public/VektorLogo.png
+- frontend-next/research-next/tailwind.config.ts
+- frontend-next/research-next/tsconfig.json
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: npm install succeeded; npm run build succeeded; cmd.exe /c npm run lint succeeded; curl.exe -I http://127.0.0.1:3010 returned 200; Playwright screenshot captured at frontend-next/research-next/output/playwright/r0-research-next-desktop.png and visually inspected.
+notes: R0 scaffold is complete. npm audit reported 5 vulnerabilities inherited from the requested Next 14/Recharts 2-era dependency set; versions were left aligned with the Master Prompt. Next session target is R1 research index page.
