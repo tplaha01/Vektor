@@ -452,8 +452,8 @@ async def debug_websocket_stream():
     }
 
 
-@cache_response(ttl_seconds=10)
 @app.post("/signals/generate")
+@cache_response(ttl_seconds=10)
 async def generate_signal(req: SignalRequest) -> Dict[str, Any]:
     if data_integrity_guard.halted():
         raise HTTPException(
@@ -482,13 +482,13 @@ async def generate_signal(req: SignalRequest) -> Dict[str, Any]:
         )
     return result
 
-@cache_response(ttl_seconds=2)
 @app.get("/paper/positions")
+@cache_response(ttl_seconds=2)
 async def get_positions():
     return broker.list_positions(lambda s: FEED.price(s))
 
-@cache_response(ttl_seconds=2)
 @app.get("/paper/orders")
+@cache_response(ttl_seconds=2)
 async def get_orders():
     return broker.list_orders()
 

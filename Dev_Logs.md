@@ -10432,6 +10432,58 @@ files:
 validation: git status reviewed; local commit requested; no additional automated verification was run in this session
 notes: This session committed the existing working tree as-is on codex/main after refreshing repo memory/index artifacts required by the repo contract.
 
+[2026-05-28T22:14:58.1583514Z] [START]
+entry_id: devlog-20260528-surgical-algo-realtime-start
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260528-surgical-algo-realtime
+git_branch: codex/main
+git_commit_start: 8b800ecb1e55cb12c52a22824f36f25f0f5a772f
+git_commit_end:
+scope: Surgical deterministic algo, autopilot scoring, backend cache, and realtime frontend load hardening
+files:
+- backend/app/cache.py
+- backend/app/main.py
+- backend/app/fund/router.py
+- backend/app/fund/agent_runtime.py
+- backend/tests/test_cache_response.py
+- backend/tests/test_fund_agent_runtime.py
+- frontend/src/hooks/useRealTimeData.js
+- frontend/src/hooks/useLivePnL.js
+- frontend/src/pages/AlfredDashboard.jsx
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: in_progress
+notes: Targeting current-stage behavior only: make FastAPI route caching effective, share one frontend WebSocket, dedupe frontend fetches, default dashboard signals to auto routing, and make autopilot discovery respect deterministic core-engine safe-mode output.
+
+[2026-05-28T22:23:26.7892255Z] [END]
+entry_id: devlog-20260528-surgical-algo-realtime-end
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260528-surgical-algo-realtime
+git_branch: codex/main
+git_commit_start: 8b800ecb1e55cb12c52a22824f36f25f0f5a772f
+git_commit_end: pending_user_review
+scope: Surgical deterministic algo, autopilot scoring, backend cache, and realtime frontend load hardening
+files:
+- backend/app/cache.py
+- backend/app/main.py
+- backend/app/fund/router.py
+- backend/app/fund/agent_runtime.py
+- backend/tests/test_cache_response.py
+- backend/tests/test_fund_agent_runtime.py
+- frontend/src/hooks/useRealTimeData.js
+- frontend/src/hooks/useLivePnL.js
+- frontend/src/pages/AlfredDashboard.jsx
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: focused backend pytest passed with 11 tests; frontend npm run build passed; Vite dev server smoke screenshot captured for /legacy
+notes: FastAPI cache decorators now wrap registered handlers, async cache calls dedupe in-flight requests, dashboard realtime state uses one shared WebSocket with heartbeat/reconnect, the legacy dashboard defaults to auto signal routing, and autopilot discovery scoring now gates candidates through deterministic core-engine safe-mode output.
+
 [2026-05-28T20:55:38.879059Z] [END]
 entry_id: devlog-20260528-2444dbe1
 actor_name: github_copilot
@@ -10599,3 +10651,66 @@ files:
 - backend/app/admin_research_routes.py
 validation: in_progress
 notes: Automated session start on server boot
+
+[2026-05-28T22:00:02.209372Z] [END]
+entry_id: devlog-20260528-872539ca
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-6d06bdc96464
+git_branch: codex/main
+git_commit_start: c7ee36ed5ad1ce26ff3480617a6d998a77f1c667
+git_commit_end: 8b800ecb1e55cb12c52a22824f36f25f0f5a772f
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: completed
+notes: Server shutdown - session ended normally
+
+[2026-05-28T22:15:54.365849Z] [START]
+entry_id: devlog-20260528-d0fda8a5
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-2a9e0d0447ed
+git_branch: codex/main
+git_commit_start: 8b800ecb1e55cb12c52a22824f36f25f0f5a772f
+git_commit_end: 
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot
+
+[2026-05-28T22:15:54.365849Z] [END]
+entry_id: devlog-20260528-d0fda8a5
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-2a9e0d0447ed
+git_branch: codex/main
+git_commit_start: 8b800ecb1e55cb12c52a22824f36f25f0f5a772f
+git_commit_end: 8b800ecb1e55cb12c52a22824f36f25f0f5a772f
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: completed
+notes: Server shutdown - session ended normally

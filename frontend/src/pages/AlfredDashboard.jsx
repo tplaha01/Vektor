@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { getSignal, getPositions, placeOrder, wsConnect, getNews, getHealth } from "../api";
 import { useRealTimeData } from "../hooks/useRealTimeData";
 import { useLivePnL } from "../hooks/useLivePnL";
@@ -22,6 +22,7 @@ const TABS = [
 
 const WATCHLIST = ["AAPL","MSFT","NVDA","SPY","TSLA","AMZN","GOOGL","META"];
 const CORE_PROFILES = [
+  { key: "auto", label: "Auto" },
   { key: "balanced", label: "Balanced" },
   { key: "accuracy_max", label: "Accuracy Max" },
   { key: "latency_low", label: "Latency Low" },
@@ -64,7 +65,7 @@ const humanizeReason = (value) => {
 export default function AlfredDashboard() {
   const [symbol,    setSymbol]    = useState("AAPL");
   const [input,     setInput]     = useState("AAPL");
-  const [profile,   setProfile]   = useState("balanced");
+  const [profile,   setProfile]   = useState("auto");
   const [signal,    setSignal]    = useState(null);
   const [positions, setPositions] = useState([]);
   const [news,      setNews]      = useState([]);
@@ -72,7 +73,7 @@ export default function AlfredDashboard() {
   const [tab,       setTab]       = useState("chart");
   
   // Use real-time data hooks
-  const { ticks, wsStatus, cachedFetch, clearCache, subscribeTicks } = useRealTimeData();
+  const { ticks, wsStatus, cachedFetch, prefetchCache } = useRealTimeData();
   const { livePnL, livePnLBySymbol } = useLivePnL(positions);
   
   // Map WebSocket status to display label
@@ -97,12 +98,12 @@ export default function AlfredDashboard() {
 
   // Initial load - fetch positions and health once with caching
   useEffect(() => {
-    getHealth().catch(console.warn);
+    prefetchCache('health', () => getHealth(), 10000);
     cachedFetch('positions',
       () => getPositions(),
       2000 // 2-second cache
     ).then(setPositions).catch(console.warn);
-  }, [cachedFetch]);
+  }, [cachedFetch, prefetchCache]);
 
   // Fetch signal and news when symbol or profile changes
   useEffect(() => {
@@ -116,22 +117,6 @@ export default function AlfredDashboard() {
       60000
     ).then(setNews).catch(console.warn);
   }, [symbol, profile, cachedFetch]);
-
-  // Subscribe to tick updates for real-time data
-  useEffect(() => {
-    const unsubscribe = subscribeTicks((newTicks) => {
-      // Ticks are automatically broadcast to all listeners
-      // Component will re-render due to tick updates affecting livePnL
-    });
-    return unsubscribe;
-  }, [subscribeTicks]);
-
-  // Subscribe to positions updates from WebSocket
-  useEffect(() => {
-    // WebSocket broadcasts positions_update and risk_update messages
-    // In a production setup, you'd subscribe to these via useRealTimeData
-    // For now, we rely on the tick updates to trigger PnL recalculation
-  }, []);
 
   const tick = ticks[symbol];
   const wsColor = ws==="live" ? "var(--green)" : ws==="connecting" ? "var(--amber)" : "var(--red)";

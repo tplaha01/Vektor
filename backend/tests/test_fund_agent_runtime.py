@@ -1,7 +1,9 @@
 import asyncio
 from time import monotonic
 from decimal import Decimal
+from types import SimpleNamespace
 
+import pandas as pd
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -19,6 +21,7 @@ from app.fund.router import get_agent_runtime, get_orchestrator, router
 from app.fund.sentiment_ingest import SentimentIngestService
 from app.fund.task_bus import TaskBus
 from app.fund.contracts import ResearchReport as ContractResearchReport
+from app.quant.types import MarketRegimeSnapshot
 
 
 @pytest.fixture
@@ -319,6 +322,89 @@ def test_resolve_autopilot_symbols_records_no_trade_when_thresholds_fail(monkeyp
     assert latest_by_symbol["MSFT"]["status"] == "pruned_threshold"
     assert latest_by_symbol["CASH"]["status"] == "no_trade"
     assert latest_by_symbol["CASH"]["metadata"]["discovery_reason"] == "thresholds_not_met"
+
+
+def test_score_autopilot_symbol_respects_core_engine_safe_mode(monkeypatch):
+    _, _, runtime = _build_stack()
+
+    from app.fund import agent_runtime as runtime_module
+
+    history = pd.DataFrame(
+        {
+            "ts": pd.date_range("2026-01-01", periods=80, freq="D", tz="UTC"),
+            "open": [100.0] * 80,
+            "high": [101.0] * 80,
+            "low": [99.0] * 80,
+            "close": [100.0 + idx * 0.1 for idx in range(80)],
+            "volume": [1_000_000.0] * 80,
+        }
+    )
+    monkeypatch.setattr(
+        runtime_module.market_ingestion,
+        "build_technical_report",
+        lambda symbol: SimpleNamespace(confidence=0.9, summary="strong trend"),
+    )
+    monkeypatch.setattr(
+        runtime_module.market_ingestion,
+        "build_ml_timeseries_report",
+        lambda symbol: SimpleNamespace(
+            confidence=0.9,
+            summary="strong model",
+            findings=("Directional probability(up): 0.91",),
+        ),
+    )
+    monkeypatch.setattr(
+        runtime_module.market_ingestion,
+        "build_sentiment",
+        lambda symbol: SimpleNamespace(sentiment_score=0.8, source="unit_test_news"),
+    )
+    monkeypatch.setattr(runtime_module.FEED, "history", lambda symbol, bars=60: history.tail(bars))
+    monkeypatch.setattr(
+        runtime_module,
+        "latest_news",
+        lambda symbol, limit=5: [{"headline": "Strong catalyst", "published_at": "2026-01-01T00:00:00Z"}],
+    )
+    monkeypatch.setattr(
+        runtime_module,
+        "infer_market_regime",
+        lambda df: MarketRegimeSnapshot(
+            regime="TREND_UP",
+            direction="long_bias",
+            confidence=0.9,
+            edge=0.5,
+            trend_score=0.8,
+            breakout_score=0.2,
+            mean_reversion_score=0.0,
+            volatility_score=0.5,
+            liquidity_score=0.8,
+            notes=("adx_trend",),
+            metrics={},
+        ),
+    )
+
+    class _SafeModeCoreSignal:
+        def to_dict(self):
+            return {
+                "score": 0.95,
+                "confidence": 0.96,
+                "action": "hold",
+                "diagnostics": {
+                    "policy": {
+                        "safe_mode": True,
+                        "rejections": ["stale_market_data"],
+                    }
+                },
+            }
+
+    monkeypatch.setattr(runtime_module, "run_core_engine", lambda symbol: _SafeModeCoreSignal())
+
+    opportunity = runtime._score_autopilot_symbol("AAPL")  # noqa: SLF001
+
+    assert opportunity is not None
+    assert opportunity["score"] < runtime._discovery_min_score  # noqa: SLF001
+    assert opportunity["confidence"] < runtime._discovery_min_confidence  # noqa: SLF001
+    assert opportunity["ml"]["core_engine_safe_mode"] is True
+    assert opportunity["ml"]["core_engine_rejections"] == ["stale_market_data"]
 
 
 @pytest.mark.anyio

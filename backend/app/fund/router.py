@@ -312,8 +312,8 @@ async def task_history(
     )
 
 
-@cache_response(ttl_seconds=5)
 @router.get("/agents/workers/status")
+@cache_response(ttl_seconds=5)
 async def worker_status(runtime: FundAgentRuntime = Depends(get_agent_runtime)):
     return runtime.status()
 
@@ -376,8 +376,8 @@ async def ceo_commands(
     )
 
 
-@cache_response(ttl_seconds=3)
 @router.get("/decisions/pending")
+@cache_response(ttl_seconds=3)
 async def pending_decisions(orchestrator: FirmOrchestrator = Depends(get_orchestrator)):
     return orchestrator.list_pending_decisions()
 
@@ -488,8 +488,8 @@ async def knowledge_lineage(
     )
 
 
-@cache_response(ttl_seconds=30)
 @router.get("/knowledge/stats")
+@cache_response(ttl_seconds=30)
 async def knowledge_stats(orchestrator: FirmOrchestrator = Depends(get_orchestrator)):
     return orchestrator.knowledge_stats()
 

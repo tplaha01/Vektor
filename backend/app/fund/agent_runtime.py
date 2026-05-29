@@ -1545,14 +1545,26 @@ class FundAgentRuntime:
             regime_snapshot = infer_market_regime(history)
         except Exception:
             return None
+        try:
+            core_signal = run_core_engine(normalized).to_dict()
+        except Exception:
+            core_signal = {}
 
         ml_prob_up = _extract_metric(ml.findings, "Directional probability(up)")
         if ml_prob_up is None:
             ml_prob_up = 0.5
         ml_prob_up = max(0.0, min(1.0, float(ml_prob_up)))
+        ml_edge_score = max(0.0, min(1.0, abs(ml_prob_up - 0.5) * 2.0))
         sentiment_norm = max(0.0, min(1.0, (_to_float(sentiment.sentiment_score, 0.0) + 1.0) / 2.0))
         tech_conf = max(0.0, min(1.0, _to_float(technical.confidence, 0.5)))
         ml_conf = max(0.0, min(1.0, _to_float(ml.confidence, 0.5)))
+        core_score = _to_float(core_signal.get("score"), 0.0)
+        core_conf = max(0.0, min(1.0, _to_float(core_signal.get("confidence"), 0.0)))
+        core_action = str(core_signal.get("action") or "hold").strip().lower()
+        core_diagnostics = dict(core_signal.get("diagnostics") or {})
+        core_policy = dict(core_diagnostics.get("policy") or {})
+        core_safe_mode = bool(core_policy.get("safe_mode"))
+        core_edge_score = max(0.0, min(1.0, abs(core_score)))
         closes = []
         volumes = []
         if hasattr(history, "empty") and not history.empty:
@@ -1585,21 +1597,42 @@ class FundAgentRuntime:
         regime_alignment = max(0.0, min(1.0, float(regime_snapshot.confidence)))
         confidence = max(
             0.0,
-            min(1.0, ((tech_conf * 0.25) + (ml_conf * 0.25) + (liquidity_score * 0.2) + (catalyst_score * 0.15) + (regime_alignment * 0.15))),
+            min(
+                1.0,
+                (
+                    (tech_conf * 0.20)
+                    + (ml_conf * 0.20)
+                    + (core_conf * 0.20)
+                    + (liquidity_score * 0.18)
+                    + (catalyst_score * 0.10)
+                    + (regime_alignment * 0.12)
+                ),
+            ),
         )
         score = (
-            (regime_alignment * 0.30)
-            + (ml_prob_up * 0.20)
-            + (sentiment_norm * 0.10)
-            + (liquidity_score * 0.15)
-            + (volatility_score * 0.10)
-            + (catalyst_score * 0.15)
+            (regime_alignment * 0.20)
+            + (ml_edge_score * 0.18)
+            + (core_edge_score * 0.22)
+            + (core_conf * 0.10)
+            + (sentiment_norm * 0.08)
+            + (liquidity_score * 0.12)
+            + (volatility_score * 0.05)
+            + (catalyst_score * 0.05)
         )
-        direction = regime_snapshot.direction if regime_snapshot.direction in {"long_bias", "short_bias"} else ("long_bias" if ml_prob_up >= 0.5 else "short_bias")
+        if core_safe_mode:
+            score = min(score, max(0.0, self._discovery_min_score - 0.01))
+            confidence = min(confidence, max(0.0, self._discovery_min_confidence - 0.01))
+        if core_action == "buy":
+            direction = "long_bias"
+        elif core_action == "sell":
+            direction = "short_bias"
+        else:
+            direction = regime_snapshot.direction if regime_snapshot.direction in {"long_bias", "short_bias"} else ("long_bias" if ml_prob_up >= 0.5 else "short_bias")
         top_headlines = [str(item.get("headline") or "").strip() for item in (news_rows or [])[:3] if str(item.get("headline") or "").strip()]
         math_summary = (
-            f"score={score:.3f} from regime={regime_alignment:.3f}, ml={ml_prob_up:.3f}, "
-            f"liquidity={liquidity_score:.3f}, vol={volatility_score:.3f}, catalyst={catalyst_score:.3f}."
+            f"score={score:.3f} from regime={regime_alignment:.3f}, ml_edge={ml_edge_score:.3f}, "
+            f"core_edge={core_edge_score:.3f}, core_conf={core_conf:.3f}, liquidity={liquidity_score:.3f}, "
+            f"vol={volatility_score:.3f}, catalyst={catalyst_score:.3f}."
         )
         opportunity = self._orchestrator.record_discovery_opportunity(
             {
@@ -1622,8 +1655,14 @@ class FundAgentRuntime:
                 ],
                 "ml": {
                     "directional_probability_up": round(ml_prob_up, 4),
+                    "directional_edge_score": round(ml_edge_score, 4),
                     "technical_confidence": round(tech_conf, 4),
                     "ml_confidence": round(ml_conf, 4),
+                    "core_engine_score": round(core_score, 4),
+                    "core_engine_confidence": round(core_conf, 4),
+                    "core_engine_action": core_action,
+                    "core_engine_safe_mode": core_safe_mode,
+                    "core_engine_rejections": list(core_policy.get("rejections") or []),
                     "sentiment_normalized": round(sentiment_norm, 4),
                     "liquidity_score": round(liquidity_score, 4),
                     "volatility_score": round(volatility_score, 4),
@@ -1641,6 +1680,8 @@ class FundAgentRuntime:
                     "macro_risk_level": "elevated" if news_intensity_count >= self._discovery_news_limit else "normal",
                     "market_regime": regime_snapshot.regime,
                     "market_regime_confidence": round(float(regime_snapshot.confidence), 4),
+                    "core_engine_action": core_action,
+                    "core_engine_safe_mode": core_safe_mode,
                 },
                 "status": "candidate",
             }

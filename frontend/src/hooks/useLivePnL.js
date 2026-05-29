@@ -1,17 +1,12 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useMemo } from 'react';
 import { useRealTimeData } from './useRealTimeData';
 
 export function useLivePnL(positions = []) {
-  const { ticks, subscribeTicks } = useRealTimeData();
-  const [livePnL, setLivePnL] = useState(0);
-  const [livePnLBySymbol, setLivePnLBySymbol] = useState({});
+  const { ticks } = useRealTimeData();
 
-  // Calculate PnL whenever positions or ticks change
-  const calculatePnL = useCallback(() => {
+  const { livePnL, livePnLBySymbol } = useMemo(() => {
     if (!positions || positions.length === 0) {
-      setLivePnL(0);
-      setLivePnLBySymbol({});
-      return;
+      return { livePnL: 0, livePnLBySymbol: {} };
     }
 
     let totalPnL = 0;
@@ -37,22 +32,8 @@ export function useLivePnL(positions = []) {
       }
     });
 
-    setLivePnL(totalPnL);
-    setLivePnLBySymbol(pnlBySymbol);
+    return { livePnL: totalPnL, livePnLBySymbol: pnlBySymbol };
   }, [positions, ticks]);
-
-  // Subscribe to tick updates
-  useEffect(() => {
-    const unsubscribe = subscribeTicks(() => {
-      calculatePnL();
-    });
-    return unsubscribe;
-  }, [subscribeTicks, calculatePnL]);
-
-  // Initial calculation
-  useEffect(() => {
-    calculatePnL();
-  }, [calculatePnL]);
 
   return {
     livePnL,
