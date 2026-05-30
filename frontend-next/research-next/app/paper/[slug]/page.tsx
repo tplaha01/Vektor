@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import {
   Activity,
@@ -15,6 +16,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { researchPapers } from "@/lib/mock-research";
+import { siteConfig } from "@/lib/site";
 import type { ResearchPaper, SignalDirection } from "@/lib/types";
 
 interface PaperPageProps {
@@ -53,6 +55,45 @@ export function generateStaticParams() {
   return researchPapers.map((paper) => ({
     slug: paper.slug,
   }));
+}
+
+function getPaperBySlug(slug: string) {
+  return researchPapers.find((paper) => paper.slug === slug);
+}
+
+export function generateMetadata({ params }: PaperPageProps): Metadata {
+  const paper = getPaperBySlug(params.slug);
+
+  if (!paper) {
+    return {
+      title: "Paper not found",
+    };
+  }
+
+  return {
+    title: paper.title,
+    description: paper.abstract,
+    authors: paper.authors.map((author) => ({
+      name: author.name,
+    })),
+    keywords: [
+      paper.category,
+      paper.signalDirection,
+      paper.horizon,
+      ...paper.tickers,
+      ...paper.tags,
+    ],
+    openGraph: {
+      title: paper.title,
+      description: paper.abstract,
+      type: "article",
+      url: `${siteConfig.url}/paper/${paper.slug}`,
+      publishedTime: paper.publishedAt,
+      modifiedTime: paper.updatedAt,
+      authors: paper.authors.map((author) => author.name),
+      tags: paper.tags,
+    },
+  };
 }
 
 function formatDate(value: string) {
@@ -184,7 +225,7 @@ function MetadataRow({
 }
 
 export default function PaperPage({ params }: PaperPageProps) {
-  const paper = researchPapers.find((item) => item.slug === params.slug);
+  const paper = getPaperBySlug(params.slug);
 
   if (!paper) {
     notFound();
