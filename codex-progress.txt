@@ -1,8 +1,44 @@
 # Codex Progress Log
 
-Last updated: 2026-05-27T23:14:03.553336Z
+Last updated: 2026-05-31T03:14:38.0393309Z
 
 ## Session Summary
+- Critiqued the live `admin-next` Core Engine route from a quant/HFT operator perspective and rebuilt it from a debug endpoint dump into a compact compute console.
+- Fixed the broken reports call by replacing `/api/admin/reports?limit=8` with the real `/api/research/reports?limit=8` backend surface.
+- Replaced raw JSON blocks with derived operator panels:
+  - Decision Contract
+  - Stream-First Market Fabric
+  - SPY Alpha Snapshot
+  - LLM Role Mesh
+  - Research Intelligence Feed
+  - Policy Posture
+  - Lineage Counters
+  - Fund Stream
+- Tightened long-value rendering so model artifacts, lineage IDs, provider details, and timestamps do not collide with adjacent compute bars.
+- Replaced the mobile Research Intelligence table with stacked mobile rows; Playwright 390px audit verified no page overflow, no endpoint errors, no dead `/api/admin/reports` text, and `visibleTableCount=0`.
+- Cleared stale `frontend-next/admin-next/.next` cache after finding a real Next dev-server chunk error (`Cannot find module './253.js'`) and restarted the usable admin dev server at `http://127.0.0.1:3031/core-engine`.
+- Validation run:
+  - `cmd.exe /c npm run lint` passed in `frontend-next/admin-next`
+  - `cmd.exe /c npm run build` passed in `frontend-next/admin-next`
+  - In-app browser verification passed on `http://127.0.0.1:3031/core-engine`
+  - `scripts/index-repo.ps1` returned `status=indexed` with 6747 nodes and 14265 edges after the known non-fatal path warning
+  - Desktop screenshot: `frontend-next/admin-next/output/playwright/core-engine-quant-console.png`
+  - Mobile screenshots: `frontend-next/admin-next/output/playwright/core-engine-quant-console-mobile.png` and `frontend-next/admin-next/output/playwright/core-engine-quant-console-mobile-full.png`
+- Visually verified the latest `frontend-next` surfaces in the in-app browser:
+  - `research-next` on `http://127.0.0.1:3010/` and `/signals`
+  - `livepnl-next` on `http://127.0.0.1:3020/` and `/trades`
+  - `admin-next` on clean dev port `http://127.0.0.1:3031/war-room` and `/core-engine`
+- Restarted `research-next` after finding port `3010` was serving a stale Next dev runtime with missing chunk `./989.js`; the restarted app loads Tailwind, constrains the Vektor logo, and renders without horizontal overflow.
+- Fixed `admin-next` war-room horizontal overflow by moving the sidebar offset from padding to margin in `components/admin-shell.tsx` and making the war-room three-column grid shrinkable with `minmax(0, ...)` plus `min-w-0` column wrappers.
+- Verified `admin-next` on clean port `3031` because an older Windows process still owns `3030` and could not be terminated from this session (`Access is denied`).
+- Validation run:
+  - `cmd.exe /c npm run lint` passed in `frontend-next/research-next`
+  - `cmd.exe /c npm test` passed in `frontend-next/research-next` (7/7 paper route tests)
+  - `cmd.exe /c npm run build` passed in `frontend-next/research-next`
+  - `cmd.exe /c npm run lint` passed in `frontend-next/livepnl-next`
+  - `cmd.exe /c npm run lint` passed in `frontend-next/admin-next`
+  - `cmd.exe /c npm run build` passed in `frontend-next/admin-next`
+  - Browser checks confirmed expected headings, loaded stylesheets, and no horizontal overflow on final checked routes.
 - Added `vektor_05272026.md`, a detailed current-state handoff report covering repo structure, live runtime state, end-to-end data/decision/execution flow, subsystem responsibilities, completed work, known risks, validation evidence, and next work.
 - Restarted repo-managed services and verified the live backend now reflects the stream-first pipeline commit: `mode=live_stream_first`, `scheduled_rest_cycles_enabled=false`, `stream.subscribed=true`, and `stream.started=true`.
 - Made Vektor market data stream-first by starting the Alpaca market stream from the data pipeline, demoting scheduled REST cycles to disabled-stream fallback, and overlaying latest persisted stream ticks into core-engine point-in-time snapshots.

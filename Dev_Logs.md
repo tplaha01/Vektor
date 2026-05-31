@@ -11096,3 +11096,95 @@ files:
 - backend/app/admin_research_routes.py
 validation: in_progress
 notes: Automated session start on server boot
+
+[2026-05-31T02:20:16Z] [START]
+entry_id: devlog-20260531-orchestrator-lock-repair-start
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260531-orchestrator-lock-repair
+git_branch: codex/main
+git_commit_start: 04442645
+git_commit_end:
+scope: Repair autonomous orchestrator false failures caused by locked aggregate log files and verify the current prompt-driven frontend-next platform surfaces remain healthy.
+active_phase: orchestration_infrastructure
+files:
+- .orchestrator/run.ps1
+- .orchestrator/orchestrator-lib.ps1
+- frontend-next/research-next/
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: in_progress
+notes: The current orchestrator artifacts mark R0A/R2A failures even when a valid PASS handoff exists; logs show locked .orchestrator/logs/*.log writes as the concrete failure mode.
+
+[2026-05-31T02:35:22Z] [END]
+entry_id: devlog-20260531-orchestrator-lock-repair-end
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260531-orchestrator-lock-repair
+git_branch: codex/main
+git_commit_start: 04442645
+git_commit_end: not_committed
+scope: Repair autonomous orchestrator false failures caused by locked aggregate log files and verify the current prompt-driven frontend-next platform surfaces remain healthy.
+active_phase: orchestration_infrastructure
+files:
+- .orchestrator/run.ps1
+- .orchestrator/orchestrator-lib.ps1
+- frontend-next/admin-next/components/admin-shell.tsx
+- frontend-next/admin-next/app/war-room/page.tsx
+- frontend-next/research-next/
+- frontend-next/livepnl-next/
+- Dev_Logs.md
+- codex-progress.txt
+- knowledge_graph/events.jsonl
+validation: PowerShell parser checks passed for .orchestrator/run.ps1 and .orchestrator/orchestrator-lib.ps1; research-next lint passed; research-next paper route tests passed 7/7; research-next production build passed; livepnl-next lint passed; admin-next lint passed; admin-next production build passed; browser verification passed for research home/signals, livepnl dashboard/trades, and admin war-room/core-engine on clean admin port 3031 with loaded stylesheets and no final horizontal overflow.
+notes: Restarted research-next after detecting a stale dev runtime on 3010. Admin port 3030 remains occupied by an older Windows process that this session could not terminate, so clean admin verification and the usable fresh dev server are on 3031. Commit and push were not performed in this verification/fix pass.
+
+[2026-05-30T20:14:38-07:00] [START]
+entry_id: devlog-20260530-core-engine-quant-console-start
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260530-core-engine-quant-console
+git_branch: codex/main
+git_commit_start: 04442645
+git_commit_end:
+scope: Critique and harden frontend-next admin Core Engine as an AI-native hedge fund/HFT-style compute surface, then validate, index, commit, and push origin/codex/main.
+active_phase: admin_next_compute_surface
+files:
+- frontend-next/admin-next/app/core-engine/page.tsx
+- frontend-next/admin-next/output/playwright/core-engine-quant-console.png
+- frontend-next/admin-next/output/playwright/core-engine-quant-console-mobile.png
+- frontend-next/admin-next/output/playwright/core-engine-quant-console-mobile-full.png
+- Dev_Logs.md
+- codex-progress.txt
+- knowledge_graph/events.jsonl
+validation: in_progress
+notes: Started from dirty codex/main with prior admin shell/war-room fixes already present. Live audit found the Core Engine page was a debug-style endpoint dump, called dead /api/admin/reports, and exposed stale Next dev-cache failures after production builds touched .next.
+
+[2026-05-30T20:14:38-07:00] [END]
+entry_id: devlog-20260530-core-engine-quant-console-end
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260530-core-engine-quant-console
+git_branch: codex/main
+git_commit_start: 04442645
+git_commit_end: pending_commit
+scope: Critique and harden frontend-next admin Core Engine as an AI-native hedge fund/HFT-style compute surface, then validate, index, commit, and push origin/codex/main.
+active_phase: admin_next_compute_surface
+files:
+- frontend-next/admin-next/app/core-engine/page.tsx
+- frontend-next/admin-next/output/playwright/core-engine-quant-console.png
+- frontend-next/admin-next/output/playwright/core-engine-quant-console-mobile.png
+- frontend-next/admin-next/output/playwright/core-engine-quant-console-mobile-full.png
+- Dev_Logs.md
+- codex-progress.txt
+- knowledge_graph/events.jsonl
+validation: PASS. cmd.exe /c npm run lint passed in frontend-next/admin-next; cmd.exe /c npm run build passed in frontend-next/admin-next; in-app browser verified http://127.0.0.1:3031/core-engine with h1 Core Engine, Decision Contract, Research Intelligence Feed, no endpoint error text, no /api/admin/reports text, and no horizontal page overflow; Playwright mobile 390px audit verified no page overflow, no errors, no dead endpoint text, and visibleTableCount=0 after replacing mobile research table with stacked rows; scripts/index-repo.ps1 returned status indexed with 6747 nodes and 14265 edges after a non-fatal path warning.
+notes: Replaced raw JSON panels with derived Decision Contract, Stream-First Market Fabric, SPY Alpha Snapshot, LLM Role Mesh, Research Intelligence Feed, Policy Posture, Lineage Counters, and Fund Stream panels. Fixed the dead reports call by switching to /api/research/reports?limit=8. Cleared stale admin-next .next cache and restarted the usable dev server on 3031 after build validation.

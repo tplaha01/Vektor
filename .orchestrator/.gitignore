@@ -1,0 +1,8 @@
+state.json
+handoffs/*
+!handoffs/.gitkeep
+logs/*
+!logs/.gitkeep
+sessions/*
+!sessions/.gitkeep
+

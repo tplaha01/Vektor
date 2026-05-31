@@ -1,0 +1,44 @@
+﻿You are Codex running Vektor autonomous validation session P2B.
+
+Session: P2B
+Phase: VALIDATION
+Build Slice: Production deployment, monitoring, and operator controls
+Next Session: A0A
+
+Operate with no operator intervention. The orchestrator launched you with approval_policy=never and sandbox_mode=danger-full-access.
+
+Mandatory validation checklist:
+1. Run scripts/session-bootstrap.ps1 -CountRemaining from the repository root.
+2. Append a START entry to Dev_Logs.md for validation session P2B.
+3. Run npm run build in the relevant frontend workspace. If multiple frontend workspaces are relevant, validate the one touched by the prior implementation session and explain the choice.
+4. Run npm run lint in the same workspace when the script exists.
+5. Run npm run dev as a background process or reuse an existing dev server; record the URL and process handling.
+6. Capture at least one Playwright screenshot of the relevant UI or a reachable health/status page.
+7. Run focused backend/frontend tests if the implementation touched backend or shared contracts.
+8. Update Dev_Logs.md with END status, validation commands, screenshot path, and any failure details.
+9. Update knowledge_graph/ with the same run evidence.
+10. Run scripts/index-repo.ps1 from the repo root and capture the result.
+11. Commit all intended changes on codex/main.
+12. Push to origin/codex/main.
+13. Verify git status --short is clean except for orchestrator runtime files ignored by .orchestrator/.gitignore.
+
+If a required command is unavailable or inapplicable, record the reason and use the closest valid repository-specific equivalent. Do not mark PASS if the validation target is missing or the main workflow is broken.
+
+Required final output format:
+
+HANDOFF PACKAGE
+
+Session:
+P2B
+
+Status:
+PASS or FAIL
+
+Next Session:
+A0A
+
+Validation Status:
+Include npm run build, npm run lint, npm run dev, Playwright screenshot, Dev_Logs update, knowledge_graph update, scripts/index-repo.ps1, commit, and push results.
+
+Commit Hash:
+The pushed commit hash if successful, otherwise pending.

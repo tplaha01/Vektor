@@ -131,8 +131,8 @@ export default async function WarRoomPage() {
         )}
       </section>
 
-      <section className="mt-6 grid gap-4 xl:grid-cols-[0.9fr_1.1fr_0.9fr]">
-        <div className="space-y-4">
+      <section className="mt-6 grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)_minmax(0,0.9fr)]">
+        <div className="min-w-0 space-y-4">
           {Object.entries(statusData).map(([key, value]) => {
             const row = recordValue(value);
             const status = stringValue(row.status, "Unavailable");
@@ -155,7 +155,7 @@ export default async function WarRoomPage() {
           <EndpointError result={statusBadges} />
         </div>
 
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <article className="rounded-lg border border-border bg-card/70 p-4 shadow-black-soft">
             <div className="flex items-center gap-2">
               <Workflow className="size-4 text-primary" aria-hidden="true" />
@@ -205,7 +205,7 @@ export default async function WarRoomPage() {
           </article>
         </div>
 
-        <aside className="space-y-4">
+        <aside className="min-w-0 space-y-4">
           <article className="rounded-lg border border-border bg-card/70 p-4 shadow-black-soft">
             <div className="flex items-center gap-2">
               <RadioTower className="size-4 text-primary" aria-hidden="true" />

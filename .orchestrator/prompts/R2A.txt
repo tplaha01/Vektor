@@ -1,0 +1,63 @@
+﻿You are Codex running autonomous build session R2A.
+
+TASK
+
+Implement:
+
+frontend-next/research-next/app/paper/[slug]/page.tsx
+
+Requirements:
+
+* generateStaticParams()
+* paper lookup by slug
+* metadata sidebar
+* abstract section
+* paper body rendering
+* algorithm signal trace table
+* related papers section
+* SiteNav
+* Footer
+
+Use existing mock research data.
+
+Do not:
+
+* run session-bootstrap
+* read DevViktor.md
+* read AI_NATIVE_HEDGE_FUND_AUDIT_AND_ROADMAP.md
+* read codex-progress.txt
+* update Dev_Logs.md
+* update knowledge_graph
+* run validation
+* commit
+* push
+
+Output exactly:
+
+HANDOFF PACKAGE
+
+Session:
+R2A
+
+Status:
+PASS or FAIL
+
+Files Created:
+[list]
+
+Files Modified:
+[list]
+
+Next Session:
+R2B
+ When accessing files under dynamic routes such as:
+
+app/paper/[slug]/page.tsx
+
+use PowerShell -LiteralPath instead of Path.
+
+
+Read existing files directly.
+Use rg.
+Use local filesystem.
+Do not use MCP.

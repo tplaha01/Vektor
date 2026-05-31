@@ -1,0 +1,278 @@
+﻿{
+    "name":  "Vektor Autonomous Session Orchestrator Queue",
+    "version":  1,
+    "sessions":  [
+                     {
+                         "id":  "R0A",
+                         "phase":  "R0",
+                         "type":  "implementation",
+                         "title":  "Research app foundation and repository alignment",
+                         "prompt":  "prompts/R0A.txt",
+                         "next_session":  "R0B"
+                     },
+                     {
+                         "id":  "R0B",
+                         "phase":  "R0",
+                         "type":  "validation",
+                         "title":  "Research app foundation and repository alignment",
+                         "prompt":  "prompts/R0B.txt",
+                         "next_session":  "R1A"
+                     },
+                     {
+                         "id":  "R1A",
+                         "phase":  "R1",
+                         "type":  "implementation",
+                         "title":  "Research index and publication navigation",
+                         "prompt":  "prompts/R1A.txt",
+                         "next_session":  "R1B"
+                     },
+                     {
+                         "id":  "R1B",
+                         "phase":  "R1",
+                         "type":  "validation",
+                         "title":  "Research index and publication navigation",
+                         "prompt":  "prompts/R1B.txt",
+                         "next_session":  "R2A"
+                     },
+                     {
+                         "id":  "R2A",
+                         "phase":  "R2",
+                         "type":  "implementation",
+                         "title":  "Paper detail viewer and research reading workflow",
+                         "prompt":  "prompts/R2A.txt",
+                         "next_session":  "R2B"
+                     },
+                     {
+                         "id":  "R2B",
+                         "phase":  "R2",
+                         "type":  "validation",
+                         "title":  "Paper detail viewer and research reading workflow",
+                         "prompt":  "prompts/R2B.txt",
+                         "next_session":  "R3A"
+                     },
+                     {
+                         "id":  "R3A",
+                         "phase":  "R3",
+                         "type":  "implementation",
+                         "title":  "Research evidence, provenance, and editorial polish",
+                         "prompt":  "prompts/R3A.txt",
+                         "next_session":  "R3B"
+                     },
+                     {
+                         "id":  "R3B",
+                         "phase":  "R3",
+                         "type":  "validation",
+                         "title":  "Research evidence, provenance, and editorial polish",
+                         "prompt":  "prompts/R3B.txt",
+                         "next_session":  "P0A"
+                     },
+                     {
+                         "id":  "P0A",
+                         "phase":  "P0",
+                         "type":  "implementation",
+                         "title":  "Platform runtime reliability and health gates",
+                         "prompt":  "prompts/P0A.txt",
+                         "next_session":  "P0B"
+                     },
+                     {
+                         "id":  "P0B",
+                         "phase":  "P0",
+                         "type":  "validation",
+                         "title":  "Platform runtime reliability and health gates",
+                         "prompt":  "prompts/P0B.txt",
+                         "next_session":  "P1A"
+                     },
+                     {
+                         "id":  "P1A",
+                         "phase":  "P1",
+                         "type":  "implementation",
+                         "title":  "Portfolio, policy, and risk operating surfaces",
+                         "prompt":  "prompts/P1A.txt",
+                         "next_session":  "P1B"
+                     },
+                     {
+                         "id":  "P1B",
+                         "phase":  "P1",
+                         "type":  "validation",
+                         "title":  "Portfolio, policy, and risk operating surfaces",
+                         "prompt":  "prompts/P1B.txt",
+                         "next_session":  "P2A"
+                     },
+                     {
+                         "id":  "P2A",
+                         "phase":  "P2",
+                         "type":  "implementation",
+                         "title":  "Production deployment, monitoring, and operator controls",
+                         "prompt":  "prompts/P2A.txt",
+                         "next_session":  "P2B"
+                     },
+                     {
+                         "id":  "P2B",
+                         "phase":  "P2",
+                         "type":  "validation",
+                         "title":  "Production deployment, monitoring, and operator controls",
+                         "prompt":  "prompts/P2B.txt",
+                         "next_session":  "A0A"
+                     },
+                     {
+                         "id":  "A0A",
+                         "phase":  "A0",
+                         "type":  "implementation",
+                         "title":  "Autonomous fund-manager orchestration baseline",
+                         "prompt":  "prompts/A0A.txt",
+                         "next_session":  "A0B"
+                     },
+                     {
+                         "id":  "A0B",
+                         "phase":  "A0",
+                         "type":  "validation",
+                         "title":  "Autonomous fund-manager orchestration baseline",
+                         "prompt":  "prompts/A0B.txt",
+                         "next_session":  "A1A"
+                     },
+                     {
+                         "id":  "A1A",
+                         "phase":  "A1",
+                         "type":  "implementation",
+                         "title":  "Agent role isolation and investment committee workflow",
+                         "prompt":  "prompts/A1A.txt",
+                         "next_session":  "A1B"
+                     },
+                     {
+                         "id":  "A1B",
+                         "phase":  "A1",
+                         "type":  "validation",
+                         "title":  "Agent role isolation and investment committee workflow",
+                         "prompt":  "prompts/A1B.txt",
+                         "next_session":  "A2A"
+                     },
+                     {
+                         "id":  "A2A",
+                         "phase":  "A2",
+                         "type":  "implementation",
+                         "title":  "Research memory, thesis lineage, and provenance loop",
+                         "prompt":  "prompts/A2A.txt",
+                         "next_session":  "A2B"
+                     },
+                     {
+                         "id":  "A2B",
+                         "phase":  "A2",
+                         "type":  "validation",
+                         "title":  "Research memory, thesis lineage, and provenance loop",
+                         "prompt":  "prompts/A2B.txt",
+                         "next_session":  "A3A"
+                     },
+                     {
+                         "id":  "A3A",
+                         "phase":  "A3",
+                         "type":  "implementation",
+                         "title":  "Cross-asset data ingestion and deterministic signal contracts",
+                         "prompt":  "prompts/A3A.txt",
+                         "next_session":  "A3B"
+                     },
+                     {
+                         "id":  "A3B",
+                         "phase":  "A3",
+                         "type":  "validation",
+                         "title":  "Cross-asset data ingestion and deterministic signal contracts",
+                         "prompt":  "prompts/A3B.txt",
+                         "next_session":  "A4A"
+                     },
+                     {
+                         "id":  "A4A",
+                         "phase":  "A4",
+                         "type":  "implementation",
+                         "title":  "Sleeve allocation, mandate enforcement, and policy gates",
+                         "prompt":  "prompts/A4A.txt",
+                         "next_session":  "A4B"
+                     },
+                     {
+                         "id":  "A4B",
+                         "phase":  "A4",
+                         "type":  "validation",
+                         "title":  "Sleeve allocation, mandate enforcement, and policy gates",
+                         "prompt":  "prompts/A4B.txt",
+                         "next_session":  "A5A"
+                     },
+                     {
+                         "id":  "A5A",
+                         "phase":  "A5",
+                         "type":  "implementation",
+                         "title":  "Execution intent routing and paper-broker audit trail",
+                         "prompt":  "prompts/A5A.txt",
+                         "next_session":  "A5B"
+                     },
+                     {
+                         "id":  "A5B",
+                         "phase":  "A5",
+                         "type":  "validation",
+                         "title":  "Execution intent routing and paper-broker audit trail",
+                         "prompt":  "prompts/A5B.txt",
+                         "next_session":  "A6A"
+                     },
+                     {
+                         "id":  "A6A",
+                         "phase":  "A6",
+                         "type":  "implementation",
+                         "title":  "Observability, incident handling, and kill-switch operations",
+                         "prompt":  "prompts/A6A.txt",
+                         "next_session":  "A6B"
+                     },
+                     {
+                         "id":  "A6B",
+                         "phase":  "A6",
+                         "type":  "validation",
+                         "title":  "Observability, incident handling, and kill-switch operations",
+                         "prompt":  "prompts/A6B.txt",
+                         "next_session":  "A7A"
+                     },
+                     {
+                         "id":  "A7A",
+                         "phase":  "A7",
+                         "type":  "implementation",
+                         "title":  "Reward, drift, and model-quality feedback loops",
+                         "prompt":  "prompts/A7A.txt",
+                         "next_session":  "A7B"
+                     },
+                     {
+                         "id":  "A7B",
+                         "phase":  "A7",
+                         "type":  "validation",
+                         "title":  "Reward, drift, and model-quality feedback loops",
+                         "prompt":  "prompts/A7B.txt",
+                         "next_session":  "A8A"
+                     },
+                     {
+                         "id":  "A8A",
+                         "phase":  "A8",
+                         "type":  "implementation",
+                         "title":  "Admin control center completion and operator ergonomics",
+                         "prompt":  "prompts/A8A.txt",
+                         "next_session":  "A8B"
+                     },
+                     {
+                         "id":  "A8B",
+                         "phase":  "A8",
+                         "type":  "validation",
+                         "title":  "Admin control center completion and operator ergonomics",
+                         "prompt":  "prompts/A8B.txt",
+                         "next_session":  "A9A"
+                     },
+                     {
+                         "id":  "A9A",
+                         "phase":  "A9",
+                         "type":  "implementation",
+                         "title":  "Final production hardening and full queue closure",
+                         "prompt":  "prompts/A9A.txt",
+                         "next_session":  "A9B"
+                     },
+                     {
+                         "id":  "A9B",
+                         "phase":  "A9",
+                         "type":  "validation",
+                         "title":  "Final production hardening and full queue closure",
+                         "prompt":  "prompts/A9B.txt",
+                         "next_session":  ""
+                     }
+                 ]
+}

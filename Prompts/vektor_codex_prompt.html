@@ -1,0 +1,1500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Vektor — Codex Agent Build Prompt</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0a0c0f;
+    --surface: #111318;
+    --surface2: #181c23;
+    --surface3: #1e2330;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --accent: #b8f09a;
+    --accent2: #7ee8c0;
+    --accent3: #f5c842;
+    --accent4: #e07bff;
+    --text: #e8edf5;
+    --text2: #8b95a8;
+    --text3: #4f5869;
+    --danger: #ff5f5f;
+    --info: #5b9cf6;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Syne', sans-serif;
+    --radius: 8px;
+    --radius-lg: 12px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.7;
+    min-height: 100vh;
+  }
+
+  /* ── header ── */
+  .header {
+    border-bottom: 1px solid var(--border);
+    padding: 2rem 3rem;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    position: sticky;
+    top: 0;
+    background: rgba(10,12,15,0.92);
+    backdrop-filter: blur(16px);
+    z-index: 100;
+  }
+  .logo-mark {
+    font-family: var(--sans);
+    font-weight: 800;
+    font-size: 1.6rem;
+    letter-spacing: -0.04em;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .header-divider { width: 1px; height: 24px; background: var(--border2); }
+  .header-label {
+    font-size: 11px;
+    color: var(--text3);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .header-badge {
+    margin-left: auto;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border: 1px solid var(--accent);
+    border-radius: 100px;
+    color: var(--accent);
+  }
+
+  /* ── layout ── */
+  .layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    min-height: calc(100vh - 73px);
+  }
+
+  /* ── sidebar ── */
+  .sidebar {
+    border-right: 1px solid var(--border);
+    padding: 2rem 0;
+    position: sticky;
+    top: 73px;
+    height: calc(100vh - 73px);
+    overflow-y: auto;
+  }
+  .sidebar-section {
+    padding: 0 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .sidebar-section-label {
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 0.5rem;
+  }
+  .sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: var(--radius);
+    font-size: 12px;
+    color: var(--text2);
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+  .sidebar-item:hover { background: var(--surface2); color: var(--text); }
+  .sidebar-item.active { background: var(--surface3); color: var(--accent); }
+  .sidebar-item .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--text3);
+    flex-shrink: 0;
+  }
+  .sidebar-item.active .dot { background: var(--accent); }
+  .sidebar-counter {
+    margin-left: auto;
+    font-size: 10px;
+    color: var(--text3);
+    background: var(--surface2);
+    padding: 1px 6px;
+    border-radius: 100px;
+  }
+
+  /* ── content ── */
+  .content {
+    padding: 3rem;
+    max-width: 900px;
+  }
+
+  /* ── overview banner ── */
+  .overview-banner {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  .banner-title {
+    font-family: var(--sans);
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 0.4rem;
+  }
+  .banner-body { color: var(--text2); font-size: 12px; line-height: 1.8; }
+
+  /* ── session flow ── */
+  .session-flow {
+    display: flex;
+    gap: 0;
+    margin-bottom: 2.5rem;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+  }
+  .flow-step {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 0;
+  }
+  .flow-box {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 8px 14px;
+    font-size: 10px;
+    color: var(--text2);
+    white-space: nowrap;
+    letter-spacing: 0.06em;
+  }
+  .flow-box.accent { border-color: var(--accent); color: var(--accent); }
+  .flow-arrow {
+    width: 28px; height: 1px;
+    background: var(--border2);
+    position: relative;
+    flex-shrink: 0;
+  }
+  .flow-arrow::after {
+    content: '';
+    position: absolute;
+    right: 0; top: -3px;
+    border: 4px solid transparent;
+    border-left-color: var(--border2);
+  }
+
+  /* ── section ── */
+  .section { margin-bottom: 3rem; }
+  .section-header {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-num {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .section-title {
+    font-family: var(--sans);
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.02em;
+  }
+  .section-tag {
+    margin-left: auto;
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 0.08em;
+  }
+
+  /* ── prompt block ── */
+  .prompt-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    margin-bottom: 1rem;
+    overflow: hidden;
+  }
+  .prompt-block-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+  }
+  .prompt-block-label {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text3);
+  }
+  .prompt-block-name {
+    font-size: 11px;
+    color: var(--accent2);
+    margin-left: auto;
+  }
+  .prompt-body {
+    padding: 1.25rem 1.5rem;
+    font-size: 12px;
+    line-height: 1.9;
+    color: var(--text2);
+    white-space: pre-wrap;
+  }
+
+  /* ── spec table ── */
+  .spec-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin-bottom: 1rem;
+  }
+  .spec-table th {
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text3);
+    border-bottom: 1px solid var(--border);
+    font-weight: 400;
+  }
+  .spec-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text2);
+    vertical-align: top;
+  }
+  .spec-table tr:last-child td { border-bottom: none; }
+  .spec-table td:first-child { color: var(--text); font-weight: 500; white-space: nowrap; }
+
+  /* ── pills ── */
+  .pill {
+    display: inline-block;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 100px;
+    letter-spacing: 0.05em;
+    margin: 2px;
+  }
+  .pill-green { background: rgba(184,240,154,0.12); color: var(--accent); border: 1px solid rgba(184,240,154,0.25); }
+  .pill-blue { background: rgba(91,156,246,0.12); color: var(--info); border: 1px solid rgba(91,156,246,0.25); }
+  .pill-amber { background: rgba(245,200,66,0.12); color: var(--accent3); border: 1px solid rgba(245,200,66,0.25); }
+  .pill-purple { background: rgba(224,123,255,0.12); color: var(--accent4); border: 1px solid rgba(224,123,255,0.25); }
+  .pill-red { background: rgba(255,95,95,0.12); color: var(--danger); border: 1px solid rgba(255,95,95,0.25); }
+
+  /* ── code inline ── */
+  code {
+    background: var(--surface3);
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent2);
+  }
+
+  /* ── feature grid ── */
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+    margin-bottom: 1rem;
+  }
+  .feature-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+  }
+  .feature-card-title {
+    font-size: 11px;
+    color: var(--text);
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+  .feature-card-body { font-size: 11px; color: var(--text3); line-height: 1.6; }
+
+  /* ── component list ── */
+  .component-list { list-style: none; margin-bottom: 1rem; }
+  .component-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text2);
+  }
+  .component-list li:last-child { border-bottom: none; }
+  .component-list .li-num {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    background: var(--surface3);
+    color: var(--accent);
+    font-size: 10px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .component-list .li-name { color: var(--text); font-weight: 500; }
+  .component-list .li-desc { color: var(--text3); font-size: 11px; margin-top: 2px; }
+
+  /* ── commit template ── */
+  .commit-template {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+  }
+  .commit-subject {
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+  .commit-body { font-size: 11px; color: var(--text3); line-height: 1.9; }
+
+  /* ── callout ── */
+  .callout {
+    display: flex;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: var(--radius);
+    margin-bottom: 1rem;
+    font-size: 12px;
+    align-items: flex-start;
+  }
+  .callout-warn { background: rgba(245,200,66,0.08); border: 1px solid rgba(245,200,66,0.2); color: var(--accent3); }
+  .callout-info { background: rgba(91,156,246,0.08); border: 1px solid rgba(91,156,246,0.2); color: var(--info); }
+  .callout-danger { background: rgba(255,95,95,0.08); border: 1px solid rgba(255,95,95,0.2); color: var(--danger); }
+  .callout-icon { font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+  .callout-text { color: var(--text2); }
+  .callout-text strong { color: inherit; }
+
+  /* ── master prompt copy button ── */
+  .copy-section {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  .copy-section-title {
+    font-family: var(--sans);
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 0.5rem;
+  }
+  .copy-section-desc { font-size: 12px; color: var(--text3); margin-bottom: 1rem; }
+  .copy-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--accent);
+    color: #0a0c0f;
+    border: none;
+    border-radius: var(--radius);
+    padding: 8px 16px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .copy-btn:hover { opacity: 0.85; }
+  .copy-btn.copied { background: var(--accent2); }
+
+  /* ── scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .header { padding: 1.5rem; }
+    .content { padding: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="logo-mark">VEKTOR</div>
+  <div class="header-divider"></div>
+  <div class="header-label">Codex Agent — Long Horizon Build Prompt</div>
+  <div class="header-badge">v1.0 · 2026</div>
+</header>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Overview</div>
+      <a href="#overview" class="sidebar-item active"><span class="dot"></span>Mission Brief</a>
+      <a href="#architecture" class="sidebar-item"><span class="dot"></span>Site Architecture</a>
+      <a href="#session-protocol" class="sidebar-item"><span class="dot"></span>Session Protocol</a>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Sites to Build</div>
+      <a href="#s1" class="sidebar-item"><span class="dot"></span>Research Site <span class="sidebar-counter">S1</span></a>
+      <a href="#s2" class="sidebar-item"><span class="dot"></span>Live PnL Site <span class="sidebar-counter">S2</span></a>
+      <a href="#s3" class="sidebar-item"><span class="dot"></span>Admin Command Center <span class="sidebar-counter">S3</span></a>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Admin Tabs</div>
+      <a href="#tab-warroom" class="sidebar-item"><span class="dot"></span>War Room</a>
+      <a href="#tab-core" class="sidebar-item"><span class="dot"></span>Core Engine</a>
+      <a href="#tab-agents" class="sidebar-item"><span class="dot"></span>Agents</a>
+      <a href="#tab-positions" class="sidebar-item"><span class="dot"></span>Positions & Holdings</a>
+      <a href="#tab-market" class="sidebar-item"><span class="dot"></span>Market Watch</a>
+      <a href="#tab-data" class="sidebar-item"><span class="dot"></span>Data Pipeline</a>
+      <a href="#tab-compliance" class="sidebar-item"><span class="dot"></span>Compliance</a>
+      <a href="#tab-memory" class="sidebar-item"><span class="dot"></span>Memory</a>
+      <a href="#tab-settings" class="sidebar-item"><span class="dot"></span>Settings</a>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Conventions</div>
+      <a href="#commit-protocol" class="sidebar-item"><span class="dot"></span>Commit Protocol</a>
+      <a href="#tech-stack" class="sidebar-item"><span class="dot"></span>Tech Stack</a>
+    </div>
+  </nav>
+
+  <!-- MAIN CONTENT -->
+  <main class="content">
+
+    <!-- OVERVIEW BANNER -->
+    <div id="overview" class="overview-banner">
+      <div class="banner-title">VEKTOR — AI-Native Hedge Fund Frontend</div>
+      <div class="banner-body">
+        This document is the canonical long-horizon build prompt for a Codex CLI agent. Each section below defines one self-contained Codex session. The agent must complete the full component, commit to <code>codex/main</code> with the prescribed commit format, and spin up the next session automatically. All sites are Next.js 14 (App Router), Tailwind CSS v3, TypeScript. Source components are copied from <code>blog-next/</code> as the reference aesthetic. All new sites live in <code>frontend-next/</code>.
+      </div>
+    </div>
+
+    <!-- SESSION FLOW -->
+    <div class="session-flow">
+      <div class="flow-step"><div class="flow-box accent">Session Init</div><div class="flow-arrow"></div></div>
+      <div class="flow-step"><div class="flow-box">Implementation Session</div><div class="flow-arrow"></div></div>
+      <div class="flow-step"><div class="flow-box">Generate Handoff</div><div class="flow-arrow"></div></div>
+      <div class="flow-step"><div class="flow-box">Validation Session</div><div class="flow-arrow"></div></div>
+      <div class="flow-step"><div class="flow-box">Commit & Push</div><div class="flow-arrow"></div></div>
+      <div class="flow-step"><div class="flow-box">Generate Next Handoff</div><div class="flow-arrow"></div></div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- SITE ARCHITECTURE -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div id="architecture" class="section">
+      <div class="section-header">
+        <span class="section-num">ARCH</span>
+        <span class="section-title">Site Architecture — Five Independent Next.js Deployments</span>
+      </div>
+
+      <table class="spec-table">
+        <thead>
+          <tr>
+            <th>Deployment</th>
+            <th>URL Slug</th>
+            <th>Directory</th>
+            <th>Purpose</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Landing</td>
+            <td><code>vektor.ai</code></td>
+            <td><code>landing-next/</code></td>
+            <td>Marketing — DO NOT TOUCH</td>
+          </tr>
+          <tr>
+            <td>Blog</td>
+            <td><code>blog.vektor.ai</code></td>
+            <td><code>blog-next/</code></td>
+            <td>Reference aesthetic — source of truth for components</td>
+          </tr>
+          <tr>
+            <td>Research</td>
+            <td><code>research.vektor.ai</code></td>
+            <td><code>frontend-next/research-next/</code></td>
+            <td>Academic papers, signal reports, AI-generated research</td>
+          </tr>
+          <tr>
+            <td>Live PnL</td>
+            <td><code>pnl.vektor.ai</code></td>
+            <td><code>frontend-next/livepnl-next/</code></td>
+            <td>Public-facing live performance dashboard</td>
+          </tr>
+          <tr>
+            <td>Admin</td>
+            <td><code>admin.vektor.ai</code></td>
+            <td><code>frontend-next/admin-next/</code></td>
+            <td>Internal command center — auth-gated</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout callout-info">
+        <span class="callout-icon">ℹ</span>
+        <span class="callout-text"><strong>Cross-linking:</strong> Every site must include a shared <code>SiteNav</code> component (a slim top bar or footer) that links to all five deployments by their canonical URLs. Navigation between sites uses standard <code>&lt;a href&gt;</code> tags, not Next.js <code>&lt;Link&gt;</code>, since they are separate deployments.</span>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- SESSION PROTOCOL -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div id="session-protocol" class="section">
+      <div class="section-header">
+        <span class="section-num">PROTO</span>
+        <span class="section-title">Codex Session Protocol — How Every Session Must Behave</span>
+      </div>
+
+      <div class="prompt-block">
+        <div class="prompt-block-header">
+          <span class="prompt-block-label">System Instruction — Paste this as the Codex session preamble for every session</span>
+        </div>
+        <div class="prompt-body">You are a senior full-stack engineer building the Vektor AI-native hedge fund frontend.
+
+SESSION MODEL:
+
+Every build item executes in TWO phases.
+
+PHASE A — IMPLEMENTATION
+
+Allowed:
+
+* Read repo
+* Read specifications
+* Read MCP memory
+* Create files
+* Modify files
+* Create mock data
+* Build components
+
+Forbidden:
+
+* npm run build
+* npm run lint
+* npm run dev
+* Playwright
+* git commit
+* git push
+
+Required output:
+
+IMPLEMENTATION COMPLETE
+
+HANDOFF PACKAGE
+
+Session:
+[ComponentID]A
+
+Files Created:
+[list]
+
+Files Modified:
+[list]
+
+Validation Required:
+
+* build
+* lint
+* dev
+* screenshot
+* logs
+* indexing
+
+Next Session:
+[ComponentID]B Validation
+
+PHASE B — VALIDATION
+
+Allowed:
+
+* npm run build
+* npm run lint
+* npm run dev
+* Playwright screenshot
+* Dev_Logs.md updates
+* knowledge_graph/events.jsonl updates
+* scripts/index-repo.ps1
+* git commit
+* git push
+
+Required output:
+
+SESSION COMPLETE
+
+HANDOFF PACKAGE
+
+Session:
+[ComponentID]B
+
+Validation:
+PASS/FAIL
+
+Commit:
+[hash]
+
+Next Session:
+[next component]
+
+IMPORTANT:
+
+Never execute the next component.
+
+Always stop after generating the handoff package.
+
+The external orchestrator launches the next session.
+</div>
+      </div>
+
+      <div class="callout callout-warn">
+        <span class="callout-icon">⚠</span>
+        <span class="callout-text"><strong>Critical:</strong> The agent must NOT batch multiple components into one session. One session = one component. The "SESSION COMPLETE" print line is the signal for the orchestration layer to spin up the next Codex CLI process.</span>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- S1 — RESEARCH SITE -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div id="s1" class="section">
+      <div class="section-header">
+        <span class="section-num">S1</span>
+        <span class="section-title">Research Site — <code>frontend-next/research-next/</code></span>
+        <span class="section-tag">4 sessions</span>
+      </div>
+
+      <p style="font-size:12px; color:var(--text2); margin-bottom:1.25rem; line-height:1.8;">
+        The research site is Vektor's public-facing academic and signal-intelligence hub. It mirrors the visual language of <code>blog-next/</code> but is oriented around structured research publications — papers, quantitative reports, and AI-generated market signal summaries traceable to the underlying algorithm. Think a cross between arXiv, a quant hedge fund memo pad, and a CIO letter archive.
+      </p>
+
+      <ul class="component-list">
+        <li>
+          <div class="li-num">R1</div>
+          <div>
+            <div class="li-name">Project scaffold + shared components</div>
+            <div class="li-desc">Init <code>research-next/</code> with <code>npx create-next-app</code> (TypeScript, Tailwind, App Router). Copy Navbar, Footer, SiteNav, Typography tokens from <code>blog-next/</code>. Set up <code>app/layout.tsx</code> with global font imports and metadata. Configure <code>tailwind.config.ts</code> to match the Vektor color palette (near-black bg, sage green accent, warm parchment secondary). Create <code>lib/types.ts</code> with <code>ResearchPaper</code> and <code>SignalReport</code> TypeScript interfaces.</div>
+          </div>
+        </li>
+        <li>
+          <div class="li-num">R2</div>
+          <div>
+            <div class="li-name">Research index page — <code>app/page.tsx</code></div>
+            <div class="li-desc">Hero section: "VEKTOR RESEARCH" headline, subtitle explaining AI-generated, algorithm-traceable publications. Below: two-column grid — left column lists "Research Papers" (academic PDFs), right column lists "Signal Reports" (weekly AI-generated market intelligence). Each paper card: title, authors, date, abstract excerpt (2 lines), category pill, and a "Read →" CTA. Minimum 6 mock papers and 4 mock signal reports. Include a category filter bar (All / Equities / Options / Macro / Crypto / Commodities) that filters the grid via React state. Include a search input that filters by title. All mock data hardcoded in <code>lib/mock-research.ts</code>.</div>
+          </div>
+        </li>
+        <li>
+          <div class="li-num">R3</div>
+          <div>
+            <div class="li-name">Individual research paper page — <code>app/paper/[slug]/page.tsx</code></div>
+            <div class="li-desc">Full paper viewer. Left sidebar: paper metadata (title, date, authors, category, algo signal reference ID, model version used, data range). Main column: abstract, body rendered from mock MDX-style content object (5+ sections), and an "Algorithm Signal Trace" panel — a table mapping each conclusion in the paper to its originating signal (ticker, model, feature importance value, confidence score). Bottom: "Related Papers" horizontal scroll strip of 3 cards. Use <code>generateStaticParams</code> with the mock data slugs.</div>
+          </div>
+        </li>
+        <li>
+          <div class="li-num">R4</div>
+          <div>
+            <div class="li-name">Signal Reports page — <code>app/signals/page.tsx</code></div>
+            <div class="li-desc">Grid of weekly AI-generated signal briefings. Each card: week ending date, headline market call (Bull/Bear/Neutral badge), asset class, confidence band (e.g. "68–74%"), top 3 signals listed inline, and "View Full Report →" link. A sticky sidebar on the left shows a "Signal Calendar" — a mini month calendar where weeks with reports are highlighted. Mock 8 signal report objects in <code>lib/mock-signals.ts</code>. Above the grid: a "Coverage" stats bar showing total papers published, average signal accuracy (mock %), and date of last update.</div>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- S2 — LIVE PNL SITE -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div id="s2" class="section">
+      <div class="section-header">
+        <span class="section-num">S2</span>
+        <span class="section-title">Live PnL Site — <code>frontend-next/livepnl-next/</code></span>
+        <span class="section-tag">3 sessions</span>
+      </div>
+
+      <p style="font-size:12px; color:var(--text2); margin-bottom:1.25rem; line-height:1.8;">
+        The Live PnL site is Vektor's public performance transparency page. Inspired by the Kite/Zerodha dashboard screenshot (dark bg, colorful holdings heatmap bar, equity + commodity split, market overview chart) but elevated to a professional hedge fund standard. The page should feel like a Bloomberg Terminal meets a modern SaaS dashboard. All data is mocked with realistic paper-trading numbers consistent with ALFRED's $100K paper portfolio.
+      </p>
+
+      <ul class="component-list">
+        <li>
+          <div class="li-num">P1</div>
+          <div>
+            <div class="li-name">Project scaffold + shared components</div>
+            <div class="li-desc">Init <code>livepnl-next/</code> with Next.js 14, TypeScript, Tailwind. Copy and adapt Navbar/Footer/SiteNav from blog-next. Color palette: near-black bg (<code>#0d0f14</code>), accent green (<code>#b8f09a</code>), amber for gains (<code>#f5c842</code>), red for losses (<code>#ff5f5f</code>). Create <code>lib/mock-pnl.ts</code> with: portfolio summary object, holdings array (15 positions across equities/options/crypto/commodities), daily PnL time series (90 days), drawdown series, and benchmark comparison (SPY). All numbers consistent with a $100K starting portfolio.</div>
+          </div>
+        </li>
+        <li>
+          <div class="li-num">P2</div>
+          <div>
+            <div class="li-name">Main dashboard — <code>app/page.tsx</code></div>
+            <div class="li-desc">
+              Replicate and expand on the Kite screenshot layout:
+              <br/><br/>
+              <strong>Top bar:</strong> Total portfolio value (large number), day PnL (green/red with %), total returns since inception, Sharpe ratio, max drawdown. Each in its own stat card.
+              <br/><br/>
+              <strong>Holdings Heatmap Bar:</strong> A proportional horizontal bar where each segment is one holding, width = weight in portfolio, color = daily return (green gradient for gains, red for losses). On hover, show tooltip with ticker, weight, day PnL, current value.
+              <br/><br/>
+              <strong>Asset Class Breakdown:</strong> Two side-by-side panels — Equities and Options — each showing allocated capital, margin used, open P&L, and a "View statement →" link. Add a third panel for Crypto and a fourth for Commodities.
+              <br/><br/>
+              <strong>Performance Chart:</strong> A line chart (use Recharts) showing cumulative portfolio value vs SPY benchmark over 90 days. Toggle between 1W / 1M / 3M / All. Below chart: drawdown chart in red-fill area chart.
+              <br/><br/>
+              <strong>Holdings Table:</strong> Expandable rows per asset class. Columns: Ticker, Asset Class, Qty, Avg Cost, LTP, P&L, P&L%, Weight, Status (Active/Pending/Closed).
+            </div>
+          </div>
+        </li>
+        <li>
+          <div class="li-num">P3</div>
+          <div>
+            <div class="li-name">Trade Log page — <code>app/trades/page.tsx</code></div>
+            <div class="li-desc">Paginated table of all paper trades executed by ALFRED. Columns: Date/Time, Ticker, Side (BUY/SELL), Qty, Price, Total, Strategy Tag (which algo signal triggered it), Slippage (estimated), Status (Filled/Pending/Cancelled). Filter by date range, side, asset class, strategy tag. Each strategy tag links to the relevant research paper on research.vektor.ai. Export button (non-functional, UI only). Above the table: a stats strip showing total trades, win rate, avg hold duration, best trade, worst trade — all mocked. Pagination: 20 rows per page.</div>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- S3 — ADMIN COMMAND CENTER -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div id="s3" class="section">
+      <div class="section-header">
+        <span class="section-num">S3</span>
+        <span class="section-title">Admin Command Center — <code>frontend-next/admin-next/</code></span>
+        <span class="section-tag">9 sessions · 1 per tab</span>
+      </div>
+
+      <p style="font-size:12px; color:var(--text2); margin-bottom:1.25rem; line-height:1.8;">
+        The Admin site is an internal auth-gated command center for the fund operator (you). It is NOT a marketing page. Every pixel should serve a functional purpose — think a mission control room, not a landing page. Color palette: terminal-black bg, muted sage green for primary actions, amber for warnings, red for danger/halt actions. Each tab is a fully independent page at its own route, not a hidden div. The tab navigation is a persistent left sidebar.
+      </p>
+
+      <div class="callout callout-info">
+        <span class="callout-icon">ℹ</span>
+        <span class="callout-text"><strong>Admin scaffold first:</strong> Session A0 must set up the admin shell — Next.js project, auth middleware stub (mock JWT check in middleware.ts), sidebar nav with all 9 tabs, and the shared layout. All tabs render "under construction" placeholder. Subsequent sessions fill in each tab.</span>
+      </div>
+
+      <!-- WAR ROOM -->
+      <div id="tab-warroom" style="margin-top:1.5rem;">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:0.75rem;">
+          <div class="pill pill-red">A1</div>
+          <span style="font-family:var(--sans); font-size:0.95rem; font-weight:700; color:var(--text);">Tab 1 — War Room</span>
+          <span style="font-size:11px; color:var(--text3); margin-left:auto;">Route: /war-room</span>
+        </div>
+        <div class="prompt-block">
+          <div class="prompt-block-header">
+            <span class="prompt-block-label">Session A1 Prompt</span>
+            <span class="prompt-block-name">admin-next/app/war-room/page.tsx</span>
+          </div>
+          <div class="prompt-body">Build the War Room tab — the mission-critical command center of the Vektor admin panel.
+
+LAYOUT: Three-column grid (left: status panels, center: main metrics, right: action panel).
+
+TOP STATS ROW (full width, 5 stat cards):
+- Available Cash (mock: $34,201.55)
+- Deployed Capital (mock: $65,798.45)
+- Current Equity (mock: $68,241.90)
+- Open P&L today (mock: +$2,443.45, green)
+- Total Return since inception (mock: +$8,241.90 / +8.24%)
+
+PORTFOLIO HEATMAP (full width, below stats):
+- Replicate the Kite-style proportional holdings bar. Each segment = one position.
+  Width proportional to portfolio weight. Color = day return (green-to-red scale).
+  Hover tooltip: ticker, weight %, day P&L, current value.
+- Below the bar: legend showing Current Value / Invested / Total P&L (matching Kite layout).
+
+PIPELINE HEALTH (left column, 3 stacked cards):
+- Data Pipeline: status dot (green=running), last update timestamp, records processed today, next scheduled run.
+- Algo Pipeline: status dot, last signal generated timestamp, active models count, pending signals count.
+- Agent Pipeline: status dot (OpenClaw orchestrator), active agents count, tasks queued, tasks completed today.
+Each card: compact, no fluff. Status dot pulses with CSS animation when running.
+
+ACTIVE & PENDING TASKS (center column):
+- Split into two lists: Active Tasks (max 5 shown) and Pending Approvals (max 5 shown).
+- Each task item: icon, task name, started X minutes ago, progress bar (for active) or "Approve / Reject" buttons (for pending).
+- "View all tasks →" link at bottom.
+
+APPROVAL QUEUE (center column, below tasks):
+- Cards for items needing human approval. Mock 2–3 pending approvals:
+  e.g. "Execute TSLA options position — 10 contracts @ $2.40 — Signal confidence: 71%".
+  Each card has: Approve (green) and Reject (red) buttons, signal trace link, risk metrics inline.
+
+BACKEND CONTROLS (right column):
+- System status overview: 4 service chips (API Gateway, Model Server, Data Feeds, Agent Runtime) each with a green/amber/red indicator.
+- Manual overrides section: toggle switches for "Live Trading Mode", "Auto-Approve Signals >75%", "Paper Mode", "Emergency Hedge".
+- DANGER ZONE at bottom of right column: a large red "HALT ALL PROCESSES" button with a confirm dialog on click. Visually distinct — red border, warning text, requires clicking twice to confirm.
+
+MARKET OVERVIEW STRIP (bottom, full width):
+- A mini sparkline chart (Recharts) for NIFTY 50 / SPY / BTC showing last 24h price action.
+- Color-coded gain/loss for the day beside each.
+- Show current time and market session status (Pre-market / Market Open / After-hours) as a badge.</div>
+        </div>
+      </div>
+
+      <!-- CORE ENGINE -->
+      <div id="tab-core" style="margin-top:1.5rem;">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:0.75rem;">
+          <div class="pill pill-purple">A2</div>
+          <span style="font-family:var(--sans); font-size:0.95rem; font-weight:700; color:var(--text);">Tab 2 — Core Engine</span>
+          <span style="font-size:11px; color:var(--text3); margin-left:auto;">Route: /core-engine</span>
+        </div>
+        <div class="prompt-block">
+          <div class="prompt-block-header">
+            <span class="prompt-block-label">Session A2 Prompt</span>
+            <span class="prompt-block-name">admin-next/app/core-engine/page.tsx</span>
+          </div>
+          <div class="prompt-body">Build the Core Engine tab — the ML system health and algorithmic pipeline monitor.
+
+LAYOUT: Two-column grid (left: model registry + health, right: pipeline activity).
+
+MODEL REGISTRY PANEL (left column, top):
+- Table of all deployed ML models. Columns: Model ID, Type (LightGBM/XGBoost/RL/Neural), Asset Class, Version, Status (Active/Training/Deprecated), Last Retrained, Val Accuracy, Sharpe (out-of-sample).
+- Mock 6 models: e.g. ALFRED-LightGBM-v4 (equities), ALFRED-RL-Options-v2, ALFRED-ARIMA-Macro-v1, OpenClaw-Orchestrator-v3, etc.
+- Each row has a "View Details →" action that expands an inline panel with feature importance bar chart (top 10 features as horizontal bars, mocked values).
+- Status badge: pulsing green dot for Active, amber spinner for Training, gray for Deprecated.
+
+FEATURE ENGINEERING STATUS (left column, below models):
+- Compact list of 7 feature families (as defined in ALFRED's 39-feature system):
+  Price/Volume Features, Technical Indicators, Volatility Features, Momentum Features,
+  Sentiment Features, Macro Features, Cross-Asset Features.
+- Each feature family: name, feature count, last updated timestamp, data freshness indicator (green if <1h old).
+
+ACTIVE TICKERS (right column, top):
+- Grid of ticker chips currently being processed by the engine.
+- Each chip: ticker symbol, asset class color dot, signal status (Scanning / Signal Ready / Executing).
+- Show 12 mock tickers. Chips with "Signal Ready" status pulse in amber.
+- Above the grid: "Engine scanning 12 tickers across 4 asset classes — last cycle: 4m ago".
+
+PIPELINE PROGRESS (right column, below tickers):
+- A vertical timeline-style pipeline showing the current algo execution cycle:
+  Step 1: Data Ingestion → Step 2: Feature Computation → Step 3: Model Inference
+  → Step 4: Signal Generation → Step 5: Risk Filtering → Step 6: Order Routing
+- Each step: status icon (done/active/pending), duration (e.g. "1.2s"), timestamp.
+- Active step animates. Below timeline: "Cycle #4,821 — Started 4m 12s ago".
+
+SIGNAL LOG (right column, bottom):
+- Last 10 signals generated by the engine. Columns: Timestamp, Ticker, Signal Type
+  (Long/Short/Exit/Hold), Confidence %, Model Used, Status (Executed/Pending/Filtered).
+- Color-coded: Long = green text, Short = red text, Hold = amber.
+- "Filtered" signals show a tooltip on hover explaining why they were filtered
+  (e.g. "Below 65% confidence threshold", "Circuit breaker active").
+
+SYSTEM PERFORMANCE METRICS (right column, bottom):
+- Four small metric cards: Avg Signal Latency (e.g. 214ms), Model Inference Time (e.g. 88ms),
+  Data Freshness (e.g. 99.2%), Signals Generated Today (e.g. 47).</div>
+        </div>
+      </div>
+
+      <!-- AGENTS -->
+      <div id="tab-agents" style="margin-top:1.5rem;">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:0.75rem;">
+          <div class="pill pill-blue">A3</div>
+          <span style="font-family:var(--sans); font-size:0.95rem; font-weight:700; color:var(--text);">Tab 3 — Agents</span>
+          <span style="font-size:11px; color:var(--text3); margin-left:auto;">Route: /agents</span>
+        </div>
+        <div class="prompt-block">
+          <div class="prompt-block-header">
+            <span class="prompt-block-label">Session A3 Prompt</span>
+            <span class="prompt-block-name">admin-next/app/agents/page.tsx</span>
+          </div>
+          <div class="prompt-body">Build the Agents tab — the orchestration layer monitor for OpenClaw and all sub-agents.
+
+LAYOUT: Left column (agent registry), right column (task feed + memory trace).
+
+AGENT REGISTRY (left column):
+- Cards for each agent in the system. Mock 5 agents:
+  1. OpenClaw Orchestrator — master agent, always running
+  2. DataHarvest Agent — scrapes SEC filings, earnings, news feeds
+  3. SignalWriter Agent — generates research reports from algo signals
+  4. RiskGuard Agent — monitors positions and enforces risk limits
+  5. ExecutionAgent — routes approved orders to broker API
+
+- Each agent card shows:
+  Name, role description (1 line), status (Running/Idle/Error) with pulsing dot,
+  current task description, tasks completed today, memory tokens used (vs max),
+  last heartbeat time, and a "View Logs →" button.
+
+- Error state: if status = Error, card has a red border and shows the last error message
+  with a "Restart Agent" button.
+
+ACTIVE TASK FEED (right column, top):
+- Real-time style feed (auto-scrolling mock) of agent task logs.
+  Each entry: timestamp, agent name badge, log level (INFO/WARN/ERROR), message.
+  Color: INFO = gray, WARN = amber, ERROR = red.
+  Show 15 mock log entries. The feed should appear to be updating — use a useEffect
+  with setInterval that appends a new mock log entry every 8 seconds.
+
+AGENT ORCHESTRATION GRAPH (right column, below feed):
+- A simple visual diagram (built with SVG, no external library) showing the agent hierarchy:
+  OpenClaw at top, with arrows down to the 4 sub-agents.
+  Each node shows agent name and current status dot.
+  Edges pulse (CSS stroke-dashoffset animation) when an agent is actively communicating.
+
+MEMORY & CONTEXT USAGE (right column, bottom):
+- For each agent: a compact row with agent name, memory type (short-term/long-term/episodic),
+  tokens used, token budget, and a usage bar.
+- Total token budget utilization across all agents shown as one large number with a radial progress indicator.</div>
+        </div>
+      </div>
+
+      <!-- POSITIONS & HOLDINGS -->
+      <div id="tab-positions" style="margin-top:1.5rem;">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:0.75rem;">
+          <div class="pill pill-green">A4</div>
+          <span style="font-family:var(--sans); font-size:0.95rem; font-weight:700; color:var(--text);">Tab 4 — Positions & Holdings</span>
+          <span style="font-size:11px; color:var(--text3); margin-left:auto;">Route: /positions</span>
+        </div>
+        <div class="prompt-block">
+          <div class="prompt-block-header">
+            <span class="prompt-block-label">Session A4 Prompt</span>
+            <span class="prompt-block-name">admin-next/app/positions/page.tsx</span>
+          </div>
+          <div class="prompt-body">Build the Positions & Holdings tab — a full portfolio view for the admin.
+
+TOP SUMMARY BAR:
+- 5 stat cards: Total Portfolio Value, Cash Available, Deployed Capital, Unrealized P&L (today),
+  Total Realized P&L (inception). Numbers consistent with $100K paper portfolio.
+
+HOLDINGS TABLE (main area, full width):
+- Sortable, filterable table. Columns:
+  Ticker | Asset Class | Direction (Long/Short) | Qty | Avg Entry | LTP | Unrealized P&L | P&L% | Weight | Beta | ATR | Stop Loss | Target | Signal ID | Actions
+- Asset Class filter tabs above: All / Equities / Options / Crypto / Forex / Commodities
+- Sort by clicking any column header.
+- Each row: row click expands inline detail panel showing:
+  Trade history for this position (sub-table of all fills), risk metrics (VaR contribution,
+  Kelly fraction used, margin used), and the originating signal trace link.
+- Actions column: "Close Position" (red, requires confirm dialog) and "Edit Stop" (amber).
+- Mock 15 positions across all asset classes.
+
+RISK METRICS PANEL (right sidebar, sticky):
+- Portfolio-level risk metrics:
+  VaR (95%, 1-day): mock value with explanation
+  Max Drawdown (current): with a small sparkline showing drawdown history
+  Beta to SPY: correlation indicator
+  Sharpe (rolling 30d): value
+  Win Rate (last 20 trades): value
+  Largest single position weight: value with warning if >15%
+  Positions near stop loss: count with amber badge if >0
+
+ALLOCATION CHART (below table):
+- Two donut charts side by side using Recharts:
+  Left: Asset class allocation (Equities/Options/Crypto/Forex/Commodities) with % labels
+  Right: Long vs Short exposure split</div>
+        </div>
+      </div>
+
+      <!-- MARKET WATCH -->
+      <div id="tab-market" style="margin-top:1.5rem;">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:0.75rem;">
+          <div class="pill pill-amber">A5</div>
+          <span style="font-family:var(--sans); font-size:0.95rem; font-weight:700; color:var(--text);">Tab 5 — Market Watch</span>
+          <span style="font-size:11px; color:var(--text3); margin-left:auto;">Route: /market-watch</span>
+        </div>
+        <div class="prompt-block">
+          <div class="prompt-block-header">
+            <span class="prompt-block-label">Session A5 Prompt</span>
+            <span class="prompt-block-name">admin-next/app/market-watch/page.tsx</span>
+          </div>
+          <div class="prompt-body">Build the Market Watch tab — real-time market monitoring surface for the fund manager.
+
+WATCHLIST (left column, full height):
+- A compact list of 20 mock tickers across all asset classes the engine tracks.
+  Each row: Ticker, LTP, Day Change, Day Change %, a micro sparkline (7-day SVG line).
+  Color-coded: green for positive day change, red for negative.
+- Tabs above: All / Equities / Options / Crypto / Forex / Commodities
+- "Add ticker" input at top (UI only, non-functional add).
+
+MAIN CHART PANEL (right column, top — 60% height):
+- Large price chart for the selected ticker (default: SPY mock data).
+  Use Recharts ComposedChart with CandlestickChart-style (or LineChart if candlestick is complex).
+  If using LineChart: show price line + volume bar chart below.
+  Toggle: 1D / 1W / 1M / 3M.
+  On the chart: overlay the Vektor signal markers — small colored dots where
+  the engine generated a Buy (green triangle up) or Sell (red triangle down) signal.
+  Show the ticker's key stats: Current Price, Open, High, Low, Volume, 52W High/Low.
+
+MARKET INTERNALS (right column, below chart):
+- Four compact panels:
+  1. Sector Performance: horizontal bar chart showing S&P sectors (Energy, Tech, Financials, etc.)
+     sorted by day performance. Bars colored green/red.
+  2. VIX & Fear Gauge: current VIX mock value (e.g. 18.4) with a gauge-style indicator
+     (Low Fear / Moderate / High Fear / Extreme Fear zones).
+  3. Crypto Market Dominance: BTC% and ETH% dominance with small donut.
+  4. Macro Events Calendar: a list of upcoming macro events this week
+     (FOMC, CPI, NFP etc.) with date, time, expected impact (High/Medium/Low badge).</div>
+        </div>
+      </div>
+
+      <!-- DATA PIPELINE -->
+      <div id="tab-data" style="margin-top:1.5rem;">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:0.75rem;">
+          <div class="pill pill-blue">A6</div>
+          <span style="font-family:var(--sans); font-size:0.95rem; font-weight:700; color:var(--text);">Tab 6 — Data Pipeline</span>
+          <span style="font-size:11px; color:var(--text3); margin-left:auto;">Route: /data-pipeline</span>
+        </div>
+        <div class="prompt-block">
+          <div class="prompt-block-header">
+            <span class="prompt-block-label">Session A6 Prompt</span>
+            <span class="prompt-block-name">admin-next/app/data-pipeline/page.tsx</span>
+          </div>
+          <div class="prompt-body">Build the Data Pipeline tab — the data infrastructure monitoring surface.
+
+PIPELINE OVERVIEW (top, full width):
+- A visual DAG (built with SVG, no library) showing the data pipeline stages:
+  [Raw Market Data] → [Data Cleaning] → [Feature Engineering]
+  → [Model Input Store] → [Signal Generator] → [Order Router]
+  Each node: colored box, status dot, records processed today.
+  Edges animated with stroke-dashoffset when data is flowing.
+
+DATA SOURCE HEALTH (left column):
+- Table of all data sources the system consumes. Mock sources:
+  Yahoo Finance (equities, real-time), Alpha Vantage (historical OHLCV),
+  SEC EDGAR (filings), Reddit/Twitter (sentiment), FRED (macro data),
+  Binance API (crypto), Interactive Brokers (live execution feed).
+- Columns: Source Name, Data Type, Status (Live/Degraded/Down), Last Sync,
+  Records Today, Latency (ms), SLA %.
+- Status pill: green/amber/red. Degraded = amber warning with tooltip.
+
+FEATURE COMPUTATION STATUS (center column):
+- For each of the 7 feature families: last computed timestamp, computation duration (ms),
+  feature count, null rate (should be <1%), and a "Recompute" button (non-functional, UI only).
+- Below: "Feature Store Last Updated: [timestamp]" with a "Trigger Full Recompute" button
+  (with confirm dialog, UI only).
+
+PIPELINE RUN HISTORY (right column):
+- Table of the last 10 pipeline runs. Columns: Run ID, Triggered By (Schedule/Manual/Signal),
+  Start Time, Duration, Records Processed, Status (Success/Failed/Partial), Error (if failed).
+- Failed runs have red text and an expandable row showing the error traceback (mock text).
+
+STORAGE METRICS (bottom, full width):
+- Four metric cards: Total Records in Feature Store, Raw Data Size (GB),
+  Processed Data Size (GB), Next Scheduled Run (countdown timer using useEffect + setInterval).</div>
+        </div>
+      </div>
+
+      <!-- COMPLIANCE -->
+      <div id="tab-compliance" style="margin-top:1.5rem;">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:0.75rem;">
+          <div class="pill pill-amber">A7</div>
+          <span style="font-family:var(--sans); font-size:0.95rem; font-weight:700; color:var(--text);">Tab 7 — Compliance</span>
+          <span style="font-size:11px; color:var(--text3); margin-left:auto;">Route: /compliance</span>
+        </div>
+        <div class="prompt-block">
+          <div class="prompt-block-header">
+            <span class="prompt-block-label">Session A7 Prompt</span>
+            <span class="prompt-block-name">admin-next/app/compliance/page.tsx</span>
+          </div>
+          <div class="prompt-body">Build the Compliance tab — risk controls, audit trail, and regulatory monitoring.
+
+RISK LIMITS DASHBOARD (top, full width):
+- Table of all active risk rules. Columns: Rule Name, Limit Type (Position / Portfolio / Daily Loss),
+  Current Value, Limit, Utilization %, Status (Safe / Warning / Breached).
+- Mock 8 rules: e.g. "Single Position Max Weight: 15%", "Daily Loss Circuit Breaker: -3%",
+  "Max Leverage: 1.5x", "Options Notional Limit: $20K", "Crypto Max Allocation: 10%", etc.
+- Warning = amber row, Breached = red row with alert badge.
+- "Edit Limits →" button per row (modal UI, non-functional).
+
+AUDIT TRAIL (center, full width):
+- Paginated log of all system actions requiring audit recording.
+  Columns: Timestamp, Actor (Admin/Agent name), Action Type, Details, Risk Impact, Approval Status.
+  Filter by date, actor, action type.
+  Mock 15 entries: e.g. "Position opened: AAPL $5,200 — Auto-approved (confidence 78%)",
+  "Risk limit modified: Daily loss circuit breaker 2% → 3% — Admin approved".
+
+DRAWDOWN MONITOR (bottom left):
+- Current drawdown percentage shown large, with a historical drawdown chart (area chart, red fill).
+  Show: Current Drawdown, Max Drawdown (all time), Drawdown Duration, Recovery Time Estimate.
+  Alert banner if drawdown > 5%: amber warning box.
+
+POSITION CONCENTRATION (bottom right):
+- Heatmap-style grid (CSS grid, colored cells) showing position weight by ticker.
+  Red cells = overweight vs limit, green = healthy. Tooltip on hover showing exact %.
+  Below: "Herfindahl–Hirschman Index: [mock value] — Portfolio is [Well-Diversified/Concentrated]".</div>
+        </div>
+      </div>
+
+      <!-- MEMORY -->
+      <div id="tab-memory" style="margin-top:1.5rem;">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:0.75rem;">
+          <div class="pill pill-purple">A8</div>
+          <span style="font-family:var(--sans); font-size:0.95rem; font-weight:700; color:var(--text);">Tab 8 — Memory</span>
+          <span style="font-size:11px; color:var(--text3); margin-left:auto;">Route: /memory</span>
+        </div>
+        <div class="prompt-block">
+          <div class="prompt-block-header">
+            <span class="prompt-block-label">Session A8 Prompt</span>
+            <span class="prompt-block-name">admin-next/app/memory/page.tsx</span>
+          </div>
+          <div class="prompt-body">Build the Memory tab — the agent memory inspection and management surface.
+
+MEMORY OVERVIEW (top stats row):
+- 4 stat cards: Total Memory Objects, Short-Term Entries, Long-Term Entries, Episodic Entries.
+- Below: a Recency Decay chart (line chart using Recharts) showing memory object count
+  by age bucket (last 1h, 1-24h, 1-7d, 7-30d, 30d+) — shows how memory ages out.
+
+MEMORY BROWSER (main area, left column — 60%):
+- Filterable table of memory objects. Columns: Memory ID, Agent, Type (short/long/episodic),
+  Category (market/signal/risk/conversation/decision), Created, Last Accessed, Importance Score (0-1),
+  Token Size, Preview (first 80 chars of content).
+- Filters: Agent dropdown, Memory Type, Category, Date Range, Importance > threshold slider.
+- Click a row → full memory object viewer opens in right panel.
+
+MEMORY OBJECT VIEWER (right panel — 40%):
+- Shows the selected memory object in full. Display:
+  Header: Memory ID, type badge, importance score bar, token count.
+  Content: the full memory text in a scrollable code-style block.
+  Metadata: agent that created it, context (what task it was generated during),
+  access count, linked memories (list of related memory IDs as clickable chips).
+  Actions: "Promote to Long-Term", "Delete", "Flag for Review" buttons.
+
+MEMORY CONSOLIDATION STATUS (bottom):
+- Shows when the last memory consolidation job ran (agents compress short-term into long-term).
+  Stats: Entries consolidated, Entries pruned (below importance threshold), Token savings.
+  "Trigger Consolidation Now" button (with confirm, UI only).
+  A timeline showing the last 5 consolidation run outcomes.</div>
+        </div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div id="tab-settings" style="margin-top:1.5rem;">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:0.75rem;">
+          <div class="pill pill-green">A9</div>
+          <span style="font-family:var(--sans); font-size:0.95rem; font-weight:700; color:var(--text);">Tab 9 — Settings</span>
+          <span style="font-size:11px; color:var(--text3); margin-left:auto;">Route: /settings</span>
+        </div>
+        <div class="prompt-block">
+          <div class="prompt-block-header">
+            <span class="prompt-block-label">Session A9 Prompt</span>
+            <span class="prompt-block-name">admin-next/app/settings/page.tsx</span>
+          </div>
+          <div class="prompt-body">Build the Settings tab — system configuration for the Vektor fund.
+
+LAYOUT: Three-section vertical stack. Left nav within the settings page with anchor links.
+
+SECTION 1 — SYSTEM CONFIGURATION:
+- Toggle switches for: Live Trading Mode, Paper Mode, Auto-Approval (with confidence threshold slider),
+  Email Alerts, Slack Notifications, Emergency Halt Auto-Trigger.
+- Input fields: Confidence Threshold (0–100, slider + numeric), Max Simultaneous Positions,
+  Default Order Size ($), API Rate Limit Override.
+
+SECTION 2 — MODEL CONFIGURATION:
+- Per-model settings table. For each model: on/off toggle, confidence threshold override,
+  max capital allocation (%), priority rank (drag reorder — UI only).
+- "Add Model Version" button that opens a modal form (non-functional, UI only).
+- "Retrain Schedule": cron-style input showing the next scheduled retrain for each model.
+
+SECTION 3 — BROKER & API CONNECTIONS:
+- Cards for each integration. Mock integrations:
+  Interactive Brokers (connected, green), Alpaca (connected, green),
+  Yahoo Finance Data (connected), Alpha Vantage (connected), Binance (disconnected, amber),
+  Anthropic API (connected — for agent LLM calls), OpenAI API (disconnected).
+- Each card: name, connection status badge, API key (masked: ****...****),
+  last ping timestamp, "Test Connection" button, "Disconnect" button.
+
+SECTION 4 — NOTIFICATIONS & ALERTS:
+- Alert routing config: for each alert type (Signal Generated, Order Executed, Risk Breach,
+  Agent Error, Daily Summary) — checkboxes for Email / Slack / In-App.
+- Email and Slack webhook inputs.
+
+SAVE BUTTON: sticky bottom bar with "Save All Changes" (green) and "Reset to Defaults" (gray).</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- TECH STACK -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div id="tech-stack" class="section">
+      <div class="section-header">
+        <span class="section-num">TECH</span>
+        <span class="section-title">Technology Stack Constraints</span>
+      </div>
+
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="feature-card-title">Framework</div>
+          <div class="feature-card-body">Next.js 14, App Router, TypeScript strict mode. No Pages Router.</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-card-title">Styling</div>
+          <div class="feature-card-body">Tailwind CSS v3 only. No CSS Modules, no Styled Components, no Emotion.</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-card-title">Charts</div>
+          <div class="feature-card-body">Recharts for all data charts. SVG-only for diagrams (no D3, no Nivo).</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-card-title">Data</div>
+          <div class="feature-card-body">All mock data in <code>lib/mock-*.ts</code> files. No real API calls in this phase.</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-card-title">Components</div>
+          <div class="feature-card-body">Base components copied from <code>blog-next/</code>. Adapt, don't rewrite from scratch.</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-card-title">Icons</div>
+          <div class="feature-card-body">Lucide React only. No Heroicons, no FontAwesome, no inline SVG icon paths.</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-card-title">State</div>
+          <div class="feature-card-body">React useState + useEffect for UI state. No Redux, no Zustand in this phase.</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-card-title">Fonts</div>
+          <div class="feature-card-body">next/font with Google Fonts. Use JetBrains Mono for monospace data, Syne for headings.</div>
+        </div>
+      </div>
+
+      <div class="callout callout-danger">
+        <span class="callout-icon">✕</span>
+        <span class="callout-text"><strong>Absolutely prohibited:</strong> MUI, Chakra UI, Ant Design, shadcn/ui (in this phase), React Query, SWR, Prisma, or any ORM. No <code>pages/</code> directory. No <code>getServerSideProps</code> or <code>getStaticProps</code> (use App Router conventions only).</span>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- COMMIT PROTOCOL -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div id="commit-protocol" class="section">
+      <div class="section-header">
+        <span class="section-num">GIT</span>
+        <span class="section-title">Commit Protocol — Required Format for Every Session</span>
+      </div>
+
+      <div class="commit-template">
+        <div class="commit-subject">feat(vektor/[site]): build [ComponentName] — [one-line summary]</div>
+        <div class="commit-body">
+- Files created: [list every file with path]
+- Components copied from blog-next: [list]
+- Mock data: [describe lib/mock-*.ts contents]
+- Recharts usage: [which charts, which component]
+- SVG diagrams: [describe if any custom SVG built]
+- Cross-links: SiteNav included with links to [list all 5 sites]
+- Routing: App Router, route = [path]
+- Known limitations: [any intentional stubs or deferred work]
+- Next session target: [exact component name from build order]
+        </div>
+      </div>
+
+      <div class="callout callout-info">
+        <span class="callout-icon">ℹ</span>
+        <span class="callout-text"><strong>Branch:</strong> All commits go to <code>codex/main</code>. Never commit to <code>main</code> directly. The human operator (Tarandeep) will review and merge after each site is complete.</span>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- MASTER PROMPT COPY -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div id="master-copy" class="section">
+      <div class="section-header">
+        <span class="section-num">COPY</span>
+        <span class="section-title">Master Prompt — Copy This Into Codex to Start Session Chain</span>
+      </div>
+
+      <div class="copy-section">
+        <div class="copy-section-title">Full Build Queue — Paste into Codex CLI Session 0</div>
+        <div class="copy-section-desc">This prompt initializes the session chain. Codex will handle all subsequent sessions autonomously per the protocol defined in the session preamble above.</div>
+        <button class="copy-btn" id="copyBtn" onclick="copyMasterPrompt()">⎘ Copy Master Prompt</button>
+      </div>
+
+      <div class="prompt-block">
+        <div class="prompt-block-header">
+          <span class="prompt-block-label">Master Prompt — Full Session Chain Init</span>
+        </div>
+        <div class="prompt-body" id="masterPromptText">You are a senior Next.js engineer building the Vektor AI-native hedge fund frontend. This is a long-horizon session chain. You will build ONE component per session, commit it to codex/main with a detailed commit message, and then print "SESSION COMPLETE — [component] — NEXT: [next component]" to signal the orchestrator to start the next session.
+
+CRITICAL RULES:
+- Build only the component assigned to this session. Do not start the next.
+- No TODOs, no placeholder divs. Every section must be complete with realistic mock data.
+- Copy Navbar, Footer, SiteNav, and Typography tokens verbatim from blog-next/. Do not redesign them.
+- All new sites live in frontend-next/. Use the directory structure below.
+- All mock data goes in lib/mock-*.ts with TypeScript interfaces in lib/types.ts.
+- Use Recharts for all charts. SVG-only for structural diagrams.
+- Use Lucide React for icons (no others).
+- Tailwind CSS v3 only. Color palette: bg #0d0f14, accent #b8f09a, gain #f5c842, loss #ff5f5f.
+- Cross-link all 5 sites via SiteNav on every page.
+
+DIRECTORY STRUCTURE:
+frontend-next/
+  research-next/     → research.vektor.ai
+  livepnl-next/      → pnl.vektor.ai
+  admin-next/        → admin.vektor.ai
+
+FULL BUILD ORDER (one Codex session per item):
+RESEARCH SITE
+
+[R0A] research-next — scaffold, shared components, tailwind config, lib/types.ts (Implementation)
+[R0B] research-next — validate scaffold, build, lint, screenshot, logs, commit, push
+
+[R1A] research-next — app/page.tsx research index with filter + search (Implementation)
+[R1B] research-next — validate R1, build, lint, screenshot, logs, commit, push
+
+[R2A] research-next — app/paper/[slug]/page.tsx paper viewer with signal trace (Implementation)
+[R2B] research-next — validate R2, build, lint, screenshot, logs, commit, push
+
+[R3A] research-next — app/signals/page.tsx signal reports + signal calendar (Implementation)
+[R3B] research-next — validate R3, build, lint, screenshot, logs, commit, push
+
+LIVE PNL SITE
+
+[P0A] livepnl-next — scaffold, shared components, lib/mock-pnl.ts (Implementation)
+[P0B] livepnl-next — validate P0, build, lint, screenshot, logs, commit, push
+
+[P1A] livepnl-next — app/page.tsx main PnL dashboard (Implementation)
+[P1B] livepnl-next — validate P1, build, lint, screenshot, logs, commit, push
+
+[P2A] livepnl-next — app/trades/page.tsx paginated trade log (Implementation)
+[P2B] livepnl-next — validate P2, build, lint, screenshot, logs, commit, push
+
+ADMIN COMMAND CENTER
+
+[A0A] admin-next — scaffold, sidebar nav, auth middleware stub, all routes (Implementation)
+[A0B] admin-next — validate A0, build, lint, screenshot, logs, commit, push
+
+[A1A] admin-next — app/war-room/page.tsx War Room command center (Implementation)
+[A1B] admin-next — validate A1, build, lint, screenshot, logs, commit, push
+
+[A2A] admin-next — app/core-engine/page.tsx ML system health + signal log (Implementation)
+[A2B] admin-next — validate A2, build, lint, screenshot, logs, commit, push
+
+[A3A] admin-next — app/agents/page.tsx Agent registry + orchestration graph (Implementation)
+[A3B] admin-next — validate A3, build, lint, screenshot, logs, commit, push
+
+[A4A] admin-next — app/positions/page.tsx Holdings table + risk sidebar (Implementation)
+[A4B] admin-next — validate A4, build, lint, screenshot, logs, commit, push
+
+[A5A] admin-next — app/market-watch/page.tsx Watchlist + chart + market internals (Implementation)
+[A5B] admin-next — validate A5, build, lint, screenshot, logs, commit, push
+
+[A6A] admin-next — app/data-pipeline/page.tsx Pipeline DAG + source health (Implementation)
+[A6B] admin-next — validate A6, build, lint, screenshot, logs, commit, push
+
+[A7A] admin-next — app/compliance/page.tsx Risk limits + audit trail (Implementation)
+[A7B] admin-next — validate A7, build, lint, screenshot, logs, commit, push
+
+[A8A] admin-next — app/memory/page.tsx Agent memory browser + viewer (Implementation)
+[A8B] admin-next — validate A8, build, lint, screenshot, logs, commit, push
+
+[A9A] admin-next — app/settings/page.tsx System config + broker connections (Implementation)
+[A9B] admin-next — validate A9, build, lint, screenshot, logs, commit, push
+
+ORCHESTRATION RULE
+
+Every A-phase:
+
+Build only
+No validation
+No Playwright
+No commit
+No push
+Generate HANDOFF PACKAGE
+
+Every B-phase:
+
+Build validation
+Lint validation
+Dev server verification
+Playwright screenshot
+Dev_Logs.md update
+knowledge_graph/events.jsonl update
+scripts/index-repo.ps1
+Commit
+Push
+Generate next-session HANDOFF PACKAGE
+
+COMMIT FORMAT for every session:
+Subject: feat(vektor/[site]): build [ComponentName] — [summary]
+Body (bullets):
+- Files created: [list]
+- Components from blog-next: [list]
+- Mock data: [describe]
+- Charts: [describe]
+- Cross-links: SiteNav included
+- Next session: [ID and name]
+
+START NOW: Build [R0] — research-next scaffold.
+Create frontend-next/research-next/ with Next.js 14 App Router + TypeScript + Tailwind.
+Copy Navbar, Footer, SiteNav from blog-next/. Configure tailwind.config.ts.
+Create lib/types.ts with ResearchPaper and SignalReport interfaces.
+When done: git add -A && git commit && git push origin codex/main.
+Print: SESSION COMPLETE — R0 scaffold — NEXT: R1 research index page</div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+function copyMasterPrompt() {
+  const text = document.getElementById('masterPromptText').innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = '✓ Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = '⎘ Copy Master Prompt';
+      btn.classList.remove('copied');
+    }, 2500);
+  });
+}
+
+// smooth scroll for sidebar links
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    const el = document.querySelector(a.getAttribute('href'));
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
+    a.classList.add('active');
+  });
+});
+
+// update active sidebar on scroll
+const sections = document.querySelectorAll('[id]');
+const sidebarLinks = document.querySelectorAll('.sidebar-item');
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      sidebarLinks.forEach(l => l.classList.remove('active'));
+      const active = document.querySelector(`.sidebar-item[href="#${entry.target.id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { threshold: 0.3 });
+sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>

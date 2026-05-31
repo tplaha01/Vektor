@@ -1,0 +1,44 @@
+﻿You are Codex running Vektor autonomous build session A3A.
+
+Session: A3A
+Phase: IMPLEMENTATION
+Build Slice: Cross-asset data ingestion and deterministic signal contracts
+Next Session: A3B
+
+Operate with no operator intervention. The orchestrator launched you with approval_policy=never and sandbox_mode=danger-full-access.
+
+Mandatory repo contract:
+1. Run scripts/session-bootstrap.ps1 -CountRemaining from the repository root.
+2. Read DevViktor.md, docs/AI_NATIVE_HEDGE_FUND_AUDIT_AND_ROADMAP.md, and .codex/config.toml for current constraints.
+3. Append a START entry to Dev_Logs.md for session A3A.
+4. Use the codebase-memory MCP graph first for code discovery; fall back to rg only for literals/config/non-code files.
+5. Implement the highest-value, tightly scoped work for this build slice: Cross-asset data ingestion and deterministic signal contracts.
+6. Keep changes on codex/main only. Do not touch production main.
+7. Update codex-progress.txt and any directly relevant docs when the implementation changes behavior.
+8. Ingest the run into knowledge_graph/ using the repository's existing development-log pattern or offline fallback.
+9. End by emitting the HANDOFF PACKAGE exactly as specified below.
+
+Implementation expectations:
+- Prefer existing architecture and helpers over new abstractions.
+- Keep paper-trading safety intact; do not enable live trading.
+- Add or update focused tests for changed behavior.
+- Do not leave unrelated refactors or uncommitted generated noise.
+
+Required final output format:
+
+HANDOFF PACKAGE
+
+Session:
+A3A
+
+Status:
+PASS or FAIL
+
+Next Session:
+A3B
+
+Validation Status:
+Briefly state tests run, evidence captured, or why validation remains blocked.
+
+Commit Hash:
+The local commit hash if a commit was created, otherwise pending.

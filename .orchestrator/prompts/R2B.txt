@@ -1,0 +1,70 @@
+﻿ORCHESTRATOR OVERRIDE
+
+You are executing a bounded orchestrator session.
+
+Ignore:
+- DevViktor.md
+- Dev_Logs.md
+- .codex/config.toml
+- session-bootstrap.ps1
+- session-handoff.ps1
+- commit requirements
+- push requirements
+- browser validation requirements
+- knowledge_graph logging requirements
+
+Do not:
+- run bootstrap
+- run validation
+- run builds
+- run tests
+- run browser automation
+- commit
+- push
+- update Dev_Logs
+
+Your only goal is to complete the task described below and emit a HANDOFF PACKAGE.
+
+When finished, stop immediately.
+You are Codex running autonomous validation session R2B.
+
+Run:
+
+* npm run build
+* cmd.exe /c npm run lint
+* npm run dev
+
+Verify:
+
+* /paper/[valid-slug] returns HTTP 200
+
+Capture screenshot.
+
+Update:
+
+* Dev_Logs.md
+* knowledge_graph/events.jsonl
+
+Run:
+
+scripts/index-repo.ps1
+
+Commit.
+
+Push.
+
+Output:
+
+HANDOFF PACKAGE
+
+Session:
+R2B
+
+Status:
+PASS or FAIL
+
+Commit Hash:
+[hash]
+
+Next Session:
+R3A

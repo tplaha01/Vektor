@@ -85,7 +85,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <div className="lg:pl-72">
+      <div className="lg:ml-72">
         <header className="sticky top-0 z-20 border-b border-border bg-background/80 px-5 py-4 backdrop-blur-xl lg:hidden">
           <p className="font-mono text-sm font-semibold uppercase tracking-[0.24em]">
             Vektor Admin

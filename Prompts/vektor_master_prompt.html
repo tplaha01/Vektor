@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Vektor Frontend Rebuild Master Prompt</title>
+<style>
+body{font-family:Arial,sans-serif;max-width:1200px;margin:40px auto;line-height:1.5}
+pre{white-space:pre-wrap;background:#f5f5f5;padding:20px;border-radius:8px}
+</style>
+</head>
+<body>
+<h1>Vektor Frontend Surface Rebuild – Master Codex Execution Prompt</h1>
+<pre>
+MISSION
+
+You are rebuilding the entire Vektor frontend surface using Next.js as a production-grade multi-site ecosystem.
+
+Vektor is not a typical SaaS dashboard.
+
+Vektor is an AI-native hedge fund operating system that combines:
+
+• Deterministic quantitative algorithms
+• Machine Learning systems
+• Reinforcement Learning systems
+• Agentic orchestration
+• Automated research generation
+• Automated execution infrastructure
+• Human-in-the-loop oversight
+
+The UI must feel like:
+Bloomberg Terminal + Palantir Foundry + Anduril Command Center + Modern Quant Fund
+
+NOT:
+❌ Startup SaaS
+❌ Crypto dashboard
+❌ Generic admin template
+❌ Marketing-heavy product UI
+
+=====================================================================
+ARCHITECTURE
+=====================================================================
+
+Build the following independent Next.js sites inside frontend-next.
+
+Each site must be deployable independently.
+
+/landing
+/blog
+/research
+/live-pnl
+/admin
+
+Each site must:
+
+• Have its own layout
+• Have its own routing
+• Have its own deployment target
+• Share common design system components
+• Link to all other sites through global navigation
+
+Use the existing blog-next implementation as the visual benchmark.
+
+Research and LivePnl should reuse and evolve the same design language.
+
+Landing page remains untouched.
+
+=====================================================================
+GLOBAL DESIGN SYSTEM
+=====================================================================
+
+Create:
+
+components/design-system/
+
+Typography
+Buttons
+Cards
+Metric Cards
+Data Tables
+Command Panels
+Pipeline Indicators
+Health Indicators
+Timeline Components
+Research Components
+Agent Components
+Terminal Components
+Empty States
+Error States
+Loading States
+
+Theme:
+
+Dark First
+
+Background:
+#050505
+#0A0A0A
+#111111
+
+Accent:
+Electric Blue
+Neon Cyan
+Quant Green
+
+Typography:
+
+Inter
+Geist
+IBM Plex Mono
+
+Motion:
+
+Subtle
+Professional
+Low latency feeling
+
+=====================================================================
+SITE 1 — RESEARCH SITE
+=====================================================================
+
+URL:
+research.vektor.ai
+
+Purpose:
+
+Public institutional research portal.
+
+Pages:
+
+/
+
+/research
+
+/research/[slug]
+
+/authors
+
+/tags
+
+/categories
+
+/features
+
+Sections:
+
+Latest Research
+
+Market Structure
+
+Quantitative Research
+
+Macro Research
+
+Factor Models
+
+Execution Research
+
+ML Research
+
+Agent Research
+
+Risk Research
+
+Alternative Data Research
+
+Every article should support:
+
+Charts
+Tables
+Math blocks
+Code snippets
+References
+Citations
+Downloads
+
+Create professional institutional layouts.
+
+Think:
+
+AQR
+Bridgewater
+Renaissance
+Jane Street publications
+
+=====================================================================
+SITE 2 — LIVE PNL SITE
+=====================================================================
+
+URL:
+live.vektor.ai
+
+Purpose:
+
+Public transparency portal.
+
+Show:
+
+Fund Performance
+
+Metrics:
+
+MTD
+QTD
+YTD
+Since Inception
+
+Live Equity Curve
+
+Drawdowns
+
+Sharpe
+
+Sortino
+
+Win Rate
+
+Exposure
+
+Sector Allocation
+
+Factor Exposure
+
+Strategy Breakdown
+
+Recent Activity
+
+Trade Statistics
+
+Risk Metrics
+
+Pages:
+
+/
+
+/performance
+
+/strategies
+
+/risk
+
+/transparency
+
+Widgets:
+
+Equity curve
+
+Drawdown chart
+
+Monthly returns heatmap
+
+Rolling Sharpe
+
+Risk decomposition
+
+Performance attribution
+
+Must resemble institutional investor reporting.
+
+=====================================================================
+SITE 3 — ADMIN / COMMAND CENTER
+=====================================================================
+
+URL:
+admin.vektor.ai
+
+This is the most important application.
+
+This is NOT a dashboard.
+
+This is the operating system of the hedge fund.
+
+=====================================================================
+ADMIN INFORMATION ARCHITECTURE
+=====================================================================
+
+/war-room
+
+/core-engine
+
+/agents
+
+/positions
+
+/market-watch
+
+/data-pipeline
+
+/compliance
+
+/memory
+
+/settings
+
+Each section gets:
+
+Own route
+Own layout abstraction
+Own components
+Own state management
+
+=====================================================================
+WAR ROOM
+=====================================================================
+
+Purpose:
+
+Central mission control.
+
+First viewport:
+
+Institutional overview similar to Zerodha Kite but significantly more advanced.
+
+Top metrics:
+
+Fund NAV
+Available Capital
+Used Capital
+Gross Exposure
+Net Exposure
+Today's PnL
+Weekly PnL
+Monthly PnL
+Live Drawdown
+Current Risk
+Margin Usage
+Broker Connectivity
+
+Visuals:
+
+Portfolio allocation bar
+
+Capital deployment heatmap
+
+Strategy contribution heatmap
+
+Sector exposure
+
+Geographic exposure
+
+Mission-critical modules:
+
+System Health
+
+Data Pipeline Health
+
+Algo Pipeline Health
+
+Agent Pipeline Health
+
+Execution Pipeline Health
+
+Research Pipeline Health
+
+LLM Infrastructure Health
+
+Vector DB Health
+
+Exchange Connectivity
+
+Broker Connectivity
+
+Approvals Queue
+
+Human approvals needed
+
+Pending execution approvals
+
+Research publication approvals
+
+Model deployment approvals
+
+Active Tasks
+
+Pending Tasks
+
+Failed Tasks
+
+Scheduled Tasks
+
+Emergency Controls
+
+Global Kill Switch
+
+Pause Trading
+
+Pause Agents
+
+Pause Research Generation
+
+Pause Data Ingestion
+
+Pause Execution
+
+System Event Timeline
+
+Alerts Feed
+
+Operational Feed
+
+Incident Feed
+
+=====================================================================
+CORE ENGINE
+=====================================================================
+
+Purpose:
+
+Complete visibility into quantitative infrastructure.
+
+Sections:
+
+Model Registry
+
+Display:
+
+Model Name
+Version
+Owner
+Deployment Date
+Status
+Sharpe
+Win Rate
+Current Capital Allocation
+
+Model Categories:
+
+Factor Models
+
+Forecasting Models
+
+Execution Models
+
+Risk Models
+
+RL Models
+
+Portfolio Models
+
+Signal Models
+
+Feature Store
+
+Feature health
+
+Feature freshness
+
+Feature drift
+
+Feature importance
+
+Feature lineage
+
+Signal Center
+
+Generated signals
+
+Signal confidence
+
+Signal decay
+
+Signal attribution
+
+Signal history
+
+Backtesting Center
+
+Recent backtests
+
+Performance comparisons
+
+Validation metrics
+
+Stress testing
+
+Scenario testing
+
+Simulation Center
+
+Monte Carlo
+
+Regime simulations
+
+Liquidity simulations
+
+Crash simulations
+
+Research-to-Production Pipeline
+
+Research Stage
+
+Validation Stage
+
+Paper Trading
+
+Shadow Trading
+
+Production
+
+Inference Monitoring
+
+Prediction distributions
+
+Confidence intervals
+
+Model drift
+
+Latency
+
+Inference errors
+
+Capital Allocation Engine
+
+Capital distribution
+
+Strategy weights
+
+Expected returns
+
+Risk budgets
+
+Optimization status
+
+=====================================================================
+AGENTS
+=====================================================================
+
+Purpose:
+
+Observe and manage agent ecosystem.
+
+Agent Categories:
+
+Research Agents
+
+Market Agents
+
+News Agents
+
+Execution Agents
+
+Risk Agents
+
+Compliance Agents
+
+Monitoring Agents
+
+Infrastructure Agents
+
+For every agent:
+
+Status
+
+Current task
+
+Memory usage
+
+Token usage
+
+Cost usage
+
+Recent actions
+
+Reasoning trace summary
+
+Approval status
+
+Failure logs
+
+Agent Orchestration Map
+
+Agent-to-agent communication
+
+Task graph
+
+Execution graph
+
+Queue health
+
+=====================================================================
+POSITIONS & HOLDINGS
+=====================================================================
+
+Purpose:
+
+Portfolio intelligence.
+
+Views:
+
+Positions
+
+Holdings
+
+Orders
+
+Executions
+
+Options
+
+Futures
+
+Portfolio Analytics
+
+Metrics:
+
+Exposure
+
+Concentration
+
+Risk contribution
+
+Sector allocation
+
+Factor allocation
+
+Liquidity profile
+
+PnL attribution
+
+Historical changes
+
+Position lifecycle
+
+=====================================================================
+MARKET WATCH
+=====================================================================
+
+Purpose:
+
+Real-time situational awareness.
+
+Modules:
+
+Watchlists
+
+News
+
+Macro Calendar
+
+Earnings Calendar
+
+Market Breadth
+
+Volatility Surface
+
+Sector Performance
+
+Heatmaps
+
+Factor Dashboard
+
+Liquidity Dashboard
+
+Regime Detection
+
+Market Structure Monitor
+
+=====================================================================
+DATA PIPELINE
+=====================================================================
+
+Purpose:
+
+Observe entire data infrastructure.
+
+Sources:
+
+Market Data
+
+News Data
+
+Fundamental Data
+
+Alternative Data
+
+Research Data
+
+Internal Data
+
+Monitor:
+
+Latency
+
+Freshness
+
+Completeness
+
+Failures
+
+Throughput
+
+Storage usage
+
+Pipeline DAG visualization
+
+=====================================================================
+COMPLIANCE
+=====================================================================
+
+Purpose:
+
+Institutional controls.
+
+Modules:
+
+Trade Surveillance
+
+Restricted Securities
+
+Audit Logs
+
+Access Control
+
+Approval Logs
+
+Policy Violations
+
+Regulatory Reporting
+
+Research Compliance
+
+Model Governance
+
+=====================================================================
+MEMORY
+=====================================================================
+
+Purpose:
+
+Institutional intelligence layer.
+
+Views:
+
+Research Memory
+
+Market Memory
+
+Agent Memory
+
+Decision Memory
+
+Trade Memory
+
+Knowledge Graph
+
+Relationships
+
+Historical decisions
+
+Past signals
+
+Research lineage
+
+=====================================================================
+SETTINGS
+=====================================================================
+
+Purpose:
+
+Platform configuration.
+
+Sections:
+
+User Management
+
+Roles
+
+Permissions
+
+Broker Integrations
+
+Exchange Integrations
+
+LLM Providers
+
+Model Providers
+
+Data Vendors
+
+Infrastructure
+
+Notifications
+
+Secrets Management
+
+Deployment Settings
+
+=====================================================================
+EXECUTION STRATEGY FOR CODEX
+=====================================================================
+
+You MUST NOT build everything at once.
+
+Workflow:
+
+1. Create implementation plan.
+2. Create architecture documents.
+3. Build ONE section only.
+4. Fully complete section.
+5. Run lint.
+6. Run type checks.
+7. Run tests.
+8. Fix issues.
+9. Commit.
+
+Commit format:
+
+feat(frontend): complete war room command center
+
+Include:
+
+Architecture decisions
+Components created
+Routes created
+Design decisions
+Testing completed
+
+Push:
+
+codex/main
+
+After push:
+
+Start a NEW Codex session.
+
+Next session builds only Core Engine.
+
+Repeat until entire platform is complete.
+
+Order:
+
+1 War Room
+2 Core Engine
+3 Agents
+4 Positions
+5 Market Watch
+6 Data Pipeline
+7 Compliance
+8 Memory
+9 Settings
+10 Research Site
+11 Live PnL Site
+12 Shared Design System Refinement
+
+Never leave placeholders.
+
+Every section must reach production quality before moving to the next.
+
+Output detailed progress reports after each completed session.
+</pre>
+</body>
+</html>
