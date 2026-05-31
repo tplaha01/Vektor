@@ -11,13 +11,17 @@ import {
   FileText,
   Gauge,
   GitBranch,
+  Server,
   Tag,
-  TrendingDown,
-  TrendingUp,
 } from "lucide-react";
-import { researchPapers } from "@/lib/mock-research";
+import {
+  getResearchReport,
+  getResearchReports,
+  reportHref,
+  ResearchApiError,
+} from "@/lib/research-api";
 import { siteConfig } from "@/lib/site";
-import type { ResearchPaper, SignalDirection } from "@/lib/types";
+import type { LiveResearchReport } from "@/lib/types";
 
 interface PaperPageProps {
   params: {
@@ -25,186 +29,185 @@ interface PaperPageProps {
   };
 }
 
-const signalTone: Record<SignalDirection, string> = {
-  buy: "border-primary/30 bg-primary/10 text-primary",
-  hold: "border-secondary/30 bg-secondary/10 text-secondary",
-  sell: "border-destructive/40 bg-destructive/10 text-destructive",
+type TraceRow = {
+  stage: string;
+  input: string;
+  value: string;
+  source: string;
 };
 
-const signalIcons: Record<SignalDirection, typeof TrendingUp> = {
-  buy: TrendingUp,
-  hold: Activity,
-  sell: TrendingDown,
-};
+export const dynamic = "force-dynamic";
 
-const freshnessTone: Record<ResearchPaper["dataFreshness"], string> = {
-  live: "text-primary",
-  delayed: "text-accent",
-  backtest: "text-secondary",
-  degraded: "text-destructive",
-};
-
-const horizonWeight: Record<ResearchPaper["horizon"], string> = {
-  intraday: "Execution window",
-  swing: "Tactical window",
-  position: "Portfolio window",
-  strategic: "Allocation window",
-};
-
-export function generateStaticParams() {
-  return researchPapers.map((paper) => ({
-    slug: paper.slug,
-  }));
+async function loadReportOrNotFound(reportId: string) {
+  try {
+    return await getResearchReport(reportId);
+  } catch (error) {
+    if (error instanceof ResearchApiError && error.status === 404) {
+      notFound();
+    }
+    throw error;
+  }
 }
 
-function getPaperBySlug(slug: string) {
-  return researchPapers.find((paper) => paper.slug === slug);
-}
+export async function generateMetadata({ params }: PaperPageProps): Promise<Metadata> {
+  try {
+    const report = await getResearchReport(params.slug);
+    const tags = reportTags(report);
 
-export function generateMetadata({ params }: PaperPageProps): Metadata {
-  const paper = getPaperBySlug(params.slug);
-
-  if (!paper) {
     return {
-      title: "Paper not found",
+      title: report.title,
+      description: report.summary,
+      authors: [{ name: report.agent_id }],
+      keywords: [report.agent_role, report.status, ...report.asset_universe, ...tags],
+      openGraph: {
+        title: report.title,
+        description: report.summary,
+        type: "article",
+        url: `${siteConfig.url}/paper/${encodeURIComponent(report.report_id)}`,
+        publishedTime: report.published_at,
+        modifiedTime: report.created_at,
+        authors: [report.agent_id],
+        tags,
+      },
+    };
+  } catch (error) {
+    if (error instanceof ResearchApiError && error.status === 404) {
+      return {
+        title: "Paper not found",
+      };
+    }
+
+    return {
+      title: "Research report",
+      description: "Live research report from the TradingBot research API.",
     };
   }
-
-  return {
-    title: paper.title,
-    description: paper.abstract,
-    authors: paper.authors.map((author) => ({
-      name: author.name,
-    })),
-    keywords: [
-      paper.category,
-      paper.signalDirection,
-      paper.horizon,
-      ...paper.tickers,
-      ...paper.tags,
-    ],
-    openGraph: {
-      title: paper.title,
-      description: paper.abstract,
-      type: "article",
-      url: `${siteConfig.url}/paper/${paper.slug}`,
-      publishedTime: paper.publishedAt,
-      modifiedTime: paper.updatedAt,
-      authors: paper.authors.map((author) => author.name),
-      tags: paper.tags,
-    },
-  };
 }
 
-function formatDate(value: string) {
+function formatDate(value?: string | null) {
+  if (!value) return "Unavailable";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unavailable";
+
   return new Intl.DateTimeFormat("en", {
     month: "short",
     day: "2-digit",
     year: "numeric",
-  }).format(new Date(value));
+  }).format(date);
 }
 
-function formatDateTime(value: string) {
+function formatDateTime(value?: string | null) {
+  if (!value) return "Unavailable";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unavailable";
+
   return new Intl.DateTimeFormat("en", {
     month: "short",
     day: "2-digit",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(new Date(value));
+  }).format(date);
 }
 
 function formatPercent(value: number) {
-  return `${Math.round(value * 100)}%`;
+  return `${Math.round(Number(value || 0) * 100)}%`;
 }
 
-function buildPaperBody(paper: ResearchPaper) {
-  const leadTicker = paper.tickers[0];
-  const secondaryTickers = paper.tickers.slice(1).join(", ");
-  const tagPhrase = paper.tags.join(", ");
-  const authorDesk = paper.authors.map((author) => author.desk).join(" / ");
-
-  return [
-    {
-      heading: "Investment Thesis",
-      body: `${paper.subtitle} The ${paper.category.toLowerCase()} combines ${tagPhrase} signals across ${leadTicker}${
-        secondaryTickers ? ` and the related ${secondaryTickers} complex` : ""
-      }, with a ${paper.horizon} holding framework and ${formatPercent(
-        paper.confidence,
-      )} model confidence.`,
-    },
-    {
-      heading: "Evidence Stack",
-      body: `The research stack weights desk inputs from ${authorDesk}, current data freshness marked ${paper.dataFreshness}, and cross-asset confirmation from ticker, tag, and horizon factors. The abstract remains the controlling summary for the current publication state.`,
-    },
-    {
-      heading: "Portfolio Read-Through",
-      body: `The system classifies the signal as ${paper.signalDirection.toUpperCase()} with a ${horizonWeight[
-        paper.horizon
-      ].toLowerCase()}. Operators should treat this page as a concise viewer for the archive record until live signal reports are attached in the next rollout.`,
-    },
-  ];
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
-function buildSignalTrace(paper: ResearchPaper) {
-  const directionScore =
-    paper.signalDirection === "buy" ? 0.82 : paper.signalDirection === "sell" ? 0.34 : 0.55;
-  const freshnessScore =
-    paper.dataFreshness === "live"
-      ? 0.91
-      : paper.dataFreshness === "delayed"
-        ? 0.72
-        : paper.dataFreshness === "backtest"
-          ? 0.64
-          : 0.48;
-  const breadthScore = Math.min(0.94, 0.52 + paper.tickers.length * 0.09 + paper.tags.length * 0.03);
+function valueText(value: unknown): string {
+  if (Array.isArray(value)) {
+    return value.map((item) => valueText(item)).filter(Boolean).join(" / ");
+  }
 
-  return [
-    {
-      stage: "Universe match",
-      input: paper.tickers.join(" / "),
-      score: breadthScore,
-      output: `${paper.tickers.length} symbols mapped`,
-    },
-    {
-      stage: "Feature blend",
-      input: paper.tags.join(" / "),
-      score: paper.confidence,
-      output: `${paper.tags.length} research factors active`,
-    },
-    {
-      stage: "Freshness gate",
-      input: paper.dataFreshness,
-      score: freshnessScore,
-      output: paper.dataFreshness === "degraded" ? "operator review" : "ready",
-    },
-    {
-      stage: "Signal policy",
-      input: paper.horizon,
-      score: directionScore,
-      output: paper.signalDirection.toUpperCase(),
-    },
-  ];
+  if (isPlainRecord(value)) {
+    return JSON.stringify(value);
+  }
+
+  if (value === null || value === undefined || value === "") {
+    return "";
+  }
+
+  return String(value);
 }
 
-function relatedPapersFor(paper: ResearchPaper) {
-  return researchPapers
-    .filter((candidate) => candidate.slug !== paper.slug)
-    .map((candidate) => {
-      const sharedTags = candidate.tags.filter((tag) => paper.tags.includes(tag)).length;
-      const sharedTickers = candidate.tickers.filter((ticker) =>
-        paper.tickers.includes(ticker),
-      ).length;
-      const categoryMatch = candidate.category === paper.category ? 1 : 0;
-      return {
-        paper: candidate,
-        score: sharedTags * 2 + sharedTickers * 3 + categoryMatch,
-      };
-    })
-    .filter((candidate) => candidate.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 3)
-    .map((candidate) => candidate.paper);
+function listFromRecord(record: Record<string, unknown>, key: string) {
+  const value = record[key];
+  return Array.isArray(value)
+    ? value.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
+}
+
+function reportTags(report: LiveResearchReport) {
+  const provenance = isPlainRecord(report.provenance) ? report.provenance : {};
+  return Array.from(
+    new Set([
+      ...report.asset_universe,
+      ...listFromRecord(provenance, "data_sources"),
+      ...listFromRecord(provenance, "policy_gates_applied"),
+      ...listFromRecord(provenance, "decision_ids"),
+    ]),
+  ).filter(Boolean);
+}
+
+function buildSignalTrace(report: LiveResearchReport): TraceRow[] {
+  const trace = isPlainRecord(report.ai_trace) ? report.ai_trace : {};
+  const provenance = isPlainRecord(report.provenance) ? report.provenance : {};
+  const rows: TraceRow[] = [];
+
+  for (const [key, value] of Object.entries(trace)) {
+    const text = valueText(value);
+    if (!text) continue;
+    rows.push({
+      stage: key.replaceAll("_", " "),
+      input: report.run_id || report.report_id,
+      value: text,
+      source: "ai_trace",
+    });
+  }
+
+  for (const [key, value] of Object.entries(provenance)) {
+    const text = valueText(value);
+    if (!text) continue;
+    rows.push({
+      stage: key.replaceAll("_", " "),
+      input: report.report_id,
+      value: text,
+      source: "provenance",
+    });
+  }
+
+  return rows;
+}
+
+async function relatedReportsFor(report: LiveResearchReport) {
+  try {
+    const payload = await getResearchReports({ limit: 80, surface: "public" });
+    const reportAssets = new Set(report.asset_universe.map((asset) => asset.toUpperCase()));
+
+    return payload.reports
+      .filter((candidate) => candidate.report_id !== report.report_id)
+      .map((candidate) => {
+        const sharedAssets = candidate.asset_universe.filter((asset) =>
+          reportAssets.has(asset.toUpperCase()),
+        ).length;
+        const roleMatch = candidate.agent_role === report.agent_role ? 1 : 0;
+
+        return {
+          report: candidate,
+          score: sharedAssets * 3 + roleMatch,
+        };
+      })
+      .filter((candidate) => candidate.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+      .map((candidate) => candidate.report);
+  } catch {
+    return [];
+  }
 }
 
 function MetadataRow({
@@ -219,22 +222,18 @@ function MetadataRow({
       <span className="font-mono text-[0.65rem] uppercase tracking-[0.16em] text-muted-foreground">
         {label}
       </span>
-      <span className="max-w-[11rem] text-right font-mono text-xs text-foreground">{value}</span>
+      <span className="max-w-[12rem] text-right font-mono text-xs text-foreground break-words">
+        {value}
+      </span>
     </div>
   );
 }
 
-export default function PaperPage({ params }: PaperPageProps) {
-  const paper = getPaperBySlug(params.slug);
-
-  if (!paper) {
-    notFound();
-  }
-
-  const SignalIcon = signalIcons[paper.signalDirection];
-  const paperBody = buildPaperBody(paper);
-  const signalTrace = buildSignalTrace(paper);
-  const relatedPapers = relatedPapersFor(paper);
+export default async function PaperPage({ params }: PaperPageProps) {
+  const report = await loadReportOrNotFound(params.slug);
+  const signalTrace = buildSignalTrace(report);
+  const relatedReports = await relatedReportsFor(report);
+  const tags = reportTags(report);
 
   return (
     <main className="min-h-[calc(100vh-10rem)]">
@@ -251,29 +250,27 @@ export default function PaperPage({ params }: PaperPageProps) {
           <article className="min-w-0">
             <div className="border-b border-border pb-6">
               <div className="flex flex-wrap items-center gap-2 font-mono text-[0.68rem] uppercase tracking-[0.16em] text-muted-foreground">
-                <span>{paper.category}</span>
+                <span>{report.agent_role}</span>
                 <span className="text-border">/</span>
-                <span>{paper.readingMinutes} min read</span>
+                <span>{formatDate(report.published_at)}</span>
                 <span className="text-border">/</span>
-                <span className={freshnessTone[paper.dataFreshness]}>
-                  {paper.dataFreshness}
-                </span>
+                <span>{formatPercent(report.confidence)}</span>
               </div>
 
               <h1 className="mt-3 max-w-4xl text-3xl font-semibold tracking-normal text-foreground md:text-5xl">
-                {paper.title}
+                {report.title}
               </h1>
               <p className="mt-3 max-w-3xl font-mono text-sm leading-6 text-accent">
-                {paper.subtitle}
+                {report.summary}
               </p>
 
               <div className="mt-5 flex flex-wrap gap-2">
-                {paper.tickers.map((ticker) => (
+                {report.asset_universe.map((asset) => (
                   <span
-                    key={ticker}
+                    key={asset}
                     className="rounded border border-border bg-card px-2 py-1 font-mono text-xs text-foreground"
                   >
-                    {ticker}
+                    {asset}
                   </span>
                 ))}
               </div>
@@ -285,7 +282,7 @@ export default function PaperPage({ params }: PaperPageProps) {
                 <h2 className="text-lg font-semibold text-card-foreground">Abstract</h2>
               </div>
               <p className="mt-4 font-mono text-sm leading-7 text-muted-foreground">
-                {paper.abstract}
+                {report.summary}
               </p>
             </section>
 
@@ -295,13 +292,13 @@ export default function PaperPage({ params }: PaperPageProps) {
                 <h2 className="text-lg font-semibold text-card-foreground">Research Body</h2>
               </div>
               <div className="mt-5 grid gap-5">
-                {paperBody.map((section) => (
-                  <div key={section.heading}>
+                {report.findings.map((finding, index) => (
+                  <div key={`${report.report_id}-finding-${index}`}>
                     <h3 className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-foreground">
-                      {section.heading}
+                      Finding {index + 1}
                     </h3>
                     <p className="mt-2 font-mono text-sm leading-7 text-muted-foreground">
-                      {section.body}
+                      {finding}
                     </p>
                   </div>
                 ))}
@@ -315,51 +312,62 @@ export default function PaperPage({ params }: PaperPageProps) {
                   Algorithm Signal Trace
                 </h2>
               </div>
-              <div className="mt-5 overflow-x-auto">
-                <table className="w-full min-w-[44rem] border-collapse font-mono text-xs">
-                  <thead>
-                    <tr className="border-b border-border text-left uppercase tracking-[0.14em] text-muted-foreground">
-                      <th className="py-3 pr-4 font-medium">Stage</th>
-                      <th className="py-3 pr-4 font-medium">Input</th>
-                      <th className="py-3 pr-4 font-medium">Score</th>
-                      <th className="py-3 font-medium">Output</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {signalTrace.map((row) => (
-                      <tr key={row.stage} className="border-b border-border last:border-b-0">
-                        <td className="py-3 pr-4 text-foreground">{row.stage}</td>
-                        <td className="py-3 pr-4 text-muted-foreground">{row.input}</td>
-                        <td className="py-3 pr-4 text-foreground">{formatPercent(row.score)}</td>
-                        <td className="py-3 text-accent">{row.output}</td>
+              {signalTrace.length > 0 ? (
+                <div className="mt-5 overflow-x-auto">
+                  <table className="w-full min-w-[44rem] border-collapse font-mono text-xs">
+                    <thead>
+                      <tr className="border-b border-border text-left uppercase tracking-[0.14em] text-muted-foreground">
+                        <th className="py-3 pr-4 font-medium">Stage</th>
+                        <th className="py-3 pr-4 font-medium">Input</th>
+                        <th className="py-3 pr-4 font-medium">Value</th>
+                        <th className="py-3 font-medium">Source</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {signalTrace.map((row) => (
+                        <tr
+                          key={`${row.source}-${row.stage}-${row.value}`}
+                          className="border-b border-border last:border-b-0"
+                        >
+                          <td className="py-3 pr-4 text-foreground">{row.stage}</td>
+                          <td className="py-3 pr-4 text-muted-foreground">{row.input}</td>
+                          <td className="max-w-[22rem] break-words py-3 pr-4 text-foreground">
+                            {row.value}
+                          </td>
+                          <td className="py-3 text-accent">{row.source}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="mt-4 font-mono text-sm leading-6 text-muted-foreground">
+                  No AI trace or provenance fields were returned for this report.
+                </p>
+              )}
             </section>
 
-            {relatedPapers.length > 0 ? (
+            {relatedReports.length > 0 ? (
               <section className="mt-4">
                 <div className="mb-3 flex items-center gap-2">
                   <Tag className="size-4 text-primary" aria-hidden="true" />
                   <h2 className="text-lg font-semibold text-foreground">Related Papers</h2>
                 </div>
                 <div className="grid gap-3 md:grid-cols-3">
-                  {relatedPapers.map((related) => (
+                  {relatedReports.map((related) => (
                     <Link
-                      key={related.slug}
-                      href={`/paper/${related.slug}`}
+                      key={related.report_id}
+                      href={reportHref(related)}
                       className="rounded-lg border border-border bg-card/70 p-4 shadow-black-soft transition hover:border-primary/40"
                     >
                       <p className="font-mono text-[0.65rem] uppercase tracking-[0.16em] text-muted-foreground">
-                        {related.category}
+                        {related.agent_role}
                       </p>
                       <h3 className="mt-2 text-base font-semibold text-card-foreground">
                         {related.title}
                       </h3>
                       <p className="mt-2 font-mono text-xs leading-5 text-muted-foreground">
-                        {related.subtitle}
+                        {related.summary}
                       </p>
                     </Link>
                   ))}
@@ -375,66 +383,56 @@ export default function PaperPage({ params }: PaperPageProps) {
                   Paper Metadata
                 </p>
                 <p className="mt-1 text-lg font-semibold text-card-foreground">
-                  {formatPercent(paper.confidence)}
+                  {formatPercent(report.confidence)}
                 </p>
               </div>
               <Gauge className="size-5 text-primary" aria-hidden="true" />
             </div>
 
             <div className="mt-4 space-y-3">
-              <MetadataRow label="Published" value={formatDate(paper.publishedAt)} />
-              <MetadataRow label="Updated" value={formatDateTime(paper.updatedAt)} />
-              <MetadataRow
-                label="Signal"
-                value={
-                  <span
-                    className={`inline-flex items-center gap-1 rounded border px-2 py-1 uppercase ${signalTone[paper.signalDirection]}`}
-                  >
-                    <SignalIcon className="size-3" aria-hidden="true" />
-                    {paper.signalDirection}
-                  </span>
-                }
-              />
-              <MetadataRow label="Horizon" value={paper.horizon} />
-              <MetadataRow
-                label="Freshness"
-                value={
-                  <span className={freshnessTone[paper.dataFreshness]}>
-                    {paper.dataFreshness}
-                  </span>
-                }
-              />
-              <MetadataRow
-                label="Authors"
-                value={paper.authors.map((author) => author.name).join(", ")}
-              />
+              <MetadataRow label="Published" value={formatDate(report.published_at)} />
+              <MetadataRow label="Created" value={formatDateTime(report.created_at)} />
+              <MetadataRow label="Status" value={report.status} />
+              <MetadataRow label="Surface" value={report.surface} />
+              <MetadataRow label="Agent" value={report.agent_id} />
+              <MetadataRow label="Role" value={report.agent_role} />
+              <MetadataRow label="Run" value={report.run_id || "Unavailable"} />
+              <MetadataRow label="Provider" value={report.provider_used || "Unavailable"} />
+              <MetadataRow label="Model" value={report.model_used || "Unavailable"} />
+              <MetadataRow label="Views" value={report.views ?? 0} />
             </div>
 
             <div className="mt-5 grid gap-3 rounded-md border border-border bg-background/60 p-3">
               <div className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
                 <CheckCircle2 className="size-4 text-primary" aria-hidden="true" />
-                <span>Archive record ready</span>
+                <span>{report.status}</span>
               </div>
               <div className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
                 <CalendarClock className="size-4 text-accent" aria-hidden="true" />
-                <span>{horizonWeight[paper.horizon]}</span>
+                <span>{formatDateTime(report.published_at)}</span>
               </div>
               <div className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
                 <Clock3 className="size-4 text-secondary" aria-hidden="true" />
-                <span>{paper.readingMinutes} minute operator review</span>
+                <span>{report.findings.length} findings</span>
+              </div>
+              <div className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
+                <Server className="size-4 text-primary" aria-hidden="true" />
+                <span>{report.report_id}</span>
               </div>
             </div>
 
-            <div className="mt-5 flex flex-wrap gap-2">
-              {paper.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded border border-accent/20 bg-accent/10 px-2 py-1 font-mono text-xs text-accent"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
+            {tags.length > 0 ? (
+              <div className="mt-5 flex flex-wrap gap-2">
+                {tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="max-w-full break-words rounded border border-accent/20 bg-accent/10 px-2 py-1 font-mono text-xs text-accent"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            ) : null}
           </aside>
         </div>
       </section>

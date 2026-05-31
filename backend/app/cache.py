@@ -2,15 +2,34 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import inspect
 import json
 from functools import wraps
-from typing import Any, Callable
+from typing import Any, Callable, get_type_hints
 from datetime import datetime, timedelta
 
 # In-memory cache (for dev/single-process; use Redis in production)
 _CACHE: dict[str, Any] = {}
 _CACHE_TTL: dict[str, datetime] = {}
 _IN_FLIGHT: dict[str, asyncio.Task] = {}
+
+
+def _preserve_fastapi_signature(wrapper: Callable, func: Callable) -> Callable:
+    signature = inspect.signature(func)
+    try:
+        hints = get_type_hints(func, include_extras=True)
+    except Exception:
+        hints = {}
+
+    parameters = [
+        parameter.replace(annotation=hints.get(name, parameter.annotation))
+        for name, parameter in signature.parameters.items()
+    ]
+    wrapper.__signature__ = signature.replace(  # type: ignore[attr-defined]
+        parameters=parameters,
+        return_annotation=hints.get("return", signature.return_annotation),
+    )
+    return wrapper
 
 
 def cache_response(ttl_seconds: int = 5):
@@ -60,7 +79,7 @@ def cache_response(ttl_seconds: int = 5):
                 finally:
                     if _IN_FLIGHT.get(cache_key) is task:
                         del _IN_FLIGHT[cache_key]
-            return async_wrapper
+            return _preserve_fastapi_signature(async_wrapper, func)
         else:
             # Handle sync functions
             @wraps(func)
@@ -84,7 +103,7 @@ def cache_response(ttl_seconds: int = 5):
                 _CACHE_TTL[cache_key] = now + timedelta(seconds=ttl_seconds)
                 
                 return result
-            return sync_wrapper
+            return _preserve_fastapi_signature(sync_wrapper, func)
     
     return decorator
 

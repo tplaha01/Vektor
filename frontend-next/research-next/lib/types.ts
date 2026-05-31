@@ -1,53 +1,27 @@
-export type ResearchCategory =
-  | "Market Brief"
-  | "Research Note"
-  | "Signal Report"
-  | "Model Memo"
-  | "Risk Review";
-
-export type SignalDirection = "buy" | "sell" | "hold";
-
-export interface ResearchAuthor {
-  name: string;
-  role: string;
-  desk: string;
-}
-
-export interface ResearchPaper {
-  slug: string;
+export interface LiveResearchReport {
+  report_id: string;
+  agent_id: string;
+  agent_role: string;
+  surface: "public" | "kb" | string;
+  run_id?: string | null;
   title: string;
-  subtitle: string;
-  abstract: string;
-  category: ResearchCategory;
-  authors: ResearchAuthor[];
-  publishedAt: string;
-  updatedAt: string;
-  tickers: string[];
-  tags: string[];
-  readingMinutes: number;
+  summary: string;
+  findings: string[];
+  asset_universe: string[];
   confidence: number;
-  signalDirection: SignalDirection;
-  horizon: "intraday" | "swing" | "position" | "strategic";
-  dataFreshness: "live" | "delayed" | "backtest" | "degraded";
+  created_at: string;
+  published_at: string;
+  status: string;
+  views?: number | null;
+  provider_used?: string | null;
+  model_used?: string | null;
+  ai_trace: Record<string, unknown>;
+  provenance: Record<string, unknown>;
 }
 
-export interface SignalReport {
-  id: string;
-  paperSlug: string;
-  generatedAt: string;
-  symbol: string;
-  direction: SignalDirection;
-  confidence: number;
-  expectedHorizon: string;
-  thesis: string;
-  technicalScore: number;
-  fundamentalScore: number;
-  sentimentScore: number;
-  modelScore: number;
-  policyStatus: "approved" | "blocked" | "review";
-  traceIds: {
-    runId: string;
-    decisionId: string;
-    modelVersion: string;
-  };
+export interface ResearchReportListResponse {
+  reports: LiveResearchReport[];
+  total: number;
+  limit: number;
+  offset: number;
 }

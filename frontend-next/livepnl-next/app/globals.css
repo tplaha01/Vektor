@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #0d0f14;
+  color: #edf2f7;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.vektor-section {
+  width: min(100% - 2rem, 80rem);
+  margin-inline: auto;
+}

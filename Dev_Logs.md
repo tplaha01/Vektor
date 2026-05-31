@@ -337,6 +337,52 @@ files:
 validation: in_progress
 notes: Automated session start on server boot
 
+[2026-05-30T17:54:00-07:00] [START]
+entry_id: devlog-20260530-full-platform-stabilization-start
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260530-full-platform-stabilization
+git_branch: codex/main
+git_commit_start: cb30fae4e36a8ce157b5a9ff451f81835afde1ec
+git_commit_end:
+scope: FULL_PLATFORM_STABILIZATION_AND_EXPANSION across frontend-next/research-next, frontend-next/livepnl-next, frontend-next/admin-next, and backend services they depend on.
+active_phase: stabilization_validation
+files:
+- frontend-next/research-next/
+- frontend-next/livepnl-next/
+- frontend-next/admin-next/
+- backend/app/cache.py
+- scripts/playwright-platform-crawl.cjs
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: in_progress
+notes: Started from dirty codex/main worktree; preserving unrelated existing untracked orchestration artifacts while stabilizing real backend-backed frontend-next surfaces.
+
+[2026-05-30T18:22:38-07:00] [END]
+entry_id: devlog-20260530-full-platform-stabilization-end
+actor_name: codex_executor
+actor_platform: codex
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-20260530-full-platform-stabilization
+git_branch: codex/main
+git_commit_start: cb30fae4e36a8ce157b5a9ff451f81835afde1ec
+git_commit_end: commit_created_after_log
+scope: FULL_PLATFORM_STABILIZATION_AND_EXPANSION across frontend-next/research-next, frontend-next/livepnl-next, frontend-next/admin-next, and backend services they depend on.
+active_phase: stabilization_validation
+files:
+- frontend-next/research-next/
+- frontend-next/livepnl-next/
+- frontend-next/admin-next/
+- backend/app/cache.py
+- scripts/playwright-platform-crawl.cjs
+- Dev_Logs.md
+- knowledge_graph/events.jsonl
+validation: PASS. research-next lint passed; research-next paper route tests passed 7/7; livepnl-next lint passed; admin-next lint passed; backend focused pytest passed 18/18 with existing Pydantic warnings; research-next, livepnl-next, and admin-next production builds passed; Playwright platform crawl checked 13 routes with research search, LivePnL range/table/filter interactions, Admin settings functional-verify action, screenshots, console, page-error, bad-response, and failed-request capture with failures=0.
+notes: Fixed LivePnL missing Vektor logo asset, websocket cleanup warning, Admin Agents duplicate React keys, Admin runtime action request bodies, and paper-broker capital form contract. Added reusable Playwright crawl script under scripts/.
+
 [2026-05-26T23:38:05.0000000Z] [START]
 entry_id: devlog-20260526-admin-surface-redesign-v2
 actor_name: codex_executor
@@ -11029,3 +11075,24 @@ Validation:
 - Screenshot captured at .orchestrator/screenshots/R2B-paper-valid-slug.png.
 - scripts/index-repo.ps1 returned status indexed with 7345 nodes and 14649 edges; it also printed a non-fatal path warning.
 Next Session: R3A
+
+[2026-05-31T00:24:47.460201Z] [START]
+entry_id: devlog-20260531-749ebd9d
+actor_name: github_copilot
+actor_platform: github_copilot
+actor_model: gpt-5
+actor_provider: openai
+run_id: run-9c742b119b50
+git_branch: codex/main
+git_commit_start: cb30fae4e36a8ce157b5a9ff451f81835afde1ec
+git_commit_end:
+scope: Backend server runtime - monitoring, API integration, and fund system operations
+files:
+- backend/app/main.py
+- backend/app/monitoring.py
+- backend/app/monitoring_routes.py
+- backend/app/devlog.py
+- backend/app/knowledge_routes.py
+- backend/app/admin_research_routes.py
+validation: in_progress
+notes: Automated session start on server boot

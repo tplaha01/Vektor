@@ -1,56 +1,17 @@
+import Link from "next/link";
 import {
   Activity,
+  AlertCircle,
   CalendarClock,
   CheckCircle2,
   Clock3,
   FileSearch,
-  Filter,
   Search,
-  SlidersHorizontal,
-  TrendingDown,
-  TrendingUp,
 } from "lucide-react";
-import { researchPapers } from "@/lib/mock-research";
-import type { ResearchCategory, ResearchPaper, SignalDirection } from "@/lib/types";
+import { getResearchReports, reportHref } from "@/lib/research-api";
+import type { LiveResearchReport } from "@/lib/types";
 
 type SearchParams = Record<string, string | string[] | undefined>;
-
-type FilterKey = "category" | "tag" | "signal" | "horizon";
-type SearchKey = "title" | "abstract" | "ticker" | "author" | "tagSearch";
-
-const searchFields: { key: SearchKey; label: string; placeholder: string }[] = [
-  { key: "title", label: "Title", placeholder: "NVDA, breadth, credit..." },
-  { key: "abstract", label: "Abstract", placeholder: "capex, liquidity..." },
-  { key: "ticker", label: "Ticker", placeholder: "SPY" },
-  { key: "author", label: "Author", placeholder: "Maya Iyer" },
-  { key: "tagSearch", label: "Tag search", placeholder: "macro" },
-];
-
-const filterLabels: Record<FilterKey, string> = {
-  category: "Category",
-  tag: "Tag",
-  signal: "Signal",
-  horizon: "Horizon",
-};
-
-const signalTone: Record<SignalDirection, string> = {
-  buy: "border-primary/30 bg-primary/10 text-primary",
-  hold: "border-secondary/30 bg-secondary/10 text-secondary",
-  sell: "border-destructive/40 bg-destructive/10 text-destructive",
-};
-
-const signalIcons: Record<SignalDirection, typeof TrendingUp> = {
-  buy: TrendingUp,
-  hold: Activity,
-  sell: TrendingDown,
-};
-
-const freshnessTone: Record<ResearchPaper["dataFreshness"], string> = {
-  live: "text-primary",
-  delayed: "text-accent",
-  backtest: "text-secondary",
-  degraded: "text-destructive",
-};
 
 function getParam(searchParams: SearchParams | undefined, key: string) {
   const value = searchParams?.[key];
@@ -78,101 +39,61 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
-function matchesSearch(paper: ResearchPaper, params: SearchParams | undefined) {
-  const title = normalized(getParam(params, "title"));
-  const abstract = normalized(getParam(params, "abstract"));
-  const ticker = normalized(getParam(params, "ticker"));
-  const author = normalized(getParam(params, "author"));
-  const tagSearch = normalized(getParam(params, "tagSearch"));
+function matchesSearch(report: LiveResearchReport, params: SearchParams | undefined) {
+  const query = normalized(getParam(params, "q"));
+  if (!query) return true;
 
-  return (
-    (!title || normalized(paper.title).includes(title)) &&
-    (!abstract || normalized(paper.abstract).includes(abstract)) &&
-    (!ticker || paper.tickers.some((item) => normalized(item).includes(ticker))) &&
-    (!author ||
-      paper.authors.some((item) =>
-        normalized(`${item.name} ${item.role} ${item.desk}`).includes(author),
-      )) &&
-    (!tagSearch || paper.tags.some((item) => normalized(item).includes(tagSearch)))
-  );
+  return [
+    report.title,
+    report.summary,
+    report.agent_role,
+    report.agent_id,
+    report.asset_universe.join(" "),
+    report.findings.join(" "),
+  ].some((field) => normalized(String(field || "")).includes(query));
 }
 
-function matchesFilters(paper: ResearchPaper, params: SearchParams | undefined) {
-  const category = getParam(params, "category");
-  const tag = getParam(params, "tag");
-  const signal = getParam(params, "signal");
-  const horizon = getParam(params, "horizon");
-
-  return (
-    (!category || paper.category === category) &&
-    (!tag || paper.tags.includes(tag)) &&
-    (!signal || paper.signalDirection === signal) &&
-    (!horizon || paper.horizon === horizon)
-  );
+function uniqueSorted(values: string[]) {
+  return Array.from(new Set(values.filter(Boolean))).sort((a, b) => a.localeCompare(b));
 }
 
-function uniqueSorted<T extends string>(values: T[]) {
-  return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b));
-}
+export default async function Home({ searchParams }: { searchParams?: SearchParams }) {
+  let reports: LiveResearchReport[] = [];
+  let apiError = "";
 
-function SelectFilter({
-  name,
-  options,
-  searchParams,
-}: {
-  name: FilterKey;
-  options: string[];
-  searchParams?: SearchParams;
-}) {
-  return (
-    <label className="space-y-2 font-mono text-[0.68rem] uppercase tracking-[0.18em] text-muted-foreground">
-      <span>{filterLabels[name]}</span>
-      <select
-        name={name}
-        defaultValue={getParam(searchParams, name)}
-        className="h-10 w-full rounded-md border border-input bg-card px-3 font-mono text-xs normal-case tracking-normal text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-      >
-        <option value="">All</option>
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
+  try {
+    const payload = await getResearchReports({ limit: 80, surface: "public" });
+    reports = payload.reports;
+  } catch (error) {
+    apiError = error instanceof Error ? error.message : "Research API request failed";
+  }
 
-export default function Home({ searchParams }: { searchParams?: SearchParams }) {
-  const categories = uniqueSorted(
-    researchPapers.map((paper) => paper.category as ResearchCategory),
+  const assetFilter = getParam(searchParams, "asset");
+  const roleFilter = getParam(searchParams, "agent_role");
+  const filteredReports = reports.filter(
+    (report) =>
+      matchesSearch(report, searchParams) &&
+      (!assetFilter || report.asset_universe.includes(assetFilter)) &&
+      (!roleFilter || report.agent_role === roleFilter),
   );
-  const tags = uniqueSorted(researchPapers.flatMap((paper) => paper.tags));
-  const signals = uniqueSorted(researchPapers.map((paper) => paper.signalDirection));
-  const horizons = uniqueSorted(researchPapers.map((paper) => paper.horizon));
-  const filteredPapers = researchPapers.filter(
-    (paper) => matchesSearch(paper, searchParams) && matchesFilters(paper, searchParams),
-  );
-
+  const assets = uniqueSorted(reports.flatMap((report) => report.asset_universe));
+  const roles = uniqueSorted(reports.map((report) => report.agent_role));
   const averageConfidence =
-    researchPapers.reduce((total, paper) => total + paper.confidence, 0) /
-    researchPapers.length;
-  const liveReadyReports = researchPapers.filter(
-    (paper) => paper.dataFreshness === "live",
-  ).length;
-  const latestUpdate = researchPapers
-    .map((paper) => paper.updatedAt)
+    reports.reduce((total, report) => total + Number(report.confidence || 0), 0) /
+    Math.max(1, reports.length);
+  const latestUpdate = reports
+    .map((report) => report.published_at)
     .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
 
   const metrics = [
-    { label: "Total papers", value: researchPapers.length, icon: FileSearch },
-    { label: "Live/ready reports", value: liveReadyReports, icon: CheckCircle2 },
+    { label: "Public reports", value: reports.length, icon: FileSearch },
+    { label: "Visible", value: filteredReports.length, icon: CheckCircle2 },
+    { label: "Avg confidence", value: `${Math.round(averageConfidence * 100)}%`, icon: Activity },
     {
-      label: "Avg confidence",
-      value: `${Math.round(averageConfidence * 100)}%`,
-      icon: Activity,
+      label: "Latest update",
+      value: latestUpdate ? formatDateTime(latestUpdate) : "No reports",
+      icon: CalendarClock,
     },
-    { label: "Latest update", value: formatDateTime(latestUpdate), icon: CalendarClock },
   ];
 
   return (
@@ -184,18 +105,25 @@ export default function Home({ searchParams }: { searchParams?: SearchParams }) 
               Vektor Research
             </p>
             <h1 className="text-3xl font-semibold tracking-normal text-foreground md:text-5xl">
-              Institutional research archive
+              Live research archive
             </h1>
             <p className="max-w-2xl font-mono text-sm leading-6 text-muted-foreground">
-              Search model-backed briefs, signal reports, and risk notes by title,
-              abstract, ticker, author, or tag.
+              Public research reports served from the TradingBot research API and fund
+              orchestrator storage.
             </p>
           </div>
           <div className="flex items-center gap-2 rounded-md border border-border bg-card/70 px-3 py-2 font-mono text-xs text-muted-foreground">
             <Clock3 className="size-4 text-primary" aria-hidden="true" />
-            <span>{filteredPapers.length} visible</span>
+            <span>{filteredReports.length} visible</span>
           </div>
         </div>
+
+        {apiError ? (
+          <div className="mt-6 rounded-lg border border-destructive/40 bg-destructive/10 p-4 font-mono text-sm text-destructive">
+            <AlertCircle className="mb-3 size-5" aria-hidden="true" />
+            {apiError}
+          </div>
+        ) : null}
 
         <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {metrics.map((metric) => {
@@ -221,189 +149,128 @@ export default function Home({ searchParams }: { searchParams?: SearchParams }) 
           action="/"
           className="mt-6 rounded-lg border border-border bg-card/70 p-4 shadow-black-soft"
         >
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
-            <div className="flex items-center gap-2">
-              <Search className="size-4 text-primary" aria-hidden="true" />
-              <h2 className="text-base font-semibold text-card-foreground">
-                Research query
-              </h2>
-            </div>
-            <div className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
-              <Filter className="size-4 text-accent" aria-hidden="true" />
-              <span>Compound filters</span>
-            </div>
+          <div className="flex items-center gap-2 border-b border-border pb-4">
+            <Search className="size-4 text-primary" aria-hidden="true" />
+            <h2 className="text-base font-semibold text-card-foreground">Research query</h2>
           </div>
-
-          <div className="mt-4 grid gap-3 md:grid-cols-5">
-            {searchFields.map((field) => (
-              <label
-                key={field.key}
-                className="space-y-2 font-mono text-[0.68rem] uppercase tracking-[0.18em] text-muted-foreground"
-              >
-                <span>{field.label}</span>
-                <input
-                  name={field.key}
-                  defaultValue={getParam(searchParams, field.key)}
-                  placeholder={field.placeholder}
-                  className="h-10 w-full rounded-md border border-input bg-background px-3 font-mono text-xs normal-case tracking-normal text-foreground placeholder:text-muted-foreground/55 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-                />
-              </label>
-            ))}
+          <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_14rem_14rem]">
+            <label className="space-y-2 font-mono text-[0.68rem] uppercase tracking-[0.18em] text-muted-foreground">
+              <span>Search</span>
+              <input
+                name="q"
+                defaultValue={getParam(searchParams, "q")}
+                placeholder="asset, title, finding, agent..."
+                className="h-10 w-full rounded-md border border-input bg-background px-3 font-mono text-xs normal-case tracking-normal text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+              />
+            </label>
+            <Select name="asset" label="Asset" options={assets} searchParams={searchParams} />
+            <Select
+              name="agent_role"
+              label="Agent Role"
+              options={roles}
+              searchParams={searchParams}
+            />
           </div>
-
-          <div className="mt-4 grid gap-3 md:grid-cols-4">
-            <SelectFilter name="category" options={categories} searchParams={searchParams} />
-            <SelectFilter name="tag" options={tags} searchParams={searchParams} />
-            <SelectFilter name="signal" options={signals} searchParams={searchParams} />
-            <SelectFilter name="horizon" options={horizons} searchParams={searchParams} />
-          </div>
-
           <div className="mt-4 flex flex-wrap gap-3">
             <button
               type="submit"
-              className="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-4 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-primary-foreground transition hover:bg-primary/90"
+              className="inline-flex h-10 items-center rounded-md bg-primary px-4 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-primary-foreground transition hover:bg-primary/90"
             >
-              <SlidersHorizontal className="size-4" aria-hidden="true" />
               Apply
             </button>
-            <a
+            <Link
               href="/"
               className="inline-flex h-10 items-center rounded-md border border-border px-4 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground transition hover:border-primary/50 hover:text-foreground"
             >
               Reset
-            </a>
+            </Link>
           </div>
         </form>
 
         <div className="mt-6 grid gap-3">
-          {filteredPapers.length === 0 ? (
+          {filteredReports.length === 0 ? (
             <div className="rounded-lg border border-dashed border-border bg-card/50 p-8 text-center">
               <FileSearch className="mx-auto mb-4 size-8 text-muted-foreground" aria-hidden="true" />
-              <h2 className="text-xl font-semibold text-foreground">No research matched</h2>
+              <h2 className="text-xl font-semibold text-foreground">No public research found</h2>
               <p className="mx-auto mt-2 max-w-xl font-mono text-sm leading-6 text-muted-foreground">
-                Adjust the title, abstract, ticker, author, tag search, or remove one
-                of the category, tag, signal, and horizon filters.
+                Reports appear here only after the backend promotes live research to
+                the public research surface.
               </p>
             </div>
           ) : (
-            filteredPapers.map((paper) => {
-              const SignalIcon = signalIcons[paper.signalDirection];
-              return (
-                <article
-                  key={paper.slug}
-                  className="rounded-lg border border-border bg-card/70 p-4 shadow-black-soft"
-                >
-                  <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 font-mono text-[0.68rem] uppercase tracking-[0.16em] text-muted-foreground">
-                        <span>{paper.category}</span>
-                        <span className="text-border">/</span>
-                        <span>{paper.readingMinutes} min</span>
-                        <span className="text-border">/</span>
-                        <span className={freshnessTone[paper.dataFreshness]}>
-                          {paper.dataFreshness}
-                        </span>
-                      </div>
-                      <h2 className="mt-2 text-xl font-semibold tracking-normal text-card-foreground">
-                        {paper.title}
-                      </h2>
-                      <p className="mt-1 font-mono text-xs text-accent">{paper.subtitle}</p>
-                      <p className="mt-3 max-w-4xl font-mono text-xs leading-6 text-muted-foreground">
-                        {paper.abstract}
-                      </p>
-
-                      <div className="mt-4 grid gap-3 xl:grid-cols-3">
-                        <div>
-                          <p className="font-mono text-[0.65rem] uppercase tracking-[0.16em] text-muted-foreground">
-                            Authors
-                          </p>
-                          <div className="mt-2 space-y-1">
-                            {paper.authors.map((author) => (
-                              <p
-                                key={`${paper.slug}-${author.name}`}
-                                className="font-mono text-xs text-foreground"
-                              >
-                                {author.name}
-                                <span className="text-muted-foreground"> / {author.desk}</span>
-                              </p>
-                            ))}
-                          </div>
-                        </div>
-                        <div>
-                          <p className="font-mono text-[0.65rem] uppercase tracking-[0.16em] text-muted-foreground">
-                            Tickers
-                          </p>
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {paper.tickers.map((ticker) => (
-                              <span
-                                key={`${paper.slug}-${ticker}`}
-                                className="rounded border border-border bg-background px-2 py-1 font-mono text-xs text-foreground"
-                              >
-                                {ticker}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                        <div>
-                          <p className="font-mono text-[0.65rem] uppercase tracking-[0.16em] text-muted-foreground">
-                            Tags
-                          </p>
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {paper.tags.map((tag) => (
-                              <span
-                                key={`${paper.slug}-${tag}`}
-                                className="rounded border border-accent/20 bg-accent/10 px-2 py-1 font-mono text-xs text-accent"
-                              >
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
+            filteredReports.map((report) => (
+              <article
+                key={report.report_id}
+                className="rounded-lg border border-border bg-card/70 p-4 shadow-black-soft"
+              >
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 font-mono text-[0.68rem] uppercase tracking-[0.16em] text-muted-foreground">
+                      <span>{report.agent_role}</span>
+                      <span className="text-border">/</span>
+                      <span>{formatDate(report.published_at)}</span>
+                      <span className="text-border">/</span>
+                      <span>{Math.round(Number(report.confidence || 0) * 100)}%</span>
                     </div>
-
-                    <aside className="grid gap-3 rounded-md border border-border bg-background/60 p-3 font-mono text-xs">
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-muted-foreground">Published</span>
-                        <span className="text-foreground">{formatDate(paper.publishedAt)}</span>
-                      </div>
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-muted-foreground">Updated</span>
-                        <span className="text-foreground">{formatDate(paper.updatedAt)}</span>
-                      </div>
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-muted-foreground">Confidence</span>
-                        <span className="text-foreground">
-                          {Math.round(paper.confidence * 100)}%
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-muted-foreground">Direction</span>
+                    <h2 className="mt-2 text-xl font-semibold tracking-normal text-card-foreground">
+                      {report.title}
+                    </h2>
+                    <p className="mt-3 max-w-4xl font-mono text-xs leading-6 text-muted-foreground">
+                      {report.summary}
+                    </p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {report.asset_universe.map((asset) => (
                         <span
-                          className={`inline-flex items-center gap-1 rounded border px-2 py-1 uppercase ${signalTone[paper.signalDirection]}`}
+                          key={`${report.report_id}-${asset}`}
+                          className="rounded border border-border bg-background px-2 py-1 font-mono text-xs text-foreground"
                         >
-                          <SignalIcon className="size-3" aria-hidden="true" />
-                          {paper.signalDirection}
+                          {asset}
                         </span>
-                      </div>
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-muted-foreground">Horizon</span>
-                        <span className="text-foreground">{paper.horizon}</span>
-                      </div>
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-muted-foreground">Freshness</span>
-                        <span className={freshnessTone[paper.dataFreshness]}>
-                          {paper.dataFreshness}
-                        </span>
-                      </div>
-                    </aside>
+                      ))}
+                    </div>
                   </div>
-                </article>
-              );
-            })
+                  <Link
+                    href={reportHref(report)}
+                    className="inline-flex h-10 shrink-0 items-center rounded-md border border-border px-4 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-foreground transition hover:border-primary/50 hover:text-primary"
+                  >
+                    Read
+                  </Link>
+                </div>
+              </article>
+            ))
           )}
         </div>
       </section>
     </main>
+  );
+}
+
+function Select({
+  name,
+  label,
+  options,
+  searchParams,
+}: {
+  name: string;
+  label: string;
+  options: string[];
+  searchParams?: SearchParams;
+}) {
+  return (
+    <label className="space-y-2 font-mono text-[0.68rem] uppercase tracking-[0.18em] text-muted-foreground">
+      <span>{label}</span>
+      <select
+        name={name}
+        defaultValue={getParam(searchParams, name)}
+        className="h-10 w-full rounded-md border border-input bg-card px-3 font-mono text-xs normal-case tracking-normal text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+      >
+        <option value="">All</option>
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }

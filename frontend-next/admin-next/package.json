@@ -1,13 +1,12 @@
 {
-  "name": "vektor-research-next",
+  "name": "vektor-admin-next",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3010",
+    "dev": "next dev -p 3030",
     "build": "next build",
-    "start": "next start -p 3010",
-    "lint": "next lint",
-    "test": "node --import tsx \"app/paper/[slug]/page.test.tsx\""
+    "start": "next start -p 3030",
+    "lint": "next lint"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.3",
@@ -30,7 +29,6 @@
     "eslint-config-next": "14.2.23",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
-    "tsx": "^4.22.3",
     "typescript": "^5"
   }
 }
